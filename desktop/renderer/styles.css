@@ -98,31 +98,44 @@ p {
   }
 }
 
-/* Status: a hairline that sweeps along the top edge while the model works. */
+/* Status while the model works: a slow comet travelling the full edge of the box. The ring is a
+   conic gradient clipped to a 1.5 px border by a mask; the angle is a registered custom property
+   so the rotation interpolates smoothly, and linear timing keeps the speed constant. */
+@property --angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
 .progress {
   position: absolute;
-  top: 0;
-  left: 14px;
-  right: 14px;
-  height: 1.5px;
-  overflow: hidden;
-  border-radius: 1px;
-  pointer-events: none;
-}
-.progress::after {
-  content: '';
-  position: absolute;
   inset: 0;
-  width: 40%;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  animation: sweep 1.4s var(--ease-out) infinite;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  --angle: 0deg;
+  background: conic-gradient(
+    from var(--angle),
+    transparent 0deg,
+    transparent 150deg,
+    rgba(48, 209, 88, 0.08) 220deg,
+    rgba(48, 209, 88, 0.45) 300deg,
+    var(--accent) 340deg,
+    #b8ffd0 352deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: orbit 4.2s linear infinite;
 }
-@keyframes sweep {
-  from {
-    transform: translateX(-100%);
-  }
+@keyframes orbit {
   to {
-    transform: translateX(350%);
+    --angle: 360deg;
   }
 }
 
@@ -372,11 +385,10 @@ kbd {
   .sec {
     animation: none;
   }
-  .progress::after {
+  .progress {
     animation: none;
-    width: 100%;
     background: var(--accent);
-    opacity: 0.6;
+    opacity: 0.5;
   }
   .caret {
     animation: none;

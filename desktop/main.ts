@@ -151,8 +151,8 @@ function createWindow() {
   win.on('closed', () => (win = null));
 }
 
-/** Like Spotlight: the box starts about a fifth of the way down the screen, centred, and grows downward. */
-const PANEL_TOP_RATIO = 0.2;
+/** The box rests a little below the menu bar — about an eighth of the way down the screen — centred, and grows downward. */
+const PANEL_TOP_RATIO = 0.12;
 const PANEL_MARGIN = 16;
 
 function panelOrigin(display: Electron.Display) {
