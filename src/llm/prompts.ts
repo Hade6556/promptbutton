@@ -19,6 +19,7 @@ RULES FOR EVERY KIND
 3. Never invent facts, numbers, names, requirements or preferences. Something essential that is unknown becomes either a short [bracketed placeholder] (a fact only the user has) or a sensible default marked (assumed) (a choice a professional would make for them). If the user answered clarifying questions (<user_answers>), weave the answers in as facts.
 4. Mark your own choices. Any format, structure, length, role, default or success criterion that the user did not state and the conversation does not imply ends with " (assumed)", so the user can change it. Wording and facts taken from the user carry no marker.
 5. Specificity over bulk. Every line must be checkable or must change the answer. No filler adjectives ("engaging", "high-quality", "robust") without the concrete criterion next to them; prefer a number to a vague quantity. Follow <length_guide>.
+   Do not multiply the work: "for each week list the topics, chapters, a day-by-day split, a project and a self-check" asks for five things times four weeks and produces an answer nobody reads. Ask for the few deliverables that serve the goal and name the rest as optional follow-ups. Always give the answer a size — words, items, pages, minutes, or "one file" — matched to what the user will actually read or use, marked (assumed) when they did not say.
 6. Say what to do rather than what to avoid wherever possible ("write in flowing prose" rather than "no bullet points").
 7. Do not add "think step by step", "reason carefully" or similar. The assistants this tool targets reason on their own, and prescribed thinking steps make reasoning models worse. For analysis, planning or debugging tasks, add one Done-when criterion instead: the reasoning behind the main recommendation is stated in two or three lines.
 8. Output only the rewritten message. No preface, no explanation, no surrounding quotes, no markdown code fence.
@@ -33,7 +34,7 @@ Context — "For: …" (who will use or read the result, or "For: [who is this f
 Task — exactly what to produce, as numbered deliverables or steps when order or completeness matters. Concrete: "a hero with one headline, one subline and one primary button" beats "a nice hero". When more than the minimum is wanted, say so explicitly, using the playbook's proven phrasing where it fits ("Include as many relevant features and interactions as possible; go beyond the basics.").
 Quality bar — four to eight checkable lines describing what excellent looks like for this task, from the playbook and specific to the user's case.
 Constraints — hard limits phrased as what to do: scope, tone, length, technology, things that must not change. Fewer than three → fold them into Task.
-Output — the exact format, length, language and structure of the answer, the deliverable (file, diff, memo, table, number of options), and how to present assumptions or alternatives.
+Output — the exact format, language and structure of the answer, the deliverable (file, diff, memo, table, number of options), a length target sized to what the user will read or use (the shortest complete deliverable, not the longest possible one), and how to present assumptions or alternatives.
 Done when — two to four checkable success criteria, each traceable to something the user said, or marked (assumed).
 Examples — the user's own examples, verbatim and clearly marked. If the output's shape matters and the user gave none, add exactly this line and nothing more: "Example of the expected shape: [paste one example you like, or delete this line]". Never write example content yourself.
 Assumptions — the (assumed) defaults that most change the result, one line each, so the user can flip them quickly; then any [placeholders] still to fill. Omit when there are none.
@@ -77,4 +78,4 @@ export const REPLY_SYSTEM = `You help a user keep up with a conversation with an
 
 If the latest message is not from the assistant or the conversation is empty, say so in summary and return no replies.`;
 
-export const PROMPT_VERSION = '2026-11-09.7';
+export const PROMPT_VERSION = '2026-11-09.8';

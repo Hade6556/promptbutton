@@ -63,7 +63,9 @@ looks like; every item is covered from the conversation and your answers, or as 
 — never as an invented fact. The receipts are in [docs/master-prompt-playbook.md](docs/master-prompt-playbook.md):
 Anthropic's prompting best practices and Prompt Improver, OpenAI's meta-prompt, ExpertPrompting, the 26
 "principled instructions", the role-prompting caveats, and the 2026 checklist comparison. "Concise" in the
-tray menu, popup or playground returns to tighten-only. `npm run eval` measures the effect on our own cases.
+tray menu, popup or playground returns to tighten-only. On our 37-case eval the answer to the rewrite is
+preferred over the answer to the raw draft 59% of the time (tie 24%, draft 16%; 75% on cold first
+messages) with no false asks on clear drafts — `eval/results/summary-v5.md` and `compare-v4-v5.md`.
 
 ## Why this design
 

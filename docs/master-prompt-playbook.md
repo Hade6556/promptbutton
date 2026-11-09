@@ -62,6 +62,34 @@ decision it feeds, the data; planning: goal and deadline, fixed constraints, who
 - **Refine = revise.** A follow-up instruction is applied to the previous rewrite word for word, not regenerated.
 - **"Concise" setting.** Tray menu (desktop), popup (extension) and the playground expose `depth`; concise returns to v4 behaviour for every mode.
 
+## Measured (v5, 2026-11-09)
+
+`npm run eval`, 37 cases with hidden intent, pairwise position-swapped judge (`eval/results/summary-v5.md`):
+
+| Slice | n | Rewrite preferred | Tie | Original preferred |
+|---|---|---|---|---|
+| All cases | 37 | 59% | 24% | 16% |
+| Cold first messages | 20 | 75% | 15% | 10% |
+| Conversations with ≥5 earlier messages | 5 | 40% | 40% | 20% |
+
+Earlier versions on the same judge: v3 52%, v4 (tighten-only) 45%. False-ask rate on clear drafts: 0%.
+All 17 master prompts cleared the 1,200-char floor (median 2,634 chars); no follow-up or quick ask was expanded.
+
+Head to head, v4 vs v5 on the 31 shared cases, both answered under the same 16k output cap
+(`eval/results/compare-v4-v5.md`): v5 better 15 · tie 4 · v4 better 12. v5 took the ambiguous
+non-dump cases 10–7 and the clear cases 4–3; the lighter v4 prompt still won 5 of the 10 cold
+writing/personal one-liners (blog, cover letter, kid story, workout, launch plan) and 2 of 3 brain
+dumps — a master prompt can over-specify a writing task. Two harness lessons: the answering model
+must not be capped low (thinking counts toward `max_tokens`; a 3k cap left answers empty and read as
+losses), and three master prompts drove answers past 16k tokens. Prompt .8 therefore adds a length
+target to every Output section and a rule against multiplying deliverables ("for each week list five
+things"); on a spot check the Rust study plan fell from 26k to 11k characters and finished, the pitch
+deck from 8k to 4k, while full code deliverables (a landing page, a multi-file dashboard) still run
+past 16k tokens by design.
+
+Caveats: one judge model, 37 cases, and the hidden-intent design rewards rewrites that guess the
+intent right — directional, not definitive.
+
 ## Rules the rewriter keeps in every mode
 
 - **Don't duplicate context.** Removing an accidentally duplicated paragraph *improved* accuracy in the Prompt Report's case study [5]. The rewrite deduplicates instead of restating.
