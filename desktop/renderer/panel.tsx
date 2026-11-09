@@ -83,6 +83,7 @@ export function Panel() {
   const busy = state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting';
   const questions = state.report?.questions ?? [];
   const question = state.phase === 'asking' ? questions[qIndex] : undefined;
+  const replies = state.phase === 'replies' ? (state.assist?.replies ?? []) : [];
   const app = state.appName ?? 'the app';
 
   /** Submit the answers gathered so far and rewrite. */
@@ -114,6 +115,8 @@ export function Panel() {
           return;
         }
         return state.text && send({ type: 'accept', text: state.text });
+      case 'replies':
+        return typed ? send({ type: 'reply', text: typed }) : undefined;
       case 'notice':
         return state.offerForcePaste ? send({ type: 'forcePaste' }) : send({ type: 'cancel' });
       case 'error':
@@ -137,6 +140,8 @@ export function Panel() {
         return question ? 'Type an answer, or pick one below' : '';
       case 'done':
         return 'Change something, or ↵ to insert';
+      case 'replies':
+        return 'Pick a reply below or type your own, ↵ to put it in the box';
       case 'settings':
         return state.settings?.apiKey ? 'Paste a new key to replace the saved one' : 'Paste your Anthropic API key (sk-ant-…)';
       default:
@@ -157,6 +162,19 @@ export function Panel() {
         return state.text ? <p class="line result">{state.text}<span class="caret" /></p> : null;
       case 'done':
         return <p class="line result">{state.text}</p>;
+      case 'replies':
+        return state.assist ? (
+          <div class="line">
+            <p class="summary">{state.assist.summary}</p>
+            {state.assist.asks.length > 0 && (
+              <ul class="asks">
+                {state.assist.asks.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null;
       case 'error':
         return <p class="line error">{state.error}</p>;
       case 'notice':
@@ -196,6 +214,20 @@ export function Panel() {
           {question?.suggestions.map((s) => (
             <button type="button" class="opt" key={s} onClick={() => answer(s)}>
               {s}
+            </button>
+          ))}
+          {replies.map((r) => (
+            <button
+              type="button"
+              class="opt"
+              key={r.label}
+              title={r.text}
+              onClick={() => {
+                setText(r.text);
+                inputRef.current?.focus();
+              }}
+            >
+              {r.label}
             </button>
           ))}
           {state.phase === 'done' && (

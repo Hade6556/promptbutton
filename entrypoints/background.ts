@@ -11,14 +11,18 @@ import {
 } from '../src/messaging';
 import { getClient, toResult } from '../src/llm/client';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
+import { suggestReplies } from '../src/llm/reply';
 import { rewritePrompt } from '../src/llm/rewrite';
+import type { SuggestResponse } from '../src/messaging';
 
-async function handle(message: BackgroundRequest): Promise<AnalyzeResponse | RewriteResponse> {
+async function handle(message: BackgroundRequest): Promise<AnalyzeResponse | RewriteResponse | SuggestResponse> {
   try {
     const client = await getClient();
     switch (message.type) {
       case 'analyze':
         return { ok: true, value: await analyzeGaps(client, message.input) };
+      case 'suggest':
+        return { ok: true, value: await suggestReplies(client, message.input) };
       case 'rewrite':
         return { ok: true, value: await rewritePrompt(client, message.input, message.answers, undefined, message.options) };
     }
@@ -61,7 +65,7 @@ export default defineBackground(() => {
 
   // One-shot requests. Chrome's native onMessage needs sendResponse + `return true` for async replies.
   browser.runtime.onMessage.addListener((message: BackgroundRequest, _sender, sendResponse) => {
-    if (message?.type !== 'analyze' && message?.type !== 'rewrite') return false;
+    if (message?.type !== 'analyze' && message?.type !== 'rewrite' && message?.type !== 'suggest') return false;
     void handle(message).then(sendResponse);
     return true;
   });

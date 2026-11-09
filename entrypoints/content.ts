@@ -13,6 +13,8 @@ import {
   type PortMessage,
   type Result,
   type RewriteRequest,
+  type SuggestRequest,
+  type SuggestResponse,
   type UserAnswer,
 } from '../src/messaging';
 import { createPanel } from '../src/ui/panel';
@@ -70,6 +72,14 @@ export default defineContentScript({
         if (lastOriginal !== null) adapter.writeDraft(lastOriginal);
         panel.hide();
       },
+      onReply: (text) => {
+        if (!adapter.writeDraft(text)) {
+          panel.showError('Could not put the reply in the chat box. Copy it from above instead.');
+          return;
+        }
+        lastOriginal = '';
+        panel.showNotice('Reply is in the box. Edit if you like, then send.', { undo: true, ttl: 6000 });
+      },
     });
 
     console.info(`[PromptButton] ready on ${adapter.id}`);
@@ -89,7 +99,25 @@ export default defineContentScript({
       }
       const draft = adapter.readDraft();
       if (!draft.trim()) {
-        panel.showNotice('Type a draft first, then press the button.', { ttl: 3000 });
+        // Empty box: read the chat and suggest what to say instead.
+        const history = adapter.readHistory();
+        if (history.length === 0) {
+          panel.showNotice('Nothing to work with yet — type a draft or start a conversation.', { ttl: 3000 });
+          return;
+        }
+        busy = true;
+        panel.showBusy(`Reading ${history.length} message${history.length === 1 ? '' : 's'}…`);
+        try {
+          const request: SuggestRequest = { type: 'suggest', input: { site: adapter.id, history, draft: '' } };
+          const response = (await browser.runtime.sendMessage(request)) as SuggestResponse | undefined;
+          if (!response) throw new Error('No response from the extension background.');
+          if (!response.ok) return panel.showError(response.error);
+          panel.showReplies(response.value);
+        } catch (error) {
+          panel.showError(error instanceof Error ? error.message : String(error));
+        } finally {
+          busy = false;
+        }
         return;
       }
 

@@ -84,6 +84,16 @@ p {
 .line.error {
   color: #ff9d94;
 }
+.line .summary {
+  color: #fff;
+}
+.line .asks {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
 .caret {
   display: inline-block;
   width: 2px;

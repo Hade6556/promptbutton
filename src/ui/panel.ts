@@ -1,6 +1,6 @@
 import { createShadowRootUi } from 'wxt/utils/content-script-ui/shadow-root';
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
-import type { GapReport, UserAnswer } from '../messaging';
+import type { GapReport, ReplyAssist, UserAnswer } from '../messaging';
 import { diffWords } from '../utils/diff';
 
 export interface PanelHandlers {
@@ -10,11 +10,14 @@ export interface PanelHandlers {
   onAccept(text: string): void;
   onCancel(): void;
   onUndo(): void;
+  /** A suggested reply was chosen (or typed) with the field empty. */
+  onReply(text: string): void;
 }
 
 export interface Panel {
   showBusy(message: string): void;
   showQuestions(report: GapReport): void;
+  showReplies(assist: ReplyAssist): void;
   startPreview(original: string, report: GapReport | null): void;
   appendDelta(text: string): void;
   finishPreview(text: string): void;
@@ -196,6 +199,34 @@ export async function createPanel(ctx: ContentScriptContext, handlers: PanelHand
         h('button', { class: 'pb-btn', type: 'button', onClick: () => handlers.onSkipQuestions() }, ['Skip']),
         h('span', { class: 'pb-spacer' }),
         h('span', { class: 'pb-kbd' }, ['Enter to rewrite · Esc to close']),
+      );
+    },
+
+    showReplies(assist) {
+      open('What should I say?');
+      body.append(h('p', { class: 'pb-reply-summary' }, [assist.summary]));
+      if (assist.asks.length) {
+        body.append(h('ul', { class: 'pb-asks' }, assist.asks.map((a) => h('li', {}, [a]))));
+      }
+      const input = h('input', { class: 'pb-answer', type: 'text', placeholder: 'Pick a reply or type your own', 'aria-label': 'Your reply' });
+      const chips = h('div', { class: 'pb-chips', role: 'group' });
+      for (const reply of assist.replies) {
+        const chip = h('button', { class: 'pb-chip', type: 'button', title: reply.text }, [reply.label]);
+        chip.addEventListener('click', () => {
+          input.value = reply.text;
+          input.focus();
+        });
+        chips.append(chip);
+      }
+      body.append(chips, input);
+      const submit = () => input.value.trim() && handlers.onReply(input.value.trim());
+      input.addEventListener('keydown', (e) => e.key === 'Enter' && submit());
+      requestAnimationFrame(() => input.focus());
+      setFooter(
+        h('button', { class: 'pb-btn primary', type: 'button', onClick: submit }, ['Put it in the box']),
+        h('button', { class: 'pb-btn', type: 'button', onClick: () => handlers.onCancel() }, ['Close']),
+        h('span', { class: 'pb-spacer' }),
+        h('span', { class: 'pb-kbd' }, ['Enter to insert · Esc to close']),
       );
     },
 

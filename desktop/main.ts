@@ -7,6 +7,7 @@ import path from 'node:path';
 import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
 import { toResult } from '../src/llm/errors';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
+import { suggestReplies } from '../src/llm/reply';
 import { rewritePrompt } from '../src/llm/rewrite';
 import type { GapReport, ImproveInput, RewriteOptions, UserAnswer } from '../src/messaging';
 import { captureContext, type Capture } from './capture';
@@ -149,7 +150,7 @@ function fail(error: unknown) {
 async function trigger() {
   if (busy) return;
   // A press while the panel is mid-interaction brings it to the front instead of cancelling.
-  if (state.phase === 'asking' || state.phase === 'done' || state.phase === 'settings') {
+  if (state.phase === 'asking' || state.phase === 'done' || state.phase === 'replies' || state.phase === 'settings') {
     showPanel(true);
     return;
   }
@@ -165,8 +166,21 @@ async function trigger() {
       `[PromptButton] captured app="${capture.appName}" role=${capture.role || '?'} via=${capture.method} source=${capture.source} settable=${capture.valueSettable} draft=${capture.draft.length} chars screenshot=${capture.screenshot ? `${Math.round((capture.screenshot.data.length * 3) / 4 / 1024)} KB` : 'none'}`,
     );
     if (capture.source === 'none') {
+      // Empty field: read the chat on screen and suggest what to say.
+      if (!capture.screenshot) {
+        busy = false;
+        notice(`Nothing to work with — type a draft in ${capture.appName}, or allow Screen Recording so I can read the chat.`, { ttl: 5000 });
+        return;
+      }
+      const input: ImproveInput = { site: capture.appName, history: [], draft: '', screenshot: capture.screenshot };
+      current = { capture, input, report: null, text: '', answers: [] };
+      setState({ phase: 'analyzing', appName: capture.appName, source: 'none', draft: '', report: null, text: '', error: undefined });
+      showPanel(false);
+      const assist = await suggestReplies(client(), input);
+      console.log(`[PromptButton] reply assist: ${assist.replies.length} replies, ${assist.asks.length} asks`);
       busy = false;
-      notice(`Nothing to improve yet — type a draft in ${capture.appName}, then press ${HOTKEY}.`, { ttl: 4000 });
+      setState({ phase: 'replies', assist });
+      showPanel(true);
       return;
     }
     // Never ship secrets to the model (e.g. the hotkey pressed while a .env file is focused).
@@ -285,6 +299,7 @@ async function handleAction(action: RendererAction) {
       // Revise the previous rewrite instead of regenerating, so the parts the user liked survive.
       return rewrite(current.answers, { previous: current.text, request: action.note.trim() });
     case 'accept':
+    case 'reply':
       return accept(action.text);
     case 'copy':
       clipboard.writeText(action.text);

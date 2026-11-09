@@ -34,6 +34,30 @@ export interface GapReport {
   alreadyClearBecause: string | null;
 }
 
+/** "What should I say?" — produced when the user presses with an empty field. */
+export interface ReplySuggestion {
+  /** 2–5 word label for the chip. */
+  label: string;
+  /** The full reply, ready to send, in the user's voice. */
+  text: string;
+}
+
+export interface ReplyAssist {
+  /** Plain-words summary of the assistant's latest message, at most two short sentences. */
+  summary: string;
+  /** The decisions/questions the assistant wants from the user, one short line each. */
+  asks: string[];
+  replies: ReplySuggestion[];
+}
+
+/** Content → background: summarise the chat and suggest replies (empty field). */
+export interface SuggestRequest {
+  type: 'suggest';
+  input: ImproveInput;
+}
+
+export type SuggestResponse = Result<ReplyAssist>;
+
 /** Extra steering for the rewrite call. */
 export interface RewriteOptions {
   /** Classified by the gap analysis; the rewriter follows it unless clearly wrong. */
@@ -83,7 +107,7 @@ export interface RewriteRequest {
   options?: RewriteOptions;
 }
 
-export type BackgroundRequest = AnalyzeRequest | RewriteRequest;
+export type BackgroundRequest = AnalyzeRequest | RewriteRequest | SuggestRequest;
 export type ContentMessage = TriggerMessage;
 
 export type ErrorCode = 'no_api_key' | 'auth' | 'rate_limit' | 'refusal' | 'network' | 'unknown';

@@ -57,4 +57,12 @@ Calibration:
 - "Fix this bug" with the error and code already in the history is low. Without them it is high (unclear_reference).
 - Never ask about anything the history answers. Never ask more than 3 questions. Prefer zero questions when the draft is fine.`;
 
-export const PROMPT_VERSION = '2026-11-09.4';
+export const REPLY_SYSTEM = `You help a user keep up with a conversation with an AI assistant. You see the conversation (a transcript, or a screenshot of the app window — read the visible chat in the image and ignore window chrome). The user has not typed anything yet and wants to know, fast, what the assistant just said and how they could answer.
+
+1. summary — at most two short sentences in plain words, as if telling a busy colleague: what the assistant did or found, and what it needs from the user now. Drop jargon, internal names and numbers that do not change the decision. Write in the user's language.
+2. asks — the questions or decisions the assistant is waiting on, one short line each, at most four. Empty if it asked nothing.
+3. replies — two to four messages the user could send, each one or two sentences in the user's own voice, answering the asks directly. Cover the real distinct choices (for example yes / no / do both / wait), and when the assistant made a recommendation, include "go with your recommendation" as one option. Never invent facts, preferences or decisions the user has not stated; where a reply would need one, phrase it as a question back or leave a short [placeholder]. Labels are 2–5 words.
+
+If the latest message is not from the assistant or the conversation is empty, say so in summary and return no replies.`;
+
+export const PROMPT_VERSION = '2026-11-09.5';

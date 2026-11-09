@@ -1,5 +1,5 @@
 // Types shared by the Electron main process and the panel renderer.
-import type { GapReport, UserAnswer } from '../src/messaging';
+import type { GapReport, ReplyAssist, UserAnswer } from '../src/messaging';
 import type { AskMode } from '../src/llm/config';
 
 export interface Settings {
@@ -16,6 +16,8 @@ export type Phase =
   | 'asking'
   | 'rewriting'
   | 'done'
+  /** Empty field: summary of the chat + suggested replies. */
+  | 'replies'
   | 'error'
   | 'notice'
   | 'settings';
@@ -30,6 +32,7 @@ export interface PanelState {
   report?: GapReport | null;
   asked?: boolean;
   text?: string;
+  assist?: ReplyAssist;
   error?: string;
   notice?: string;
   /** Offer "select all and paste" after a copy-only insert. */
@@ -42,6 +45,8 @@ export type RendererAction =
   | { type: 'answers'; answers: UserAnswer[] }
   | { type: 'skip' }
   | { type: 'accept'; text: string }
+  /** Put a suggested/typed reply into the (empty) field. */
+  | { type: 'reply'; text: string }
   | { type: 'copy'; text: string }
   | { type: 'forcePaste' }
   /** Re-run the rewrite with an extra instruction typed into the input box. */

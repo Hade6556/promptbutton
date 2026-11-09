@@ -34,9 +34,14 @@ on run argv
   end tell
 end run`;
 
-/** A field whose entire content was the draft and that looks like a message box, not a document. */
+/** The focused element is a text field we may write into: the draft filled it, or it was empty. */
+function isWritableField(capture: Capture): boolean {
+  return capture.source === 'field' || (capture.source === 'none' && /^AXText(Area|Field)$/.test(capture.role));
+}
+
+/** A field whose entire content was the draft (or nothing) and that looks like a message box, not a document. */
 function isChatLikeField(capture: Capture): boolean {
-  return capture.source === 'field' && capture.draft.length <= 2000 && capture.draft.split('\n').length <= 20;
+  return isWritableField(capture) && capture.draft.length <= 2000 && capture.draft.split('\n').length <= 20;
 }
 
 async function activate(pid: number) {
@@ -74,7 +79,7 @@ export async function insertText(capture: Capture, text: string): Promise<Insert
 
   // 1. Direct AX write (native text views only — Electron editors accept it into a hidden
   //    textarea without updating what the user sees, so they skip straight to paste).
-  if (capture.source === 'field' && capture.valueSettable && !capture.chromium) {
+  if (isWritableField(capture) && capture.valueSettable && !capture.chromium) {
     try {
       const result = await runHelper<{ set: boolean; value: string; axError: number }>(['set', String(capture.pid)], text);
       if (result.set && result.value.trim() === text.trim()) {
