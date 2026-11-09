@@ -72,12 +72,19 @@ export async function insertText(capture: Capture, text: string): Promise<Insert
   }
   await activate(capture.pid);
 
-  // 1. Direct AX write (native text views).
-  if (capture.source === 'field' && capture.valueSettable) {
+  // 1. Direct AX write (native text views only — Electron editors accept it into a hidden
+  //    textarea without updating what the user sees, so they skip straight to paste).
+  if (capture.source === 'field' && capture.valueSettable && !capture.chromium) {
     try {
       const result = await runHelper<{ set: boolean; value: string; axError: number }>(['set', String(capture.pid)], text);
-      if (result.set && result.value.trim() === text.trim()) return 'replaced';
-      console.info(`[PromptButton] AXValue write not reflected (set=${result.set}, axError=${result.axError}); trying paste`);
+      if (result.set && result.value.trim() === text.trim()) {
+        await delay(200);
+        const still = await readBack(capture.pid);
+        if (still === null || still.trim() === text.trim()) return 'replaced';
+        console.info('[PromptButton] AXValue write was reverted by the app; trying paste');
+      } else {
+        console.info(`[PromptButton] AXValue write not reflected (set=${result.set}, axError=${result.axError}); trying paste`);
+      }
     } catch (error) {
       console.info('[PromptButton] AXValue write failed:', error instanceof Error ? error.message : error);
     }

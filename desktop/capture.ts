@@ -26,6 +26,8 @@ export interface Capture {
   selectedText: string;
   /** Whether the focused element accepts a direct AXValue write (unknown → true). */
   valueSettable: boolean;
+  /** Electron/Chromium app: AXValue writes land in a hidden textarea and never reach the editor. */
+  chromium: boolean;
   /** Which text became the draft. */
   source: DraftSource;
   /** How the text was obtained. */
@@ -213,6 +215,8 @@ export async function captureContext(): Promise<Capture> {
     fieldText: focused.value,
     selectedText: focused.selectedText,
     valueSettable: focused.valueSettable !== false,
+    // Electron accepts AXManualAccessibility (0 = success); native apps and Chrome reject it.
+    chromium: focused.diagnostics?.manualAccessibility === 0 || /\b(Code|Cursor|Slack|Discord|Notion|Figma|Linear)\b/.test(focused.app),
     source,
     method,
     draft: selection || field,
