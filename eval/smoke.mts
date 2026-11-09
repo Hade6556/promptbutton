@@ -37,11 +37,24 @@ const cases: Array<{ name: string; expect: 'ask' | 'clear'; input: ImproveInput 
       draft: 'now do the same for the other one but also check the thing we talked about',
     },
   },
+  {
+    name: 'one-line deliverable → master prompt',
+    expect: 'ask',
+    input: { site: 'claude', history: [], draft: 'i want to build a landing page' },
+  },
+  {
+    name: 'quick ask stays short',
+    expect: 'clear',
+    input: { site: 'chatgpt', history: [], draft: 'convert 72°F to Celsius' },
+  },
 ];
 
 const client = new Anthropic();
+// SMOKE_ONLY=landing,quick runs the cases whose name or draft contains one of the terms.
+const only = process.env.SMOKE_ONLY?.toLowerCase().split(',').map((s) => s.trim()).filter(Boolean);
 
 for (const c of cases) {
+  if (only?.length && !only.some((term) => `${c.name} ${c.input.draft}`.toLowerCase().includes(term))) continue;
   console.log(`\n━━━ ${c.name}  (expect: ${c.expect}) ━━━`);
   console.log('draft:', JSON.stringify(c.input.draft));
 
@@ -50,6 +63,13 @@ for (const c of cases) {
   console.log(`gap analysis ${(performance.now() - t).toFixed(0)}ms →`, JSON.stringify(gaps, null, 2));
 
   t = performance.now();
-  const rewritten = await rewritePrompt(client, c.input, []);
-  console.log(`rewrite ${(performance.now() - t).toFixed(0)}ms →\n${rewritten}`);
+  // No answers: the rewrite must fall back to (assumed) defaults, as when the user skips the questions.
+  const rewritten = await rewritePrompt(client, c.input, [], undefined, {
+    mode: gaps.mode,
+    domain: gaps.domain,
+    scale: gaps.scale,
+    expert: gaps.expert,
+    depth: 'full',
+  });
+  console.log(`rewrite ${(performance.now() - t).toFixed(0)}ms, ${rewritten.length} chars →\n${rewritten}`);
 }

@@ -78,7 +78,7 @@ p {
 }
 .line.result {
   color: #fff;
-  max-height: 260px;
+  max-height: 380px;
   overflow: auto;
 }
 .line.error {

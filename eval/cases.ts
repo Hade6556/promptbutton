@@ -366,4 +366,65 @@ export const CASES: EvalCase[] = [
     draft: 'convert 72°F to Celsius',
     intent: 'The temperature in Celsius (about 22.2 °C), one line.',
   },
+
+  // ─── One-line deliverables: should become full master prompts ────────────────
+  {
+    id: 'cold-landing-page',
+    tag: 'ambiguous',
+    site: 'claude',
+    history: [],
+    draft: 'i want to build a landing page',
+    intent:
+      'A single-file HTML/CSS/JS landing page for "Ledgerly", an invoicing tool for freelancers, whose job is free-trial sign-ups: a hero with one headline, one subline and one call to action, three benefit sections with short copy, a pricing block (free, and €9 per month), an FAQ and a footer. Distinctive look rather than a purple-gradient template, correct at 375 px, visible focus states, and placeholder copy clearly marked where facts are unknown.',
+  },
+  {
+    id: 'cold-saas-dashboard',
+    tag: 'ambiguous',
+    site: 'chatgpt',
+    history: [],
+    draft: 'make me a dashboard for my app',
+    intent:
+      'A React + Tailwind admin dashboard for a B2B SaaS: sidebar navigation, KPI cards for MRR, active users and churn, a 30-day sign-ups line chart, a recent-activity table with search and pagination, dark mode, loading and empty states, mock data, components split into files, and instructions to run it.',
+  },
+  {
+    id: 'cold-pitch-deck',
+    tag: 'ambiguous',
+    site: 'chatgpt',
+    history: [],
+    draft: 'help me with a pitch deck',
+    intent:
+      'A 10-slide outline for a pre-seed pitch to angel investors for a tool that automates invoice reminders for freelancers: problem, solution, demo, market, business model (€9 per month subscription), traction (120 paying users), team (two founders), competition, the ask (€300k) and use of funds, with one-sentence speaker notes per slide.',
+  },
+  {
+    id: 'cold-churn-analysis',
+    tag: 'ambiguous',
+    site: 'claude',
+    history: [],
+    draft: 'analyze churn',
+    intent:
+      'Given a CSV of subscription events (user_id, plan, started_at, cancelled_at, country), compute the monthly churn rate for the last 12 months by plan, name the two segments with the highest churn, and write a short findings memo with a recommended next step. Pandas code included; metric definitions stated explicitly.',
+  },
+  {
+    id: 'cold-learn-rust',
+    tag: 'ambiguous',
+    site: 'chatgpt',
+    history: [],
+    draft: 'teach me rust',
+    intent:
+      'A four-week self-study plan for an experienced Python developer who wants to write a command-line tool in Rust: weekly topics starting with ownership and borrowing, one small project per week, free resources (The Rust Book, Rustlings), a short self-check per week, about two hours per weekday.',
+  },
+  {
+    id: 'deep-build-from-notes',
+    tag: 'clear',
+    site: 'claude',
+    history: [
+      u('I want to build a Chrome extension that summarises long Gmail threads. One click, five bullets, done. I write TypeScript. No backend — the user brings their own Claude API key.'),
+      a('Clear. Proposed shape: a Manifest V3 extension with a content script that detects an open Gmail thread and adds a "Summarise thread" button to the toolbar; on click it reads the visible message bodies, sends them to the Claude API with the key from chrome.storage.local, and shows the five bullets in a side panel. Build with Vite + CRXJS. Shall I also add a popup for entering the key?'),
+      u('Yes, popup for the key. Keep the summary in the side panel, not a modal. Use claude-opus-5-5.'),
+      a('Got it: popup for the key, side panel for the summary, claude-opus-5-5. Anything else before I write it?'),
+    ],
+    draft: 'ok build the first version',
+    intent:
+      'Implement the MVP as agreed: Manifest V3 Chrome extension in TypeScript with Vite + CRXJS; content script adds a "Summarise thread" button in Gmail, reads the visible thread, calls claude-opus-5-5 with the key from chrome.storage.local (entered via a popup), shows five bullets in the side panel; no backend; include manifest, all source files, build steps and a short README.',
+  },
 ];

@@ -26,9 +26,35 @@ export interface GapQuestion {
 /** What kind of draft this is; decides how much structure the rewrite adds. */
 export type DraftMode = 'follow_up' | 'request' | 'brain_dump';
 
+/** Field of the task; selects the playbook (checklist + quality bar) the master prompt is built against. */
+export type Domain =
+  | 'frontend_design'
+  | 'software'
+  | 'writing'
+  | 'marketing_sales'
+  | 'data_analysis'
+  | 'research_learning'
+  | 'planning_strategy'
+  | 'creative'
+  | 'personal_life'
+  | 'other';
+
+/**
+ * deliverable: something to build, write, design, plan, analyse, decide or fix — gets a master prompt.
+ * quick: a lookup, conversion, one-line fact or tiny edit — stays short.
+ */
+export type Scale = 'deliverable' | 'quick';
+
+/** User setting: how far a task-like draft is expanded. */
+export type Depth = 'full' | 'concise';
+
 export interface GapReport {
   ambiguity: number; // 0..1
   mode: DraftMode;
+  domain: Domain;
+  scale: Scale;
+  /** One sentence naming the specific practitioner whose answer the user wants; null for quick/factual drafts. */
+  expert: string | null;
   missing: AmbiguityType[];
   questions: GapQuestion[];
   alreadyClearBecause: string | null;
@@ -62,6 +88,11 @@ export type SuggestResponse = Result<ReplyAssist>;
 export interface RewriteOptions {
   /** Classified by the gap analysis; the rewriter follows it unless clearly wrong. */
   mode?: DraftMode;
+  domain?: Domain;
+  scale?: Scale;
+  expert?: string | null;
+  /** User setting; defaults to 'full'. Follow-ups and quick drafts are concise regardless. */
+  depth?: Depth;
   /** A previous rewrite to revise instead of regenerating. */
   previous?: string;
   /** What to change about `previous`. */

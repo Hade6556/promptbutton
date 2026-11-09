@@ -1,9 +1,15 @@
-import type { DraftMode, HistoryMessage, ImproveInput, RewriteOptions, UserAnswer } from '../messaging';
+import type { Depth, DraftMode, HistoryMessage, ImproveInput, RewriteOptions, Scale, UserAnswer } from '../messaging';
 import { clampText } from '../adapters/editable';
+import { playbookBlock } from './domains';
 
 export const MAX_HISTORY_MESSAGES = 12;
 export const MAX_CHARS_PER_MESSAGE = 2500;
 export const MAX_DRAFT_CHARS = 6000;
+
+/** A full master prompt lands in this range; the ceiling grows with long drafts (brain dumps). */
+export const MASTER_MIN_CHARS = 1200;
+export const MASTER_MAX_CHARS = 2500;
+export const MASTER_CEILING_CHARS = 3500;
 
 function escapeXml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -14,18 +20,34 @@ export function truncateHistory(history: HistoryMessage[]): HistoryMessage[] {
   return recent.map((m) => ({ role: m.role, text: clampText(m.text, MAX_CHARS_PER_MESSAGE) }));
 }
 
+export interface LengthGuide {
+  /** master: a full master prompt (role, goal, …, assumptions). concise: tightened, no structure. */
+  kind: 'master' | 'concise';
+  min: number;
+  max: number;
+}
+
+/** Whether this draft gets the full master-prompt treatment. Follow-ups and quick asks never do. */
+export function isMaster(options: { mode?: DraftMode; scale?: Scale; depth?: Depth }): boolean {
+  return options.mode !== 'follow_up' && options.scale !== 'quick' && (options.depth ?? 'full') === 'full';
+}
+
 /**
- * Character budget for the rewrite. Structure helps, bulk does not (checklist prompts in the
- * 2026 comparison were the shortest and scored best), so the budget scales with the draft.
+ * Target length for the rewrite. A master prompt is a target range, not a cap: quality comes from
+ * covering the domain checklist with concrete lines, and a one-line draft needs the most expansion.
+ * Concise rewrites keep the v4 caps (structure helps, bulk does not).
  */
-export function lengthBudget(draftChars: number, mode: DraftMode | undefined): number {
-  switch (mode) {
+export function lengthGuide(sourceChars: number, options: { mode?: DraftMode; scale?: Scale; depth?: Depth }): LengthGuide {
+  if (isMaster(options)) {
+    return { kind: 'master', min: MASTER_MIN_CHARS, max: Math.min(MASTER_CEILING_CHARS, Math.max(MASTER_MAX_CHARS, sourceChars + 1200)) };
+  }
+  switch (options.mode) {
     case 'brain_dump':
-      return Math.max(700, Math.round(draftChars * 2) + 200);
+      return { kind: 'concise', min: 0, max: Math.max(700, Math.round(sourceChars * 2) + 200) };
     case 'follow_up':
-      return Math.max(160, Math.round(draftChars * 1.5) + 60);
+      return { kind: 'concise', min: 0, max: Math.max(160, Math.round(sourceChars * 1.5) + 60) };
     default:
-      return Math.max(300, Math.round(draftChars * 2));
+      return { kind: 'concise', min: 0, max: Math.max(300, Math.round(sourceChars * 2)) };
   }
 }
 
@@ -61,12 +83,24 @@ export function serializeInput(input: ImproveInput, answers: UserAnswer[] = [], 
   parts.push(`<draft chars="${draft.length}">\n${escapeXml(draft)}\n</draft>`);
 
   if (options.mode) {
-    parts.push(`<mode>${options.mode}</mode>`);
-    // Answers are user-supplied content the rewrite must carry, so they count toward the budget's base.
+    // The first pass's classification. Answers are user content the rewrite must carry, so they count toward the base.
     const answerChars = answers.reduce((n, a) => n + a.answer.length, 0);
-    parts.push(
-      `<length_budget max_chars="${lengthBudget(draft.length + answerChars, options.mode)}">Stay under this unless the user explicitly asked for copy, examples or code. Every line must change the answer.</length_budget>`,
-    );
+    const guide = lengthGuide(draft.length + answerChars, options);
+    parts.push(`<mode>${options.mode}</mode>`);
+    if (options.scale) parts.push(`<scale>${options.scale}</scale>`);
+    if (options.domain) parts.push(`<domain>${options.domain}</domain>`);
+    if (options.expert) parts.push(`<expert>${escapeXml(options.expert)}</expert>`);
+    parts.push(`<depth>${options.depth ?? 'full'}</depth>`);
+    if (guide.kind === 'master') {
+      parts.push(
+        `<length_guide kind="master" min_chars="${guide.min}" max_chars="${guide.max}">Write the full master prompt: aim for ${guide.min}–${guide.max} characters. Cover every item of the playbook; every line concrete. Go above the maximum only when the user asked for copy, examples or code to be included.</length_guide>`,
+      );
+      parts.push(playbookBlock(options.domain ?? 'other'));
+    } else {
+      parts.push(
+        `<length_guide kind="concise" max_chars="${guide.max}">Stay under this unless the user explicitly asked for copy, examples or code. Every line must change the answer.</length_guide>`,
+      );
+    }
   }
 
   if (answers.length > 0) {

@@ -2,7 +2,7 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 import { browser } from 'wxt/browser';
 import '../src/ui/panel.css';
 import { pickAdapter } from '../src/adapters';
-import { ASK_THRESHOLD, askModeItem } from '../src/settings';
+import { ASK_THRESHOLD, askModeItem, depthItem } from '../src/settings';
 import {
   REWRITE_PORT,
   type AnalyzeRequest,
@@ -158,8 +158,13 @@ export default defineContentScript({
       if (!current || busy) return;
       busy = true;
       panel.startPreview(current.input.draft, current.report);
+      const depth = await depthItem.getValue();
       const result = await streamRewrite(current.input, answers, (delta) => panel.appendDelta(delta), {
         mode: current.report?.mode,
+        domain: current.report?.domain,
+        scale: current.report?.scale,
+        expert: current.report?.expert,
+        depth,
       });
       busy = false;
       if (!result.ok) return panel.showError(result.error);

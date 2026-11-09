@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { MODEL } from '../src/llm/config';
+import { lengthGuide } from '../src/llm/context';
 import type { RunResult } from './run.mts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -108,6 +109,15 @@ const askRecall = ambiguous.length ? Math.round((100 * ambiguous.filter((v) => v
 const falseAsk = clear.length ? Math.round((100 * clear.filter((v) => v.asked).length) / clear.length) : 0;
 const lengthRatio = verdicts.reduce((s, v) => s + v.rewritten.length / Math.max(1, v.draft.length), 0) / Math.max(1, verdicts.length);
 
+// Depth: did task-like drafts get a full master prompt, and did follow-ups/quick asks stay short?
+const guideOf = (v: RunResult) => lengthGuide(v.draft.length + v.answers.reduce((n, a) => n + a.answer.length, 0), { mode: v.gap.mode, scale: v.gap.scale, depth: 'full' });
+const masterCases = verdicts.filter((v) => guideOf(v).kind === 'master');
+const conciseCases = verdicts.filter((v) => guideOf(v).kind === 'concise');
+const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]! : 0);
+const masterMedian = median(masterCases.map((v) => v.rewritten.length));
+const underMin = masterCases.filter((v) => v.rewritten.length < guideOf(v).min).map((v) => v.id);
+const overExpanded = conciseCases.filter((v) => v.rewritten.length > guideOf(v).max * 1.2).map((v) => v.id);
+
 const row = (label: string, r: ReturnType<typeof rate>) => `| ${label} | ${r.n} | ${r.winRate} | ${r.tieRate} | ${r.lossRate} |`;
 const summary = `# PromptButton eval — ${new Date().toISOString().slice(0, 10)}
 
@@ -121,10 +131,11 @@ ${row('Cold first messages', cold)}
 
 **Gate:** asked on ${askRecall}% of ambiguous drafts (recall) · asked on ${falseAsk}% of clear drafts (false-ask rate).
 **Length:** rewrites are ${lengthRatio.toFixed(1)}× the draft on average.
+**Depth:** ${masterCases.length} master prompts (median ${masterMedian} chars; under the ${masterCases[0] ? guideOf(masterCases[0]).min : 1200}-char floor: ${underMin.length ? underMin.join(', ') : 'none'}) · ${conciseCases.length} concise rewrites (over-expanded: ${overExpanded.length ? overExpanded.join(', ') : 'none'}).
 
-| Case | Tag | Ambiguity | Asked | Verdict |
-|---|---|---|---|---|
-${verdicts.map((v) => `| ${v.id} | ${v.tag} | ${v.gap.ambiguity.toFixed(2)} | ${v.asked ? `yes (${v.gap.questions.length})` : 'no'} | ${v.verdict} |`).join('\n')}
+| Case | Tag | Mode / scale / domain | Ambiguity | Asked | Chars | Verdict |
+|---|---|---|---|---|---|---|
+${verdicts.map((v) => `| ${v.id} | ${v.tag} | ${v.gap.mode} / ${v.gap.scale} / ${v.gap.domain} | ${v.gap.ambiguity.toFixed(2)} | ${v.asked ? `yes (${v.gap.questions.length})` : 'no'} | ${v.rewritten.length} | ${v.verdict} |`).join('\n')}
 `;
 
 writeFileSync(path.join(RESULTS_DIR, 'judged-latest.json'), JSON.stringify({ ...run, verdicts }, null, 2));

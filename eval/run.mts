@@ -96,7 +96,13 @@ async function runCase(c: EvalCase): Promise<RunResult> {
   ms.answers = Math.round(performance.now() - t);
 
   t = performance.now();
-  const rewritten = await rewritePrompt(client, input, answers, undefined, { mode: gap.mode });
+  const rewritten = await rewritePrompt(client, input, answers, undefined, {
+    mode: gap.mode,
+    domain: gap.domain,
+    scale: gap.scale,
+    expert: gap.expert,
+    depth: 'full',
+  });
   ms.rewrite = Math.round(performance.now() - t);
 
   t = performance.now();
@@ -141,7 +147,9 @@ const results = await pool(cases, CONCURRENCY, async (c) => {
     const r = await runCase(c);
     const gate = r.asked ? `asked ${r.gap.questions.length}` : 'direct';
     const flag = (c.tag === 'clear') === r.asked ? '  ⚠ gate mismatch' : '';
-    console.log(`${r.id.padEnd(30)} ${c.tag.padEnd(9)} ambiguity ${r.gap.ambiguity.toFixed(2)}  ${gate.padEnd(8)} ${(r.ms.gap + r.ms.answers + r.ms.rewrite) / 1000}s${flag}`);
+    console.log(
+      `${r.id.padEnd(30)} ${c.tag.padEnd(9)} ambiguity ${r.gap.ambiguity.toFixed(2)}  ${gate.padEnd(8)} ${r.gap.mode}/${r.gap.scale}/${r.gap.domain}  ${r.rewritten.length} chars  ${(r.ms.gap + r.ms.answers + r.ms.rewrite) / 1000}s${flag}`,
+    );
     return r;
   } catch (error) {
     console.error(`${c.id}: FAILED`, error instanceof Error ? error.message : error);

@@ -1,4 +1,4 @@
-import { PROXY_URL, apiBaseUrlItem, apiKeyItem, askModeItem, type AskMode } from '../../src/settings';
+import { PROXY_URL, apiBaseUrlItem, apiKeyItem, askModeItem, depthItem, type AskMode, type Depth } from '../../src/settings';
 
 const keyInput = document.querySelector<HTMLInputElement>('#apiKey')!;
 const saveButton = document.querySelector<HTMLButtonElement>('#save')!;
@@ -8,6 +8,7 @@ const useProxyButton = document.querySelector<HTMLButtonElement>('#useProxy')!;
 const advanced = document.querySelector<HTMLDetailsElement>('#advanced')!;
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
 const modeInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="mode"]'));
+const depthInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="depth"]'));
 
 function setStatus(text: string) {
   status.textContent = text;
@@ -19,9 +20,10 @@ function maskKey(key: string): string {
 }
 
 async function load() {
-  const [key, mode, baseUrl] = await Promise.all([apiKeyItem.getValue(), askModeItem.getValue(), apiBaseUrlItem.getValue()]);
+  const [key, mode, depth, baseUrl] = await Promise.all([apiKeyItem.getValue(), askModeItem.getValue(), depthItem.getValue(), apiBaseUrlItem.getValue()]);
   keyInput.placeholder = key ? `Saved: ${maskKey(key)}` : 'sk-ant-…';
   for (const input of modeInputs) input.checked = input.value === mode;
+  for (const input of depthInputs) input.checked = input.value === depth;
   baseUrlInput.value = baseUrl;
   if (baseUrl) advanced.open = true;
 }
@@ -64,6 +66,15 @@ for (const input of modeInputs) {
   input.addEventListener('change', async () => {
     if (input.checked) {
       await askModeItem.setValue(input.value as AskMode);
+      setStatus('Saved.');
+    }
+  });
+}
+
+for (const input of depthInputs) {
+  input.addEventListener('change', async () => {
+    if (input.checked) {
+      await depthItem.setValue(input.value as Depth);
       setStatus('Saved.');
     }
   });

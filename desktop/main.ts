@@ -25,7 +25,7 @@ const PANEL_MAX_HEIGHT = 760;
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let settings: Settings = { apiKey: null, askMode: 'auto', hideFromCapture: false };
+let settings: Settings = { apiKey: null, askMode: 'auto', depth: 'full', hideFromCapture: false };
 let state: PanelState = { phase: 'hidden', hotkey: HOTKEY };
 let busy = false;
 /** Incremented on every trigger/close so results from a cancelled run are ignored. */
@@ -285,7 +285,9 @@ async function analyzeAndContinue() {
     const report = await analyzeGaps(client(), input);
     if (stale(my)) return;
     current.report = report;
-    console.log(`[PromptButton] gap analysis mode=${report.mode} ambiguity=${report.ambiguity.toFixed(2)} missing=${report.missing.join(',') || '-'} questions=${report.questions.length}`);
+    console.log(
+      `[PromptButton] gap analysis mode=${report.mode} scale=${report.scale} domain=${report.domain} ambiguity=${report.ambiguity.toFixed(2)} missing=${report.missing.join(',') || '-'} questions=${report.questions.length}`,
+    );
     const shouldAsk = report.questions.length > 0 && (settings.askMode === 'always' || report.ambiguity >= ASK_THRESHOLD);
     if (shouldAsk) {
       busy = false;
@@ -308,7 +310,13 @@ async function rewrite(answers: UserAnswer[], revision?: { previous: string; req
   busy = true;
   try {
     setState({ phase: 'rewriting', text: '' });
-    const options: RewriteOptions = { mode: current.report?.mode };
+    const options: RewriteOptions = {
+      mode: current.report?.mode,
+      domain: current.report?.domain,
+      scale: current.report?.scale,
+      expert: current.report?.expert,
+      depth: settings.depth,
+    };
     if (revision) {
       options.previous = revision.previous;
       options.revision = revision.request;
@@ -428,12 +436,22 @@ function buildTray() {
       saveSettings(settings);
     },
   });
+  const depth = (value: Settings['depth'], label: string): Electron.MenuItemConstructorOptions => ({
+    label,
+    type: 'radio',
+    checked: settings.depth === value,
+    click: () => {
+      settings = { ...settings, depth: value };
+      saveSettings(settings);
+    },
+  });
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: `Improve prompt  ${HOTKEY}`, click: () => void trigger() },
       { label: 'Undo last insert', click: () => void undo(), enabled: lastInsert !== null },
       { type: 'separator' },
       { label: 'Ask questions', submenu: [mode('auto', 'Only when the draft is ambiguous'), mode('always', 'Always'), mode('never', 'Never, just rewrite')] },
+      { label: 'Rewrite depth', submenu: [depth('full', 'Full master prompt'), depth('concise', 'Concise — tighten only')] },
       {
         label: 'Hide from screen sharing',
         type: 'checkbox',

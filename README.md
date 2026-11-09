@@ -36,7 +36,8 @@ API key: paste it in the panel's Settings, **or** put `ANTHROPIC_API_KEY=sk-ant-
 First launch on macOS asks for two permissions, both under System Settings → Privacy & Security:
 **Accessibility** (read the field, paste) and **Screen Recording** (the window screenshot). Grant them to
 "Electron" while running from source; restart the app after granting Screen Recording. The tray menu has the ask
-mode, "Hide from screen sharing" (`setContentProtection`), the API key, and undo of the last insert.
+mode, the rewrite depth (full master prompt or concise), "Hide from screen sharing" (`setContentProtection`),
+the API key, and undo of the last insert.
 
 ## What happens when you press
 
@@ -49,18 +50,20 @@ mode, "Hide from screen sharing" (`setContentProtection`), the API key, and undo
    answers; anything still unknown becomes a `[bracketed placeholder]`, never an invention. Use it, edit it
    in place, or cancel. Undo restores the original.
 
-## Brain dump → master prompt
+## One line → master prompt
 
-The rewriter picks a mode per draft: short **follow-ups** stay short, mostly-clear **requests** get tightened,
-and a **brain dump** becomes a master prompt with Goal · Context · Task · Constraints · Output · Done when ·
-Examples · Open questions (+ a role line and a "think first" line only when they earn their place). Every
-section traces to vendor guidance or a study — the receipts and their caveats are in
-[docs/master-prompt-playbook.md](docs/master-prompt-playbook.md): Anthropic's prompting best practices and
-Prompt Improver, OpenAI's guide, a small 2026 comparison in which checklist-structured prompts beat raw ones
-(7.50 vs 5.67 on an 8-point single-rater rubric), and the Prompt Report. The evidence supports the bundle,
-not each section individually; `npm run eval` measures what it does on our own cases. Anything the rewriter
-chooses rather than the user stating it is marked `(assumed)`; it never adds "think step by step" for
-reasoning models, keeps a length budget, and refines a previous rewrite instead of regenerating it.
+The gap analysis classifies each draft (mode, scale, domain) and the rewriter acts on it. Short
+**follow-ups** ("make it shorter") and **quick** asks ("convert 72°F") stay short. Anything that asks for a
+deliverable — "i want to build a landing page", "write the launch email", a brain dump — becomes a master
+prompt: Role (the specific practitioner, not "an expert") · Goal and why · Context · Task · Quality bar ·
+Constraints · Output · Done when · Examples · Assumptions, typically 1,200–2,500 characters. The content
+comes from a per-domain playbook (`src/llm/domains.ts`: front-end, software, writing, marketing, data,
+learning, planning, creative, personal, other) listing what a top practitioner pins down and what excellent
+looks like; every item is covered from the conversation and your answers, or as a default marked `(assumed)`
+— never as an invented fact. The receipts are in [docs/master-prompt-playbook.md](docs/master-prompt-playbook.md):
+Anthropic's prompting best practices and Prompt Improver, OpenAI's meta-prompt, ExpertPrompting, the 26
+"principled instructions", the role-prompting caveats, and the 2026 checklist comparison. "Concise" in the
+tray menu, popup or playground returns to tighten-only. `npm run eval` measures the effect on our own cases.
 
 ## Why this design
 
@@ -126,9 +129,9 @@ The site appears at `https://hade6556.github.io/promptbutton/`.
 ```
 entrypoints/background.ts   hotkey → active tab; Claude calls (holds the key); streams the rewrite over a port
 entrypoints/content.ts      per-site adapter, the in-page panel, writes the result into the composer
-entrypoints/popup/          API key + "when to ask" mode
+entrypoints/popup/          API key, "when to ask" mode, rewrite depth
 src/adapters/               chatgpt, claude, generic — readDraft / readHistory / writeDraft
-src/llm/                    prompts, context serialization, gap analysis, rewrite, error mapping
+src/llm/                    prompts, domain playbooks, context serialization, gap analysis, rewrite, error mapping
 src/ui/panel.ts             shadow-DOM panel: questions → streaming preview with diff → use / edit / undo; ✦ button
 src/utils/diff.ts           word-level LCS diff for the highlights
 web/                        playground + landing page (Preact + Vite); imports the same src/llm modules

@@ -1,9 +1,10 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
-import type { AmbiguityType, GapReport, ImproveInput } from '../messaging';
+import type { AmbiguityType, GapReport, ImproveInput, Scale } from '../messaging';
 import { EFFORT, MODEL, PromptButtonError } from './config';
 import { buildUserContent } from './context';
+import { DOMAINS } from './domains';
 import { GAP_ANALYSIS_SYSTEM } from './prompts';
 
 const AMBIGUITY_TYPES = [
@@ -20,9 +21,16 @@ const AMBIGUITY_TYPES = [
 // Keep the schema to the JSON-schema subset structured outputs accepts:
 // no numeric ranges or array length limits — those are enforced in normalize().
 const MODES = ['follow_up', 'request', 'brain_dump'] as const;
+const SCALES = ['deliverable', 'quick'] as const satisfies readonly Scale[];
 
 const GapReportSchema = z.object({
-  mode: z.enum(MODES).describe('follow_up: short reply inside a running conversation; request: self-contained, mostly clear ask; brain_dump: long, loose or multi-part'),
+  mode: z.enum(MODES).describe('follow_up: short reply inside a running conversation; request: self-contained ask with one task; brain_dump: long, loose or multi-part'),
+  domain: z.enum(DOMAINS).describe('The field of the task; closest match'),
+  scale: z.enum(SCALES).describe('deliverable: build/write/design/plan/analyse/decide/fix; quick: lookup, conversion, one-line fact, tiny edit'),
+  expert: z
+    .string()
+    .nullable()
+    .describe('For a deliverable: one sentence naming the specific practitioner whose answer the user wants (specialty, known for, judges by). null for quick or purely factual drafts'),
   ambiguity: z.number().describe('0 = fully specified, 1 = the assistant would have to guess the core intent'),
   missing: z.array(z.enum(AMBIGUITY_TYPES)).describe('Ambiguity types that pass all three tests'),
   questions: z.array(
@@ -41,6 +49,9 @@ function normalize(raw: z.infer<typeof GapReportSchema>): GapReport {
   return {
     ambiguity: Math.min(1, Math.max(0, Number.isFinite(raw.ambiguity) ? raw.ambiguity : 0)),
     mode: raw.mode,
+    domain: raw.domain,
+    scale: raw.scale,
+    expert: raw.expert?.trim() || null,
     missing: raw.missing,
     questions: raw.questions.slice(0, MAX_QUESTIONS).map((q) => ({
       type: q.type,

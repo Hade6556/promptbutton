@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { ASK_THRESHOLD, type AskMode } from '../../src/llm/config';
-import type { GapReport, HistoryMessage, ImproveInput, UserAnswer } from '../../src/messaging';
+import type { Depth, GapReport, HistoryMessage, ImproveInput, UserAnswer } from '../../src/messaging';
 import { KeyDialog, Keycap, Questions, Result, Transcript, Verdict } from './components';
 import { PROXY_URL, analyze, getBaseUrl, getKey, rewrite, setBaseUrl, setKey } from './llm';
 import { SAMPLES } from './samples';
@@ -15,6 +15,7 @@ export function App() {
   const [draft, setDraft] = useState(defaultSample.draft);
   const [sampleNote, setSampleNote] = useState<string | null>(defaultSample.note);
   const [mode, setMode] = useState<AskMode>('auto');
+  const [depth, setDepth] = useState<Depth>('full');
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [report, setReport] = useState<GapReport | null>(null);
@@ -64,7 +65,7 @@ export function App() {
     const input = currentInput();
 
     if (mode === 'never') {
-      await runRewrite(input, [], started);
+      await runRewrite(input, [], started, null);
       return;
     }
 
@@ -82,13 +83,20 @@ export function App() {
       setPhase('asking');
       return;
     }
-    await runRewrite(input, [], started);
+    await runRewrite(input, [], started, analysis.value);
   }
 
-  async function runRewrite(input: ImproveInput, userAnswers: UserAnswer[], started: number) {
+  // `gap` is passed explicitly: right after setReport() the `report` state is still the previous value.
+  async function runRewrite(input: ImproveInput, userAnswers: UserAnswer[], started: number, gap: GapReport | null) {
     setPhase('rewriting');
     setStreamed('');
-    const rewritten = await rewrite(input, userAnswers, (delta) => setStreamed((s) => s + delta), { mode: report?.mode });
+    const rewritten = await rewrite(input, userAnswers, (delta) => setStreamed((s) => s + delta), {
+      mode: gap?.mode,
+      domain: gap?.domain,
+      scale: gap?.scale,
+      expert: gap?.expert,
+      depth,
+    });
     if (!rewritten.ok) {
       fail(rewritten.error, rewritten.code);
       return;
@@ -110,7 +118,7 @@ export function App() {
     const userAnswers = report.questions
       .map((q, i) => ({ question: q.question, answer: (answers[i] ?? '').trim() }))
       .filter((a) => a.answer.length > 0);
-    void runRewrite(currentInput(), userAnswers, performance.now());
+    void runRewrite(currentInput(), userAnswers, performance.now(), report);
   }
 
   function loadSample(id: string) {
@@ -232,6 +240,13 @@ export function App() {
                   <option value="never">Never, just rewrite</option>
                 </select>
               </label>
+              <label class="select">
+                <span>Depth</span>
+                <select value={depth} onChange={(e) => setDepth((e.currentTarget as HTMLSelectElement).value as Depth)}>
+                  <option value="full">Full master prompt</option>
+                  <option value="concise">Concise</option>
+                </select>
+              </label>
             </div>
           </div>
 
@@ -264,7 +279,7 @@ export function App() {
                 answers={answers}
                 onAnswer={(i, v) => setAnswers((a) => ({ ...a, [i]: v }))}
                 onSubmit={submitAnswers}
-                onSkip={() => void runRewrite(currentInput(), [], performance.now())}
+                onSkip={() => void runRewrite(currentInput(), [], performance.now(), report)}
               />
             )}
 

@@ -1,10 +1,12 @@
 // Types shared by the Electron main process and the panel renderer.
-import type { GapReport, ReplyAssist, UserAnswer } from '../src/messaging';
+import type { Depth, GapReport, ReplyAssist, UserAnswer } from '../src/messaging';
 import type { AskMode } from '../src/llm/config';
 
 export interface Settings {
   apiKey: string | null;
   askMode: AskMode;
+  /** full: task-like drafts become a full master prompt. concise: tighten only. */
+  depth: Depth;
   /** macOS NSWindowSharingNone / Windows WDA_EXCLUDEFROMCAPTURE: the panel is invisible to screen sharing. */
   hideFromCapture: boolean;
 }
