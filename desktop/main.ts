@@ -151,20 +151,37 @@ function createWindow() {
   win.on('closed', () => (win = null));
 }
 
-function positionPanel() {
-  if (!win) return;
-  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-  const { x, y, width } = display.workArea;
-  win.setPosition(Math.round(x + (width - PANEL_WIDTH) / 2), y + 12);
+/** Like Spotlight: the box starts about a fifth of the way down the screen, centred, and grows downward. */
+const PANEL_TOP_RATIO = 0.2;
+const PANEL_MARGIN = 16;
+
+function panelOrigin(display: Electron.Display) {
+  const { x, y, width, height } = display.workArea;
+  return { x: Math.round(x + (width - PANEL_WIDTH) / 2), y: Math.round(y + height * PANEL_TOP_RATIO) };
 }
 
-/** The renderer reports its content height; keep the window exactly that tall, anchored at the top. */
+function positionPanel() {
+  if (!win) return;
+  const origin = panelOrigin(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
+  win.setPosition(origin.x, origin.y);
+}
+
+/**
+ * The renderer reports its content height; keep the window exactly that tall. The box stays anchored at
+ * its resting position and grows downward; if it would run off the bottom it slides up, never above the
+ * top margin.
+ */
 function fitPanel(height: number) {
   if (!win) return;
-  const [x, y] = win.getPosition();
-  const next = Math.max(PANEL_HEIGHT, Math.min(PANEL_MAX_HEIGHT, Math.ceil(height)));
+  const [x = 0, currentY = 0] = win.getPosition();
+  const display = screen.getDisplayNearestPoint({ x: x + PANEL_WIDTH / 2, y: currentY });
+  const area = display.workArea;
+  const resting = panelOrigin(display).y;
+  const next = Math.max(PANEL_HEIGHT, Math.min(PANEL_MAX_HEIGHT, area.height - 2 * PANEL_MARGIN, Math.ceil(height)));
+  const bottomLimit = area.y + area.height - PANEL_MARGIN;
+  const y = Math.max(area.y + PANEL_MARGIN, Math.min(resting, bottomLimit - next));
   const [, currentHeight] = win.getSize();
-  if (next !== currentHeight) win.setBounds({ x, y, width: PANEL_WIDTH, height: next }, false);
+  if (next !== currentHeight || y !== currentY) win.setBounds({ x, y, width: PANEL_WIDTH, height: next }, false);
 }
 
 function showPanel(takeFocus: boolean) {
