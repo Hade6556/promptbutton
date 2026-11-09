@@ -35,6 +35,56 @@ export interface Capture {
   draft: string;
   bounds: { x: number; y: number; w: number; h: number } | null;
   screenshot: Screenshot | null;
+  /** 256-bit average-hash of the screenshot (64 hex chars); tolerant to caret blinks, sensitive to new content. */
+  screenshotHash: string | null;
+}
+
+/** Hamming distance between two equal-length hex hashes (bits). */
+export function hashDistance(a: string, b: string): number {
+  if (a.length !== b.length) return Number.POSITIVE_INFINITY;
+  let bits = 0;
+  for (let i = 0; i < a.length; i++) {
+    let x = parseInt(a[i]!, 16) ^ parseInt(b[i]!, 16);
+    while (x) {
+      bits += x & 1;
+      x >>= 1;
+    }
+  }
+  return bits;
+}
+
+/** Downscale to 16×16 with sips, then average-hash the grey levels. Local only; no tokens. */
+async function perceptualHash(jpegFile: string): Promise<string | null> {
+  const tiny = `${jpegFile}.bmp`;
+  try {
+    await execFileAsync('sips', ['-z', '16', '16', '-s', 'format', 'bmp', jpegFile, '--out', tiny]);
+    const bmp = await fs.readFile(tiny);
+    const offset = bmp.readUInt32LE(10);
+    const width = bmp.readInt32LE(18);
+    const height = Math.abs(bmp.readInt32LE(22));
+    const bpp = bmp.readUInt16LE(28) / 8;
+    const rowBytes = Math.ceil((width * bpp) / 4) * 4;
+    const grey: number[] = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = offset + y * rowBytes + x * bpp;
+        grey.push((bmp[p]! + bmp[p + 1]! + bmp[p + 2]!) / 3);
+      }
+    }
+    const mean = grey.reduce((s, v) => s + v, 0) / grey.length;
+    let hex = '';
+    for (let i = 0; i < grey.length; i += 4) {
+      let nibble = 0;
+      for (let b = 0; b < 4; b++) if ((grey[i + b] ?? 0) > mean) nibble |= 1 << (3 - b);
+      hex += nibble.toString(16);
+    }
+    return hex;
+  } catch (error) {
+    console.warn('[PromptButton] screenshot hash failed', error instanceof Error ? error.message : error);
+    return null;
+  } finally {
+    await fs.unlink(tiny).catch(() => {});
+  }
 }
 
 /** Runs the Swift helper; `input` is piped to stdin. Resolves with parsed JSON. */
@@ -162,17 +212,18 @@ async function copySelection(): Promise<string> {
   }
 }
 
-async function screenshot(bounds: Capture['bounds']): Promise<Screenshot | null> {
+async function screenshot(bounds: Capture['bounds']): Promise<{ shot: Screenshot | null; hash: string | null }> {
   const file = path.join(os.tmpdir(), `promptbutton-${process.pid}-${Date.now()}.jpg`);
   const region = bounds && bounds.w > 50 && bounds.h > 50 ? ['-R', `${bounds.x},${bounds.y},${bounds.w},${bounds.h}`] : [];
   try {
     await execFileAsync('screencapture', ['-x', '-t', 'jpg', ...region, file]);
     const data = await fs.readFile(file);
-    if (data.length < 1000) return null;
-    return { mediaType: 'image/jpeg', data: data.toString('base64') };
+    if (data.length < 1000) return { shot: null, hash: null };
+    const hash = await perceptualHash(file);
+    return { shot: { mediaType: 'image/jpeg', data: data.toString('base64') }, hash };
   } catch (error) {
     console.warn('[PromptButton] screenshot failed', error instanceof Error ? error.message : error);
-    return null;
+    return { shot: null, hash: null };
   } finally {
     await fs.unlink(file).catch(() => {});
   }
@@ -207,6 +258,7 @@ export async function captureContext(): Promise<Capture> {
   const source: DraftSource = selection ? 'selection' : field ? 'field' : 'none';
   if (source === 'none') method = 'none';
 
+  const { shot, hash } = await screenshot(focused.bounds ?? null);
   return {
     appName: focused.app || 'this app',
     bundleId: focused.bundleId,
@@ -221,6 +273,7 @@ export async function captureContext(): Promise<Capture> {
     method,
     draft: selection || field,
     bounds: focused.bounds ?? null,
-    screenshot: await screenshot(focused.bounds ?? null),
+    screenshot: shot,
+    screenshotHash: hash,
   };
 }

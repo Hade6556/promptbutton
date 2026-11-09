@@ -19,6 +19,7 @@ const DOTS = (
   </>
 );
 const CLOSE = <path d="M18 6 6 18M6 6l12 12" />;
+const REFRESH = <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />;
 
 /**
  * One box. Above the field: the single thing you need to know right now (a question, the
@@ -239,6 +240,11 @@ export function Panel() {
           <button type="button" class="more" aria-label="Settings" title="Settings" onClick={() => send({ type: 'openSettings' })}>
             <Icon d={DOTS} size={14} />
           </button>
+          {!busy && state.phase !== 'settings' && (
+            <button type="button" class="more" aria-label="Scan again" title="Scan again (ignore cached result)" onClick={() => send({ type: 'refresh' })}>
+              <Icon d={REFRESH} size={13} />
+            </button>
+          )}
           <button type="button" class="more" aria-label="Close" title="Close (esc)" onClick={() => send({ type: 'cancel' })}>
             <Icon d={CLOSE} size={13} />
           </button>

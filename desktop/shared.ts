@@ -52,6 +52,8 @@ export type RendererAction =
   /** Re-run the rewrite with an extra instruction typed into the input box. */
   | { type: 'refine'; note: string }
   | { type: 'cancel' }
+  /** Re-read the screen and run again, ignoring the cached result. */
+  | { type: 'refresh' }
   | { type: 'openSettings' }
   | { type: 'saveSettings'; settings: Settings };
 

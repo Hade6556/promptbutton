@@ -10,7 +10,7 @@ import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { suggestReplies } from '../src/llm/reply';
 import { rewritePrompt } from '../src/llm/rewrite';
 import type { GapReport, ImproveInput, RewriteOptions, UserAnswer } from '../src/messaging';
-import { captureContext, type Capture } from './capture';
+import { captureContext, hashDistance, type Capture } from './capture';
 import { dotEnvPaths, resolveApiKey } from './env';
 import { forcePaste, insertText } from './insert';
 import { loadSettings, saveSettings } from './settings';
@@ -31,9 +31,42 @@ let busy = false;
 /** Incremented on every trigger/close so results from a cancelled run are ignored. */
 let runId = 0;
 const stale = (id: number) => id !== runId;
-let current: { capture: Capture; input: ImproveInput; report: GapReport | null; text: string; answers: UserAnswer[] } | null = null;
+interface Run {
+  capture: Capture;
+  input: ImproveInput;
+  report: GapReport | null;
+  text: string;
+  answers: UserAnswer[];
+}
+let current: Run | null = null;
 let lastInsert: { capture: Capture; original: string } | null = null;
 let noticeTimer: NodeJS.Timeout | undefined;
+
+/** The last finished run, so re-opening on unchanged input costs no tokens. */
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const HASH_TOLERANCE_BITS = 12; // of 256: caret blinks and hover states pass, new text does not
+let lastRun: { key: string; hash: string | null; at: number; snapshot: PanelState; current: Run } | null = null;
+
+function fingerprint(capture: Capture): string {
+  return `${capture.bundleId || capture.appName}|${capture.pid}|${capture.source}|${capture.draft}`;
+}
+
+function rememberRun() {
+  if (!current) return;
+  if (state.phase !== 'asking' && state.phase !== 'done' && state.phase !== 'replies') return;
+  lastRun = { key: fingerprint(current.capture), hash: current.capture.screenshotHash, at: Date.now(), snapshot: { ...state }, current };
+}
+
+function cachedRun(capture: Capture): typeof lastRun {
+  if (!lastRun || Date.now() - lastRun.at > CACHE_TTL_MS) return null;
+  if (lastRun.key !== fingerprint(capture)) return null;
+  // With a draft, the text is the input. With an empty field, the screen is the input.
+  if (capture.source === 'none') {
+    if (!lastRun.hash || !capture.screenshotHash) return null;
+    if (hashDistance(lastRun.hash, capture.screenshotHash) > HASH_TOLERANCE_BITS) return null;
+  }
+  return lastRun;
+}
 
 function setState(patch: Partial<PanelState>) {
   const previous = state.phase;
@@ -151,9 +184,9 @@ function fail(error: unknown) {
   showPanel(true);
 }
 
-async function trigger() {
+async function trigger(options: { fresh?: boolean } = {}) {
   // The hotkey toggles: open and run when hidden, close when visible — even mid-run.
-  if (state.phase !== 'hidden') {
+  if (state.phase !== 'hidden' && !options.fresh) {
     console.log(`[PromptButton] hotkey while ${state.phase} → closing`);
     hidePanel();
     return;
@@ -163,8 +196,19 @@ async function trigger() {
   busy = true;
   try {
     // Capture before showing the panel so the screenshot does not include it.
+    if (options.fresh) win?.hide();
     const capture = await captureContext();
     if (stale(my)) return;
+
+    const cached = options.fresh ? null : cachedRun(capture);
+    if (cached) {
+      console.log(`[PromptButton] unchanged input — reopening the last result, no API call (${cached.snapshot.phase})`);
+      current = cached.current;
+      busy = false;
+      setState({ ...cached.snapshot });
+      showPanel(true);
+      return;
+    }
     console.log(
       `[PromptButton] captured app="${capture.appName}" role=${capture.role || '?'} via=${capture.method} source=${capture.source} settable=${capture.valueSettable} draft=${capture.draft.length} chars screenshot=${capture.screenshot ? `${Math.round((capture.screenshot.data.length * 3) / 4 / 1024)} KB` : 'none'}`,
     );
@@ -184,6 +228,7 @@ async function trigger() {
       console.log(`[PromptButton] reply assist: ${assist.replies.length} replies, ${assist.asks.length} asks`);
       busy = false;
       setState({ phase: 'replies', assist });
+      rememberRun();
       showPanel(true);
       return;
     }
@@ -231,6 +276,7 @@ async function analyzeAndContinue() {
     if (shouldAsk) {
       busy = false;
       setState({ phase: 'asking', report, asked: true });
+      rememberRun();
       showPanel(true); // the user needs focus to answer
       return;
     }
@@ -268,6 +314,7 @@ async function rewrite(answers: UserAnswer[], revision?: { previous: string; req
     current.text = text;
     busy = false;
     setState({ phase: 'done', text });
+    rememberRun();
     showPanel(true);
   } catch (error) {
     if (!stale(my)) fail(error);
@@ -324,6 +371,8 @@ async function handleAction(action: RendererAction) {
       return;
     case 'cancel':
       return hidePanel();
+    case 'refresh':
+      return trigger({ fresh: true });
     case 'openSettings':
       setState({ phase: 'settings', settings, error: undefined });
       return showPanel(true);
