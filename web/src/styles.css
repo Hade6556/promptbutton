@@ -486,6 +486,25 @@ textarea::placeholder,
   background: var(--plate);
   line-height: 1.55;
 }
+.result-text mark {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+.result-text.streaming {
+  border-style: dashed;
+  min-height: 4em;
+}
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: -2px;
+  background: var(--accent);
+  animation: pulse 0.8s steps(2) infinite;
+}
 .original summary {
   cursor: pointer;
   color: var(--muted);

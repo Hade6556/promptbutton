@@ -7,10 +7,22 @@ of goal / audience / format / constraints / success criteria / examples is actua
 already answered by the conversation*, asks you only when it matters (max 3 tappable questions), and
 rewrites the draft in your own voice. It never sends the message for you.
 
-Works on **claude.ai** and **chatgpt.com**. Trigger: `Alt+Shift+P` (or a USB button sending the same chord).
+Works on **claude.ai** and **chatgpt.com**. Trigger: `Alt+Shift+P`, the ✦ button in the corner, or a
+[USB button](hardware/) sending the same chord.
 
 **Try it without installing anything:** the playground at <https://hade6556.github.io/promptbutton/> runs the same
 two Claude calls on a conversation you paste in (bring your own Anthropic key; it stays in your browser).
+
+## What happens when you press
+
+1. **Read** — the last dozen turns are scraped from the page and sent with your draft.
+2. **Gate** — a structured gap analysis names what is missing (goal, audience, output format, constraints,
+   success criteria, examples, unclear reference, scope) and scores ambiguity 0–1. Questions appear only
+   above the threshold (default 0.6), never more than three, each with tappable suggested answers. Short
+   follow-ups in a live conversation score low and skip straight to the rewrite.
+3. **Rewrite** — streamed into a preview with additions highlighted. Facts come from the conversation and your
+   answers; anything still unknown becomes a `[bracketed placeholder]`, never an invention. Use it, edit it
+   in place, or cancel. Undo restores the original.
 
 ## Why this design
 
@@ -24,24 +36,22 @@ two Claude calls on a conversation you paste in (bring your own Anthropic key; i
 
 ```bash
 npm install
-npm run dev        # builds to .output/chrome-mv3 and watches
+npm run dev        # extension → .output/chrome-mv3, watches
+npm run web:dev    # playground / landing page at http://localhost:5173
 ```
 
-Load it in Chrome: `chrome://extensions` → Developer mode → **Load unpacked** → pick `.output/chrome-mv3`.
-Click the extension icon, paste an Anthropic API key (stored only in `chrome.storage.local`), open
-claude.ai or chatgpt.com, type a draft, press `Alt+Shift+P`.
-
+Load the extension: `chrome://extensions` → Developer mode → **Load unpacked** → `.output/chrome-mv3`.
+Click the icon, paste an Anthropic API key (stored only in `chrome.storage.local`), open claude.ai or
+chatgpt.com, type a draft, press `Alt+Shift+P` or the ✦ button.
 If the shortcut does nothing, check `chrome://extensions/shortcuts` — another extension may own the chord.
 
 ```bash
-npm run web:dev    # the playground / landing page (Preact + Vite) at http://localhost:5173
-npm run web:build  # → web/dist; deployed to GitHub Pages by the workflow below on push to main
-
 npm run typecheck  # extension + web
-npm run build
-npm run eval       # (day 4) win rate vs. original prompts, false-ask rate on clear prompts
-
-ANTHROPIC_API_KEY=sk-ant-… node --import tsx eval/smoke.mts   # live check of both Claude calls on 3 fixtures
+npm run build      # extension
+npm run web:build  # playground → web/dist
+npm run eval       # run + judge; see eval/README.md
+ANTHROPIC_API_KEY=sk-ant-… node --import tsx eval/smoke.mts   # quick live check of both Claude calls
+node --import tsx scripts/make-icons.mts                       # regenerate public/icon/*.png
 ```
 
 ### Turning on GitHub Pages
@@ -60,21 +70,26 @@ The site appears at `https://hade6556.github.io/promptbutton/`.
 ## Layout
 
 ```
-entrypoints/background.ts   hotkey → active tab; runs the Claude calls (holds the key)
-entrypoints/content.ts      per-site adapter, UI, writes the result into the composer
+entrypoints/background.ts   hotkey → active tab; Claude calls (holds the key); streams the rewrite over a port
+entrypoints/content.ts      per-site adapter, the in-page panel, writes the result into the composer
 entrypoints/popup/          API key + "when to ask" mode
 src/adapters/               chatgpt, claude, generic — readDraft / readHistory / writeDraft
-src/llm/                    prompts, context serialization, gap analysis, rewrite
-src/ui/                     shadow-DOM toast (panel with questions comes next)
-web/                        playground + landing page; imports the same src/llm modules
-eval/                       cases + pairwise LLM judge
+src/llm/                    prompts, context serialization, gap analysis, rewrite, error mapping
+src/ui/panel.ts             shadow-DOM panel: questions → streaming preview with diff → use / edit / undo; ✦ button
+src/utils/diff.ts           word-level LCS diff for the highlights
+web/                        playground + landing page (Preact + Vite); imports the same src/llm modules
+eval/                       28 cases with hidden intent, simulated-user answers, position-swapped judge
+hardware/                   CircuitPython firmware for a one-key USB keyboard sending Alt+Shift+P
+scripts/make-icons.mts      renders the keycap icon PNGs with no image dependencies
 ```
 
 ## Status
 
-- [x] Day 1 — hotkey → rewrite → text replaced in composer (chatgpt.com), undo, popup settings
-- [ ] Day 2 — claude.ai adapter verified, conversation scraping, preview panel, floating button
-- [ ] Day 3 — gap analysis + ambiguity gate + inline questions
-- [ ] Day 4 — eval harness, threshold tuning
-- [ ] Day 5 — polish, streaming preview, demo video
-- [ ] Day 6 — hardware button (optional)
+- [x] Day 1 — hotkey → rewrite → composer (chatgpt.com), undo, popup settings
+- [x] Day 2 — claude.ai adapter (composer verified; message scraper with row fallback), panel, ✦ button
+- [x] Day 3 — gap analysis, ambiguity gate, tappable questions
+- [x] Day 4 — eval harness (`npm run eval`)
+- [x] Day 5 — streaming preview, diff highlights, error states, icons, playground
+- [x] Day 6 — hardware firmware + wiring guide
+- [ ] Verify end-to-end in a real session with a key: extension on both sites, `eval/smoke.mts`, a full `npm run eval`
+- [ ] Record the demo video

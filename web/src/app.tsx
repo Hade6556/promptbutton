@@ -21,6 +21,7 @@ export function App() {
   const [asked, setAsked] = useState(false);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [result, setResult] = useState<string | null>(null);
+  const [streamed, setStreamed] = useState('');
   const [resultFor, setResultFor] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState<number | null>(null);
@@ -85,7 +86,8 @@ export function App() {
 
   async function runRewrite(input: ImproveInput, userAnswers: UserAnswer[], started: number) {
     setPhase('rewriting');
-    const rewritten = await rewrite(input, userAnswers);
+    setStreamed('');
+    const rewritten = await rewrite(input, userAnswers, (delta) => setStreamed((s) => s + delta));
     if (!rewritten.ok) {
       fail(rewritten.error, rewritten.code);
       return;
@@ -266,15 +268,24 @@ export function App() {
             )}
 
             {phase === 'rewriting' && (
-              <div class="status">
-                <span class="dot" aria-hidden="true" />
-                <p>Rewriting…</p>
-              </div>
+              <>
+                <h2>Rewriting…</h2>
+                <div class="result-text streaming" aria-live="polite">
+                  {streamed}
+                  <span class="caret" aria-hidden="true" />
+                </div>
+              </>
             )}
 
             {phase === 'done' && result && (
               <>
-                <h2>Rewritten prompt{elapsed !== null && <span class="elapsed"> · {(elapsed / 1000).toFixed(1)}s</span>}</h2>
+                <h2>
+                  Rewritten prompt
+                  <span class="elapsed">
+                    {' '}
+                    · additions highlighted{elapsed !== null && ` · ${(elapsed / 1000).toFixed(1)}s`}
+                  </span>
+                </h2>
                 <Result
                   text={result}
                   original={resultFor}

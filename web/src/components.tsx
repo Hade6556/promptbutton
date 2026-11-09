@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { GapReport, HistoryMessage } from '../../src/messaging';
+import { diffWords } from '../../src/utils/diff';
 
 /* ---------- Keycap: the one bold element ---------- */
 
@@ -190,6 +191,7 @@ export function Verdict({ report, asked }: { report: GapReport; asked: boolean }
 
 export function Result({ text, original, onUseAsDraft }: { text: string; original: string; onUseAsDraft: () => void }) {
   const [copied, setCopied] = useState(false);
+  const ops = useMemo(() => diffWords(original, text), [original, text]);
   async function copy() {
     try {
       await navigator.clipboard.writeText(text);
@@ -201,7 +203,11 @@ export function Result({ text, original, onUseAsDraft }: { text: string; origina
   }
   return (
     <div class="result">
-      <div class="result-text">{text}</div>
+      <div class="result-text">
+        {ops.map((op, i) =>
+          op.type === 'del' ? null : op.type === 'add' && op.text.trim() ? <mark key={i}>{op.text}</mark> : op.text,
+        )}
+      </div>
       <div class="actions">
         <button type="button" class="primary" onClick={copy}>
           {copied ? 'Copied' : 'Copy prompt'}

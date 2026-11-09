@@ -38,9 +38,13 @@ export async function analyze(input: ImproveInput): Promise<Result<GapReport>> {
   }
 }
 
-export async function rewrite(input: ImproveInput, answers: UserAnswer[]): Promise<Result<string>> {
+export async function rewrite(
+  input: ImproveInput,
+  answers: UserAnswer[],
+  onDelta?: (text: string) => void,
+): Promise<Result<string>> {
   try {
-    return { ok: true, value: await rewritePrompt(client(), input, answers) };
+    return { ok: true, value: await rewritePrompt(client(), input, answers, onDelta) };
   } catch (error) {
     return toResult<never>(error);
   }

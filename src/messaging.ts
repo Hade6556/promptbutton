@@ -1,4 +1,4 @@
-// Typed messages between the content script and the background service worker.
+// Typed messages between the content script, the background service worker, and the web playground.
 
 export type Role = 'user' | 'assistant';
 
@@ -62,9 +62,17 @@ export interface RewriteRequest {
 export type BackgroundRequest = AnalyzeRequest | RewriteRequest;
 export type ContentMessage = TriggerMessage;
 
-export type Result<T> = { ok: true; value: T } | { ok: false; error: string; code?: ErrorCode };
-
 export type ErrorCode = 'no_api_key' | 'auth' | 'rate_limit' | 'refusal' | 'network' | 'unknown';
+
+export type Result<T> = { ok: true; value: T } | { ok: false; error: string; code?: ErrorCode };
 
 export type AnalyzeResponse = Result<GapReport>;
 export type RewriteResponse = Result<string>;
+
+/** Long-lived port used to stream the rewrite into the preview. */
+export const REWRITE_PORT = 'promptbutton-rewrite';
+
+export type PortMessage =
+  | { type: 'delta'; text: string }
+  | { type: 'done'; text: string }
+  | { type: 'error'; error: string; code?: ErrorCode };

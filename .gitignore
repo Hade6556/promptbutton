@@ -3,6 +3,7 @@ node_modules/
 .wxt/
 web/dist/
 .env
-eval/results/
+eval/results/*
+!eval/results/summary.md
 *.local
 .DS_Store
