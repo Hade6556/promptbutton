@@ -1,16 +1,14 @@
-/* Cluely-style overlay: a pill on top, a glass card beneath. Tokens measured from cluely.com. */
+/* One box, Cluely's input-box styling, emerald accent. */
 :root {
   --font: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --ink: #edeef2; /* rgb(237,238,242) */
+  --ink: #edeef2;
   --ink-2: rgba(255, 255, 255, 0.72);
-  --ink-3: rgba(255, 255, 255, 0.4);
-  /* Cluely uses 0.8 over a real blur; Electron cannot blur the desktop behind a transparent window, so go denser. */
-  --pill-bg: rgba(24, 23, 28, 0.9);
-  --card-bg: rgba(24, 23, 28, 0.93);
-  --ring: 0 0 0 1px rgba(207, 226, 255, 0.24), 0 -0.5px 0 0 rgba(255, 255, 255, 0.8);
-  --hair: rgba(255, 255, 255, 0.25);
-  --blue: #2f6bff;
-  --blue-deep: #1f4fd6;
+  --ink-3: rgba(255, 255, 255, 0.42);
+  --bg: rgba(24, 23, 28, 0.93);
+  --hair: rgba(155, 155, 155, 0.4);
+  --accent-top: #27c07a;
+  --accent-bottom: #118a53;
+  --accent: #16a362;
 }
 * {
   box-sizing: border-box;
@@ -24,174 +22,67 @@ body,
 }
 body {
   font-family: var(--font);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
 button,
-input {
+input,
+kbd {
   font: inherit;
   color: inherit;
 }
-p,
-ol {
+p {
   margin: 0;
 }
 :focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.5);
-  outline-offset: 2px;
+  outline: none;
 }
 
-.overlay {
-  width: 640px;
+.wrap {
+  width: 600px;
+  padding: 4px 0;
+}
+
+.box {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-}
-
-/* ---- pill ---- */
-.pill {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  background: var(--pill-bg);
-  box-shadow: var(--ring);
+  padding: 6px 8px 8px;
+  border-radius: 14px;
+  border: 0.5px solid var(--hair);
+  background: var(--bg);
+  box-shadow:
+    0 -1px 0 0 rgba(255, 255, 255, 0.25),
+    0 0 0 1px rgba(207, 226, 255, 0.18),
+    0 20px 50px rgba(0, 0, 0, 0.35);
   -webkit-app-region: drag;
-}
-.pill button {
-  -webkit-app-region: no-drag;
-}
-.logo {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-}
-.pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 9999px;
-  background: transparent;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 16px;
-  cursor: pointer;
-  box-shadow: inset 0 0.7px 0 0 rgba(175, 179, 196, 0.6);
-}
-.pill-btn:hover,
-.pill-icon:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-.pill-icon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 9999px;
-  background: transparent;
-  color: #fff;
-  cursor: pointer;
-  box-shadow: inset 0 0.7px 0 0 rgba(175, 179, 196, 0.6);
-}
-
-/* ---- card ---- */
-.card {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px 14px 10px;
-  border-radius: 16px;
-  border: 1px solid var(--hair);
-  background: var(--card-bg);
-  box-shadow: var(--ring), 0 24px 60px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   user-select: text;
 }
-
-.bubble-row {
-  display: flex;
-  justify-content: flex-end;
-}
-.bubble {
-  max-width: 78%;
-  padding: 8px 14px;
-  border-radius: 14px 14px 4px 14px;
-  background: linear-gradient(180deg, #3a73ff 0%, #2558e6 100%);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+.box button,
+.box input {
+  -webkit-app-region: no-drag;
 }
 
-.status {
-  color: var(--ink-2);
-  font-size: 12px;
-}
-.shimmer {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.55) 0%, #fff 50%, rgba(255, 255, 255, 0.55) 100%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: shimmer 1.6s linear infinite;
-}
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 22px;
-  padding: 0 8px 0 6px;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(24, 23, 28, 0.1);
-  color: var(--ink-2);
-  font-size: 11px;
-  font-weight: 500;
-}
-.badge.muted {
-  color: var(--ink-3);
-}
-
-.answer {
+.line {
+  padding: 8px 10px 2px;
   color: var(--ink);
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.55;
   white-space: pre-wrap;
 }
-.answer mark {
-  background: rgba(255, 255, 255, 0.1);
-  color: inherit;
-  border-radius: 3px;
-  padding: 0 1px;
+.line .n {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+.line.result {
+  color: #fff;
+  max-height: 260px;
+  overflow: auto;
+}
+.line.error {
+  color: #ff9d94;
 }
 .caret {
   display: inline-block;
@@ -208,113 +99,7 @@ ol {
   }
 }
 
-.line {
-  color: var(--ink);
-  font-size: 13px;
-}
-.line.error {
-  color: #ff9d94;
-}
-
-/* ---- questions ---- */
-.questions {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.q {
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 6px;
-}
-.options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.opt {
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(24, 23, 28, 0.1);
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.opt:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  color: #fff;
-}
-.opt.on {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
-}
-.own {
-  flex: 1 1 160px;
-  min-width: 140px;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: transparent;
-  color: #fff;
-  font-size: 12px;
-}
-.own::placeholder {
-  color: var(--ink-3);
-}
-
-/* ---- action chips row ---- */
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  min-height: 0;
-}
-.chips:empty {
-  display: none;
-}
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 8px 8px 6px;
-  border: 0;
-  border-radius: 9999px;
-  background: transparent;
-  color: #fff;
-  font-size: 12px;
-  line-height: 12px;
-  cursor: pointer;
-}
-.chip:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-.dot {
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-/* ---- ask box ---- */
-.ask {
-  display: flex;
-  flex-direction: column;
-  border-radius: 12px;
-  border: 0.5px solid rgba(155, 155, 155, 0.4);
-  box-shadow: 0 -1px 0 0 rgba(255, 255, 255, 0.25);
-  padding: 2px 6px 6px;
-}
-.ask-input {
-  position: relative;
-}
-.ask-input input {
+.field input {
   width: 100%;
   padding: 10px 10px 8px;
   border: 0;
@@ -325,58 +110,72 @@ ol {
   outline: none;
   box-shadow: inset 0 2px 20px -1px rgba(0, 0, 0, 0.05);
 }
-.ask-input input:disabled {
-  opacity: 0.6;
-}
-.placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 10px;
+.field input::placeholder {
   color: var(--ink-3);
-  font-size: 13px;
-  pointer-events: none;
-  white-space: nowrap;
-  overflow: hidden;
 }
-.key {
-  display: inline-grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  border-radius: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--ink-2);
-  font-family: var(--font);
-  font-size: 11px;
+.field input.shimmer::placeholder {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.9) 50%, rgba(255, 255, 255, 0.35) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.6s linear infinite;
 }
-.ask-row {
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 2px 4px 0;
+  gap: 6px;
+  padding: 2px 2px 0 4px;
 }
-.mode {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 8px 0 6px;
+.opt {
+  height: 24px;
+  padding: 0 10px;
   border-radius: 9999px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(24, 23, 28, 0.1);
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
+}
+.opt:hover {
+  border-color: var(--accent);
+  color: #fff;
+}
+.hint {
+  color: var(--ink-3);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 4px;
+}
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.spacer {
+  flex: 1;
 }
 .more {
   width: 26px;
-  height: 22px;
+  height: 24px;
   display: grid;
   place-items: center;
   border: 0;
@@ -385,62 +184,22 @@ ol {
   color: var(--ink-3);
   cursor: pointer;
 }
-.more:hover,
-.mode:hover {
+.more:hover {
   color: #fff;
 }
-.spacer {
-  flex: 1;
-}
 .go {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(180deg, #3a73ff 0%, #2558e6 100%);
+  background: linear-gradient(180deg, var(--accent-top) 0%, var(--accent-bottom) 100%);
   color: #fff;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 .go:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: progress;
-}
-
-/* ---- settings ---- */
-.settings {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.settings label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--ink-2);
-}
-.settings label em {
-  font-style: normal;
-  color: var(--ink-3);
-}
-.settings label.row {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
-.settings input[type='password'] {
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
-  font-size: 12px;
-}
-.hint {
-  color: var(--ink-3);
-  font-size: 11px;
 }

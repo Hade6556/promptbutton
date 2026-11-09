@@ -1,94 +1,62 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { GapReport } from '../../src/messaging';
-import { diffWords } from '../../src/utils/diff';
-import type { PanelState, Settings } from '../shared';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import type { PanelState } from '../shared';
 
 const send = (action: Parameters<Window['pb']['send']>[0]) => window.pb.send(action);
 
-/* ---------- icons (lucide-style strokes) ---------- */
-const I = {
-  chevronDown: <path d="m6 9 6 6 6-6" />,
-  chevronUp: <path d="m18 15-6-6-6 6" />,
-  square: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,
-  sparkles: <path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1M7.7 16.3l-2.1 2.1" />,
-  wand: <path d="m15 4 1 1-9.5 9.5-1-1zM13 6l5 5M4 20l3-1-2-2zM9 4h.01M20 15h.01M15 2h.01M3 11h.01" />,
-  insert: <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" />,
-  copy: <>
-    <rect x="9" y="9" width="11" height="11" rx="2" />
-    <path d="M5 15V5a2 2 0 0 1 2-2h10" />
-  </>,
-  refresh: <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />,
-  x: <path d="M18 6 6 18M6 6l12 12" />,
-  dots: <>
-    <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
-    <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
-    <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
-  </>,
-  arrowRight: <path d="M5 12h14m-6-6 6 6-6 6" />,
-  skip: <path d="M5 5v14l9-7zM19 5v14" />,
-  eye: <>
-    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
-    <circle cx="12" cy="12" r="3" />
-  </>,
-  bolt: <path d="M13 2 4 14h7l-1 8 9-12h-7z" />,
-};
 function Icon({ d, size = 14 }: { d: preact.JSX.Element; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       {d}
     </svg>
   );
 }
-function Logo() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="3" y="7" width="26" height="22" rx="7" fill="#1D37A8" />
-      <rect x="3" y="3" width="26" height="22" rx="7" fill="#3B6CFF" />
-    </svg>
-  );
-}
-function Key({ children }: { children: preact.ComponentChildren }) {
-  return <kbd class="key">{children}</kbd>;
-}
+const ARROW = <path d="M5 12h14m-6-6 6 6-6 6" />;
+const DOTS = (
+  <>
+    <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
+  </>
+);
 
-/* ---------- the overlay ---------- */
-
+/**
+ * One box. Above the field: the single thing you need to know right now (a question, the
+ * rewrite, a status). In the field: your answer or a change. The arrow does the next step.
+ */
 export function Panel() {
   const [state, setState] = useState<PanelState>({ phase: 'hidden' });
+  const [text, setText] = useState('');
+  const [qIndex, setQIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [collapsed, setCollapsed] = useState(false);
-  const [note, setNote] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void window.pb.getState().then(setState);
     return window.pb.onState((next) => {
       setState(next);
-      if (next.phase === 'asking') setAnswers({});
-      if (next.phase === 'analyzing' || next.phase === 'settings' || next.phase === 'error') setCollapsed(false);
-      if (next.phase === 'done') setNote('');
+      if (next.phase === 'asking') {
+        setQIndex(0);
+        setAnswers({});
+      }
+      if (next.phase !== 'settings') setText('');
+      requestAnimationFrame(() => inputRef.current?.focus());
     });
   }, []);
 
-  // Window height follows the content; clicks outside pill/card fall through to the app below.
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const report = () => window.pb.resize(root.getBoundingClientRect().height + 16);
+    const report = () => window.pb.resize(root.getBoundingClientRect().height + 8);
     const observer = new ResizeObserver(report);
     observer.observe(root);
     report();
     return () => observer.disconnect();
-  }, [state.phase, collapsed]);
+  }, [state.phase, qIndex]);
 
   useEffect(() => {
-    function onMove(e: MouseEvent) {
-      const over = (e.target as HTMLElement | null)?.closest('.pill, .card');
-      window.pb.setMouseThrough(!over);
-    }
-    function onLeave() {
-      window.pb.setMouseThrough(true);
-    }
+    const onMove = (e: MouseEvent) => window.pb.setMouseThrough(!(e.target as HTMLElement | null)?.closest('.box'));
+    const onLeave = () => window.pb.setMouseThrough(true);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseleave', onLeave);
     return () => {
@@ -97,287 +65,151 @@ export function Panel() {
     };
   }, []);
 
-  const primary = () => {
-    if (state.phase === 'done' && state.text) send({ type: 'accept', text: state.text });
-    else if (state.phase === 'asking') submitAnswers();
-  };
-
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') send({ type: 'cancel' });
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
-        primary();
+        finish();
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  function submitAnswers() {
-    if (!state.report) return;
-    send({
-      type: 'answers',
-      answers: state.report.questions
-        .map((q, i) => ({ question: q.question, answer: (answers[i] ?? '').trim() }))
-        .filter((a) => a.answer.length > 0),
-    });
-  }
-
-  function submitNote() {
-    const trimmed = note.trim();
-    if (!trimmed) return primary();
-    send({ type: 'refine', note: trimmed });
-    setNote('');
-  }
-
   if (state.phase === 'hidden') return null;
 
   const busy = state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting';
-  const app = state.appName ?? 'this app';
-  const showCard = !collapsed;
+  const questions = state.report?.questions ?? [];
+  const question = state.phase === 'asking' ? questions[qIndex] : undefined;
+  const app = state.appName ?? 'the app';
 
-  return (
-    <div class="overlay" ref={rootRef}>
-      <div class="pill">
-        <div class="logo" title="PromptButton">
-          <Logo />
-        </div>
-        <button type="button" class="pill-btn" onClick={() => setCollapsed((c) => !c)}>
-          <Icon d={collapsed ? I.chevronUp : I.chevronDown} size={13} />
-          {collapsed ? 'Show' : 'Hide'}
-        </button>
-        <button type="button" class="pill-icon" title="Close (esc)" aria-label="Close" onClick={() => send({ type: 'cancel' })}>
-          <Icon d={I.square} size={12} />
-        </button>
-      </div>
-
-      {showCard && (
-        <div class="card" data-phase={state.phase}>
-          {state.phase === 'settings' && state.settings ? (
-            <SettingsForm settings={state.settings} error={state.error} hotkey={state.hotkey} />
-          ) : (
-            <>
-              {state.draft && (state.phase !== 'notice' || state.offerForcePaste) && (
-                <div class="bubble-row">
-                  <div class="bubble">{state.draft}</div>
-                </div>
-              )}
-
-              {busy && (
-                <p class="status">
-                  <span class="shimmer">
-                    {state.phase === 'rewriting'
-                      ? 'Rewriting…'
-                      : state.phase === 'capturing'
-                        ? 'Reading the screen…'
-                        : `Reading ${app} and checking what’s missing…`}
-                  </span>
-                </p>
-              )}
-
-              {state.report && (state.phase === 'asking' || state.phase === 'rewriting' || state.phase === 'done') && (
-                <div class="badges">
-                  <span class="badge">
-                    <Icon d={I.eye} size={12} /> Viewed {app}
-                  </span>
-                  <span class="badge muted">
-                    {Math.round(state.report.ambiguity * 100)}% ambiguous
-                    {state.report.missing.length > 0 && ` · missing ${state.report.missing.map((m) => m.replace('_', ' ')).join(', ')}`}
-                  </span>
-                </div>
-              )}
-
-              {state.phase === 'asking' && state.report && (
-                <Questions report={state.report} answers={answers} onAnswer={(i, v) => setAnswers((a) => ({ ...a, [i]: v }))} />
-              )}
-
-              {(state.phase === 'rewriting' || state.phase === 'done') && (
-                <Answer text={state.text ?? ''} original={state.draft ?? ''} streaming={state.phase === 'rewriting'} />
-              )}
-
-              {state.phase === 'error' && <p class="line error">{state.error}</p>}
-              {state.phase === 'notice' && <p class="line">{state.notice}</p>}
-
-              <div class="chips">
-                {state.phase === 'asking' && (
-                  <>
-                    <Chip icon={I.sparkles} label="Rewrite with answers" onClick={submitAnswers} />
-                    <Dot />
-                    <Chip icon={I.skip} label="Skip questions" onClick={() => send({ type: 'skip' })} />
-                  </>
-                )}
-                {state.phase === 'done' && state.text && (
-                  <>
-                    <Chip icon={I.insert} label={`Insert into ${app}`} onClick={() => send({ type: 'accept', text: state.text! })} />
-                    <Dot />
-                    <Chip icon={I.copy} label="Copy" onClick={() => send({ type: 'copy', text: state.text! })} />
-                    <Dot />
-                    <Chip icon={I.refresh} label="Rewrite again" onClick={() => send({ type: 'skip' })} />
-                    <Dot />
-                    <Chip icon={I.x} label="Cancel" onClick={() => send({ type: 'cancel' })} />
-                  </>
-                )}
-                {state.phase === 'notice' && state.offerForcePaste && (
-                  <>
-                    <Chip icon={I.insert} label="Select all and paste" onClick={() => send({ type: 'forcePaste' })} />
-                    <Dot />
-                    <Chip icon={I.x} label="I’ll paste myself" onClick={() => send({ type: 'cancel' })} />
-                  </>
-                )}
-                {state.phase === 'error' && (
-                  <>
-                    <Chip icon={I.dots} label="Settings" onClick={() => send({ type: 'openSettings' })} />
-                    <Dot />
-                    <Chip icon={I.x} label="Close" onClick={() => send({ type: 'cancel' })} />
-                  </>
-                )}
-              </div>
-
-              <div class="ask">
-                <div class="ask-input">
-                  <input
-                    type="text"
-                    value={note}
-                    disabled={busy}
-                    placeholder=""
-                    aria-label="Tell it what to change"
-                    onInput={(e) => setNote((e.currentTarget as HTMLInputElement).value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        submitNote();
-                      }
-                    }}
-                  />
-                  {!note && (
-                    <div class="placeholder" aria-hidden="true">
-                      {state.phase === 'done' ? 'Tell it what to change, or ' : state.phase === 'asking' ? 'Add a detail, or ' : 'Add a detail, or '}
-                      <Key>⌘</Key>
-                      <Key>↵</Key>
-                      {state.phase === 'done' ? ' to insert' : ' to rewrite'}
-                    </div>
-                  )}
-                </div>
-                <div class="ask-row">
-                  <button type="button" class="mode" title="When to ask questions" onClick={() => send({ type: 'openSettings' })}>
-                    <Icon d={I.bolt} size={11} />
-                    {state.settings?.askMode === 'never' ? 'Direct' : state.settings?.askMode === 'always' ? 'Ask' : 'Smart'}
-                  </button>
-                  <button type="button" class="more" aria-label="Settings" onClick={() => send({ type: 'openSettings' })}>
-                    <Icon d={I.dots} size={14} />
-                  </button>
-                  <span class="spacer" />
-                  <button type="button" class="go" aria-label="Primary action" disabled={busy} onClick={submitNote}>
-                    <Icon d={I.arrowRight} size={15} />
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Dot() {
-  return <span class="dot">•</span>;
-}
-
-function Chip({ icon, label, onClick }: { icon: preact.JSX.Element; label: string; onClick: () => void }) {
-  return (
-    <button type="button" class="chip" onClick={onClick}>
-      <Icon d={icon} size={14} />
-      {label}
-    </button>
-  );
-}
-
-function Questions({ report, answers, onAnswer }: { report: GapReport; answers: Record<number, string>; onAnswer: (i: number, v: string) => void }) {
-  return (
-    <ol class="questions">
-      {report.questions.map((q, i) => (
-        <li key={i}>
-          <p class="q">{q.question}</p>
-          <div class="options">
-            {q.suggestions.map((s) => (
-              <button type="button" class={`opt${answers[i] === s ? ' on' : ''}`} key={s} onClick={() => onAnswer(i, answers[i] === s ? '' : s)}>
-                {s}
-              </button>
-            ))}
-            <input
-              type="text"
-              class="own"
-              value={answers[i] ?? ''}
-              placeholder="Type your own"
-              aria-label={`Answer: ${q.question}`}
-              onInput={(e) => onAnswer(i, (e.currentTarget as HTMLInputElement).value)}
-            />
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function Answer({ text, original, streaming }: { text: string; original: string; streaming: boolean }) {
-  const ops = useMemo(() => (streaming ? null : diffWords(original, text)), [original, text, streaming]);
-  return (
-    <p class="answer">
-      {ops ? ops.map((op, i) => (op.type === 'del' ? null : op.type === 'add' && op.text.trim() ? <mark key={i}>{op.text}</mark> : op.text)) : text}
-      {streaming && <span class="caret" aria-hidden="true" />}
-    </p>
-  );
-}
-
-function SettingsForm({ settings, error, hotkey }: { settings: Settings; error?: string; hotkey?: string }) {
-  const [key, setKey] = useState('');
-  const [askMode, setAskMode] = useState(settings.askMode);
-  const [hide, setHide] = useState(settings.hideFromCapture);
-  const [problem, setProblem] = useState<string | null>(null);
-
-  function save() {
-    const trimmed = key.trim();
-    if (trimmed && !trimmed.startsWith('sk-ant-')) return setProblem('Anthropic keys start with sk-ant-.');
-    send({ type: 'saveSettings', settings: { apiKey: trimmed || settings.apiKey, askMode, hideFromCapture: hide } });
+  /** Submit the answers gathered so far and rewrite. */
+  function rewriteWithAnswers(extra: Record<number, string> = answers) {
+    send({
+      type: 'answers',
+      answers: questions.map((q, i) => ({ question: q.question, answer: (extra[i] ?? '').trim() })).filter((a) => a.answer),
+    });
   }
 
+  function answer(value: string) {
+    const next = { ...answers, [qIndex]: value };
+    setAnswers(next);
+    setText('');
+    if (qIndex + 1 < questions.length) setQIndex(qIndex + 1);
+    else rewriteWithAnswers(next);
+  }
+
+  /** The arrow / ⌘↵: the obvious next step for the current phase. */
+  function finish() {
+    const typed = text.trim();
+    switch (state.phase) {
+      case 'asking':
+        return typed ? answer(typed) : rewriteWithAnswers();
+      case 'done':
+        if (typed) {
+          send({ type: 'refine', note: typed });
+          setText('');
+          return;
+        }
+        return state.text && send({ type: 'accept', text: state.text });
+      case 'notice':
+        return state.offerForcePaste ? send({ type: 'forcePaste' }) : send({ type: 'cancel' });
+      case 'error':
+        return send({ type: 'openSettings' });
+      case 'settings':
+        if (!state.settings) return;
+        if (typed && !typed.startsWith('sk-ant-')) return;
+        return send({ type: 'saveSettings', settings: { ...state.settings, apiKey: typed || state.settings.apiKey } });
+    }
+  }
+
+  const placeholder = (() => {
+    switch (state.phase) {
+      case 'capturing':
+        return 'Reading the screen…';
+      case 'analyzing':
+        return `Reading ${app}…`;
+      case 'rewriting':
+        return 'Rewriting…';
+      case 'asking':
+        return question ? 'Type an answer, or pick one below' : '';
+      case 'done':
+        return 'Change something, or ↵ to insert';
+      case 'settings':
+        return state.settings?.apiKey ? 'Paste a new key to replace the saved one' : 'Paste your Anthropic API key (sk-ant-…)';
+      default:
+        return '';
+    }
+  })();
+
+  const line = (() => {
+    switch (state.phase) {
+      case 'asking':
+        return question ? (
+          <p class="line">
+            {question.question}
+            {questions.length > 1 && <span class="n"> {qIndex + 1}/{questions.length}</span>}
+          </p>
+        ) : null;
+      case 'rewriting':
+        return state.text ? <p class="line result">{state.text}<span class="caret" /></p> : null;
+      case 'done':
+        return <p class="line result">{state.text}</p>;
+      case 'error':
+        return <p class="line error">{state.error}</p>;
+      case 'notice':
+        return <p class="line">{state.notice}</p>;
+      case 'settings':
+        return state.error ? <p class="line error">{state.error}</p> : null;
+      default:
+        return null;
+    }
+  })();
+
   return (
-    <div class="settings">
-      {error && <p class="line error">{error}</p>}
-      <label>
-        <span>Anthropic API key {settings.apiKey && <em>· saved {settings.apiKey.slice(0, 10)}…{settings.apiKey.slice(-4)}</em>}</span>
-        <input
-          type="password"
-          value={key}
-          placeholder={settings.apiKey ? 'Paste a new key to replace it' : 'sk-ant-…  (or put ANTHROPIC_API_KEY in .env)'}
-          autocomplete="off"
-          spellcheck={false}
-          onInput={(e) => setKey((e.currentTarget as HTMLInputElement).value)}
-          onKeyDown={(e) => e.key === 'Enter' && save()}
-        />
-      </label>
-      <label>
-        <span>Clarifying questions</span>
-        <div class="options">
-          {(['auto', 'always', 'never'] as const).map((m) => (
-            <button type="button" key={m} class={`opt${askMode === m ? ' on' : ''}`} onClick={() => setAskMode(m)}>
-              {m === 'auto' ? 'Smart — only when ambiguous' : m === 'always' ? 'Always ask' : 'Never, rewrite directly'}
+    <div class="wrap" ref={rootRef}>
+      <div class="box" data-phase={state.phase}>
+        {line}
+        <div class="field" hidden={state.phase === 'notice' || state.phase === 'error'}>
+          <input
+            ref={inputRef}
+            // Preact's input typing is a discriminated union per `type`; the runtime value is what matters here.
+            type={(state.phase === 'settings' ? 'password' : 'text') as 'text'}
+            value={text}
+            disabled={busy}
+            placeholder={placeholder}
+            class={busy ? 'shimmer' : ''}
+            autocomplete="off"
+            spellcheck={false}
+            onInput={(e) => setText((e.currentTarget as HTMLInputElement).value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
+                e.preventDefault();
+                finish();
+              }
+            }}
+          />
+        </div>
+        <div class="row">
+          {question?.suggestions.map((s) => (
+            <button type="button" class="opt" key={s} onClick={() => answer(s)}>
+              {s}
             </button>
           ))}
+          {state.phase === 'done' && (
+            <span class="hint">
+              <kbd>↵</kbd> insert into {app}
+            </span>
+          )}
+          <span class="spacer" />
+          <button type="button" class="more" aria-label="Settings" title="Settings" onClick={() => send({ type: 'openSettings' })}>
+            <Icon d={DOTS} size={14} />
+          </button>
+          <button type="button" class="go" aria-label="Continue" disabled={busy} onClick={finish}>
+            <Icon d={ARROW} size={15} />
+          </button>
         </div>
-      </label>
-      <label class="row">
-        <input type="checkbox" checked={hide} onChange={(e) => setHide((e.currentTarget as HTMLInputElement).checked)} />
-        <span>Hide this overlay from screen sharing</span>
-      </label>
-      <p class="hint">Press {hotkey ?? '⌥⇧P'} in any app. Esc closes.</p>
-      {problem && <p class="line error">{problem}</p>}
-      <div class="chips">
-        <Chip icon={I.sparkles} label="Save" onClick={save} />
-        <Dot />
-        <Chip icon={I.x} label="Close" onClick={() => send({ type: 'cancel' })} />
       </div>
     </div>
   );

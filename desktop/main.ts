@@ -18,8 +18,8 @@ import type { PanelState, RendererAction, Settings } from './shared';
 // Both chords trigger: ⌥⇧P is the documented one; ⌥⌘P is what people press when they read ⇧ as ⌘.
 const HOTKEYS = ['Alt+Shift+P', 'Alt+Command+P'];
 const HOTKEY = '⌥⇧P (or ⌥⌘P)';
-const PANEL_WIDTH = 640;
-const PANEL_HEIGHT = 72; // just the pill; the renderer asks for more as content appears
+const PANEL_WIDTH = 600;
+const PANEL_HEIGHT = 56; // the bare box; the renderer asks for more as content appears
 const PANEL_MAX_HEIGHT = 760;
 
 let win: BrowserWindow | null = null;
@@ -166,7 +166,7 @@ async function trigger() {
     );
     if (capture.source === 'none') {
       busy = false;
-      notice(`Nothing to improve: no text in the focused field of ${capture.appName}. Click into a chat box or select your draft, then press ${HOTKEY}.`, { ttl: 5000 });
+      notice(`Nothing to improve yet — type a draft in ${capture.appName}, then press ${HOTKEY}.`, { ttl: 4000 });
       return;
     }
     // Never ship secrets to the model (e.g. the hotkey pressed while a .env file is focused).
