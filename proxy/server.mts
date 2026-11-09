@@ -18,10 +18,12 @@ const ENV_KEY = process.env.ANTHROPIC_API_KEY;
 const FORWARD_REQUEST_HEADERS = ['content-type', 'accept', 'anthropic-version', 'anthropic-beta'];
 const FORWARD_RESPONSE_HEADERS = ['content-type', 'request-id', 'x-request-id', 'retry-after', 'anthropic-ratelimit-requests-remaining', 'anthropic-ratelimit-tokens-remaining'];
 
-function cors(res: http.ServerResponse) {
+function cors(req: http.IncomingMessage, res: http.ServerResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
+  // Echo the requested headers: "*" does not cover Authorization, which the SDK uses for the key.
+  const requested = req.headers['access-control-request-headers'];
+  res.setHeader('Access-Control-Allow-Headers', typeof requested === 'string' && requested ? requested : '*');
   res.setHeader('Access-Control-Expose-Headers', FORWARD_RESPONSE_HEADERS.join(', '));
   res.setHeader('Access-Control-Max-Age', '86400');
 }
@@ -35,8 +37,17 @@ function readBody(req: http.IncomingMessage): Promise<Buffer> {
   });
 }
 
+/** The key as the client sent it: x-api-key, or Authorization: Bearer (what the SDK sends). */
+function clientKey(req: http.IncomingMessage): string | undefined {
+  const direct = req.headers['x-api-key'];
+  if (typeof direct === 'string' && direct) return direct;
+  const auth = req.headers.authorization;
+  const bearer = typeof auth === 'string' ? auth.match(/^Bearer\s+(.+)$/i) : null;
+  return bearer?.[1];
+}
+
 const server = http.createServer(async (req, res) => {
-  cors(res);
+  cors(req, res);
   if (req.method === 'OPTIONS') {
     res.writeHead(204).end();
     return;
@@ -46,15 +57,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const apiKey = ENV_KEY ?? req.headers['x-api-key'];
-  if (!apiKey || Array.isArray(apiKey)) {
+  const apiKey = ENV_KEY ?? clientKey(req);
+  if (!apiKey) {
+    // Names only — never log header values.
+    console.warn(`${req.method} ${req.url} → 401 no key. Header names received: ${Object.keys(req.headers).join(', ')}`);
     res.writeHead(401, { 'content-type': 'application/json' }).end(
-      JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'No API key: set ANTHROPIC_API_KEY for the proxy or send x-api-key.' } }),
+      JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'No API key: set ANTHROPIC_API_KEY for the proxy or send one from the client.' } }),
     );
     return;
   }
 
-  const headers: Record<string, string> = { 'x-api-key': apiKey };
+  // API keys go in x-api-key; OAuth tokens (sk-ant-oat…) must stay a Bearer token.
+  const headers: Record<string, string> = apiKey.startsWith('sk-ant-oat') ? { authorization: `Bearer ${apiKey}` } : { 'x-api-key': apiKey };
   for (const name of FORWARD_REQUEST_HEADERS) {
     const value = req.headers[name];
     if (typeof value === 'string') headers[name] = value;
