@@ -35,7 +35,7 @@ If the shortcut does nothing, check `chrome://extensions/shortcuts` — another 
 
 ```bash
 npm run web:dev    # the playground / landing page (Preact + Vite) at http://localhost:5173
-npm run web:build  # → web/dist; deployed to GitHub Pages by .github/workflows/pages.yml on push to main
+npm run web:build  # → web/dist; deployed to GitHub Pages by the workflow below on push to main
 
 npm run typecheck  # extension + web
 npm run build
@@ -43,6 +43,19 @@ npm run eval       # (day 4) win rate vs. original prompts, false-ask rate on cl
 
 ANTHROPIC_API_KEY=sk-ant-… node --import tsx eval/smoke.mts   # live check of both Claude calls on 3 fixtures
 ```
+
+### Turning on GitHub Pages
+
+The deploy workflow sits in `.github/workflows.pending/` because the `gh` token for this repo's account lacks
+the `workflow` scope, which GitHub requires to push workflow files. To enable it:
+
+```bash
+gh auth switch -u Hade6556 && gh auth refresh -h github.com -s workflow   # one-time, opens the browser
+git mv .github/workflows.pending/pages.yml .github/workflows/pages.yml && git commit -m "Enable Pages deploy" && git push
+```
+
+Then make the repo public (Settings → General → Danger zone) and set Settings → Pages → Source to **GitHub Actions**.
+The site appears at `https://hade6556.github.io/promptbutton/`.
 
 ## Layout
 

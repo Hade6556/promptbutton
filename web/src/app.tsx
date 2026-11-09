@@ -224,9 +224,9 @@ export function App() {
               <label class="select">
                 <span>Questions</span>
                 <select value={mode} onChange={(e) => setMode((e.currentTarget as HTMLSelectElement).value as AskMode)}>
-                  <option value="auto">Only when the draft is ambiguous</option>
-                  <option value="always">Always ask</option>
-                  <option value="never">Never ask, just rewrite</option>
+                  <option value="auto">Only if the draft is ambiguous</option>
+                  <option value="always">Always</option>
+                  <option value="never">Never, just rewrite</option>
                 </select>
               </label>
             </div>
