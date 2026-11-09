@@ -229,35 +229,53 @@ export function Result({ text, original, onUseAsDraft }: { text: string; origina
 export function KeyDialog({
   open,
   current,
+  baseUrl,
+  proxyUrl,
   onSave,
   onClear,
   onClose,
 }: {
   open: boolean;
   current: string | null;
-  onSave: (key: string) => void;
+  baseUrl: string;
+  proxyUrl: string;
+  /** `key` is null when the field was left empty (keep the saved key). */
+  onSave: (key: string | null, baseUrl: string) => void;
   onClear: () => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [value, setValue] = useState('');
+  const [url, setUrl] = useState(baseUrl);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
+    if (open && !el.open) {
+      setUrl(baseUrl);
+      el.showModal();
+    }
     if (!open && el.open) el.close();
-  }, [open]);
+  }, [open, baseUrl]);
 
   function save() {
     const key = value.trim();
-    if (!key.startsWith('sk-ant-')) {
+    const base = url.trim();
+    if (key && !key.startsWith('sk-ant-')) {
       setError('Anthropic keys start with sk-ant-.');
       return;
     }
+    if (base && !/^https?:\/\//.test(base)) {
+      setError('The base URL must start with http:// or https://.');
+      return;
+    }
+    if (!key && !current && !base) {
+      setError('Paste a key, or set the proxy URL.');
+      return;
+    }
     setError(null);
-    onSave(key);
+    onSave(key || null, base);
     setValue('');
   }
 
@@ -274,17 +292,37 @@ export function KeyDialog({
           <input
             type="password"
             value={value}
-            placeholder="sk-ant-…"
+            placeholder={current ? 'Paste a new key to replace it' : 'sk-ant-…'}
             autocomplete="off"
             spellcheck={false}
             onInput={(e) => setValue((e.currentTarget as HTMLInputElement).value)}
             onKeyDown={(e) => e.key === 'Enter' && save()}
           />
         </label>
+        <label>
+          <span>API base URL (optional)</span>
+          <input
+            type="url"
+            value={url}
+            placeholder="https://api.anthropic.com"
+            autocomplete="off"
+            spellcheck={false}
+            onInput={(e) => setUrl((e.currentTarget as HTMLInputElement).value)}
+            onKeyDown={(e) => e.key === 'Enter' && save()}
+          />
+          <small>
+            If the API answers “CORS requests are not allowed for this Organization”, run <code>npm run proxy</code> in
+            the repo and{' '}
+            <button type="button" class="link" onClick={() => setUrl(proxyUrl)}>
+              use {proxyUrl}
+            </button>
+            .
+          </small>
+        </label>
         {error && <p class="error">{error}</p>}
         <div class="actions">
           <button type="button" class="primary" onClick={save}>
-            Save key
+            Save
           </button>
           {current && (
             <button type="button" class="ghost" onClick={onClear}>

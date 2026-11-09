@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { ASK_THRESHOLD, type AskMode } from '../../src/llm/config';
 import type { GapReport, HistoryMessage, ImproveInput, UserAnswer } from '../../src/messaging';
 import { KeyDialog, Keycap, Questions, Result, Transcript, Verdict } from './components';
-import { analyze, getKey, rewrite, setKey } from './llm';
+import { PROXY_URL, analyze, getBaseUrl, getKey, rewrite, setBaseUrl, setKey } from './llm';
 import { SAMPLES } from './samples';
 
 type Phase = 'idle' | 'analyzing' | 'asking' | 'rewriting' | 'done';
@@ -28,6 +28,7 @@ export function App() {
 
   const [keyOpen, setKeyOpen] = useState(false);
   const [savedKey, setSavedKey] = useState<string | null>(getKey());
+  const [baseUrl, setBaseUrlState] = useState(getBaseUrl());
   const [pressed, setPressed] = useState(false);
 
   const playgroundRef = useRef<HTMLElement>(null);
@@ -42,7 +43,7 @@ export function App() {
     setPressed(true);
     window.setTimeout(() => setPressed(false), 180);
 
-    if (!getKey()) {
+    if (!getKey() && !getBaseUrl()) {
       setKeyOpen(true);
       return;
     }
@@ -149,7 +150,7 @@ export function App() {
             GitHub
           </a>
           <button type="button" class="ghost" onClick={() => setKeyOpen(true)}>
-            {savedKey ? 'API key saved' : 'Add API key'}
+            {savedKey || baseUrl ? `API key${baseUrl ? ' · proxy' : ' saved'}` : 'Add API key'}
           </button>
         </nav>
       </header>
@@ -379,9 +380,15 @@ export function App() {
       <KeyDialog
         open={keyOpen}
         current={savedKey}
-        onSave={(key) => {
-          setKey(key);
-          setSavedKey(key);
+        baseUrl={baseUrl}
+        proxyUrl={PROXY_URL}
+        onSave={(key, url) => {
+          if (key) {
+            setKey(key);
+            setSavedKey(key);
+          }
+          setBaseUrl(url);
+          setBaseUrlState(getBaseUrl());
           setKeyOpen(false);
           setError(null);
         }}

@@ -13,7 +13,8 @@
     "eval": "node --import tsx eval/run.mts && node --import tsx eval/judge.mts",
     "web:dev": "vite --config web/vite.config.ts",
     "web:build": "vite build --config web/vite.config.ts",
-    "web:preview": "vite preview --config web/vite.config.ts"
+    "web:preview": "vite preview --config web/vite.config.ts",
+    "proxy": "node --import tsx proxy/server.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",

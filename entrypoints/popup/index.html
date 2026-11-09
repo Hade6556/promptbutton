@@ -10,7 +10,7 @@
     <main>
       <header>
         <h1>PromptButton</h1>
-        <p class="hint">Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> in a chat box.</p>
+        <p class="hint">Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> or the ✦ button in a chat.</p>
       </header>
 
       <section>
@@ -30,6 +30,18 @@
           <label><input type="radio" name="mode" value="never" /> Never, just rewrite</label>
         </div>
       </section>
+
+      <details id="advanced">
+        <summary>Advanced</summary>
+        <section>
+          <label for="baseUrl">API base URL</label>
+          <input id="baseUrl" type="url" placeholder="https://api.anthropic.com" autocomplete="off" spellcheck="false" />
+          <p class="hint">
+            Leave empty normally. If your organisation blocks browser calls (“CORS requests are not allowed”), run
+            <code>npm run proxy</code> and use <button id="useProxy" class="link" type="button">http://127.0.0.1:8787</button>.
+          </p>
+        </section>
+      </details>
 
       <p id="status" class="status" role="status"></p>
     </main>

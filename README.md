@@ -54,6 +54,22 @@ ANTHROPIC_API_KEY=sk-ant-… node --import tsx eval/smoke.mts   # quick live che
 node --import tsx scripts/make-icons.mts                       # regenerate public/icon/*.png
 ```
 
+### “CORS requests are not allowed for this Organization”
+
+Some organisations (custom data-retention settings) refuse API calls made directly from a browser, which is
+how both the extension and the playground call Claude. Two ways around it:
+
+- Use a key from a personal Anthropic account, or
+- run the bundled local proxy and point the app at it:
+
+```bash
+npm run proxy                                  # http://127.0.0.1:8787, forwards /v1/* from Node
+# optional: ANTHROPIC_API_KEY=sk-ant-… npm run proxy  keeps the key out of the browser entirely
+```
+
+Then set **API base URL** to `http://127.0.0.1:8787` — extension popup → Advanced, or the playground's key dialog.
+The proxy binds to localhost only, forwards just the headers the API needs, and streams responses through.
+
 ### Turning on GitHub Pages
 
 The deploy workflow sits in `.github/workflows.pending/` because the `gh` token for this repo's account lacks

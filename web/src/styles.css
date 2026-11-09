@@ -608,6 +608,20 @@ textarea::placeholder,
 .key-dialog .error {
   color: var(--danger);
 }
+.key-dialog small {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.key-dialog code {
+  font-size: 0.85em;
+}
+.key-dialog .link {
+  all: unset;
+  cursor: pointer;
+  color: var(--accent);
+  text-decoration: underline;
+}
 
 /* Responsive */
 @media (max-width: 900px) {

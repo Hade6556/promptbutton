@@ -51,8 +51,21 @@ label {
   display: flex;
   gap: 6px;
 }
+details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+details section {
+  margin-top: 8px;
+}
+code {
+  font-size: 11px;
+}
+input[type='url'],
 input[type='password'] {
   flex: 1;
+  width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
