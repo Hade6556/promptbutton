@@ -116,13 +116,19 @@ p {
 .progress.on {
   opacity: 1;
 }
+/* The stroke is centred 1.75 px inside the box edge, so it spans 1–2.5 px and never touches the
+   outermost pixel. That pixel belongs to macOS: the system clips the window to its rounded shape
+   and draws its own hairline border there, which hid part of a stroke drawn flush to the edge and
+   made the sides and corners look thinner. The radius shrinks by the same inset so the curve stays
+   concentric with the box corner. */
 .progress .orbit {
-  x: 0.75px;
-  y: 0.75px;
-  width: calc(100% - 1.5px);
-  height: calc(100% - 1.5px);
-  rx: calc(var(--radius) - 0.75px);
-  ry: calc(var(--radius) - 0.75px);
+  x: 1.75px;
+  y: 1.75px;
+  width: calc(100% - 3.5px);
+  height: calc(100% - 3.5px);
+  rx: calc(var(--radius) - 1.75px);
+  ry: calc(var(--radius) - 1.75px);
+  shape-rendering: geometricPrecision;
   fill: none;
   stroke: var(--accent);
   stroke-width: 1.5;
