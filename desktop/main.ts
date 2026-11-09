@@ -11,6 +11,7 @@ import { suggestReplies } from '../src/llm/reply';
 import { rewritePrompt } from '../src/llm/rewrite';
 import type { GapReport, ImproveInput, RewriteOptions, UserAnswer } from '../src/messaging';
 import { captureContext, hashDistance, type Capture } from './capture';
+import { cancelDictation, startDictation, stopDictation } from './dictation';
 import { dotEnvPaths, resolveApiKey } from './env';
 import { forcePaste, insertText } from './insert';
 import { loadSettings, saveSettings } from './settings';
@@ -193,6 +194,7 @@ function showPanel(takeFocus: boolean) {
 
 function hidePanel() {
   clearTimeout(noticeTimer);
+  cancelDictation(); // the mic never stays on behind a closed panel
   win?.hide();
   busy = false;
   runId++; // anything still in flight belongs to a closed run
@@ -429,6 +431,15 @@ async function handleAction(action: RendererAction) {
       return;
     case 'cancel':
       return hidePanel();
+    case 'dictate':
+      if (!action.on) return stopDictation();
+      // The panel must be key for the mic prompt and for typing to land in the field afterwards.
+      win?.focus();
+      console.log('[PromptButton] voice input on');
+      return startDictation((event) => {
+        if (event.type === 'final' || event.type === 'error') console.log(`[PromptButton] voice input ${event.type === 'final' ? `done (${event.text.length} chars)` : `error: ${event.error}`}`);
+        win?.webContents.send('pb:dictation', event);
+      });
     case 'refresh':
       return trigger({ fresh: true });
     case 'openSettings':
@@ -548,4 +559,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   // Keep running in the menu bar.
 });
-app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+  cancelDictation();
+});

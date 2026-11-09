@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { PanelState } from '../shared';
+import type { DictationEvent, PanelState } from '../shared';
 import { blocks, inlineRuns, parseSections, type Block } from './format';
 
 const send = (action: Parameters<Window['pb']['send']>[0]) => window.pb.send(action);
@@ -21,6 +21,17 @@ const DOTS = (
 );
 const CLOSE = <path d="M18 6 6 18M6 6l12 12" />;
 const REFRESH = <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />;
+const MIC = (
+  <>
+    <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" />
+    <path d="M19 11a7 7 0 0 1-14 0M12 18v3" />
+  </>
+);
+
+type Mic = 'off' | 'starting' | 'listening' | 'stopping';
+
+/** Dictated words go after whatever was already typed, with one space between. */
+const joinSpoken = (base: string, spoken: string) => (base.trim() && spoken ? `${base.trimEnd()} ${spoken}` : base + spoken);
 
 /**
  * The loader comet: one colour, a smooth fade from tail to head. It is tiled from short dashes that
@@ -146,6 +157,65 @@ export function Panel() {
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Voice input. The helper streams partial transcripts; each one replaces the spoken part of the
+  // field, appended after whatever was typed before the mic went on.
+  const [mic, setMic] = useState<Mic>('off');
+  const [level, setLevel] = useState(0);
+  const [micNote, setMicNote] = useState<string | null>(null);
+  const spokenBase = useRef('');
+  const submitAfterVoice = useRef(false);
+  const finishRef = useRef<() => void>(() => {});
+
+  useEffect(
+    () =>
+      window.pb.onDictation((event: DictationEvent) => {
+        switch (event.type) {
+          case 'listening':
+            setMic((m) => (m === 'starting' ? 'listening' : m));
+            return;
+          case 'level':
+            setLevel(event.level);
+            return;
+          case 'partial':
+            setText(joinSpoken(spokenBase.current, event.text));
+            return;
+          case 'final': {
+            const next = joinSpoken(spokenBase.current, event.text);
+            setText(next);
+            setMic('off');
+            setLevel(0);
+            requestAnimationFrame(() => {
+              inputRef.current?.focus();
+              if (submitAfterVoice.current) {
+                submitAfterVoice.current = false;
+                finishRef.current();
+              }
+            });
+            return;
+          }
+          case 'error':
+            setMic('off');
+            setLevel(0);
+            submitAfterVoice.current = false;
+            setMicNote(event.error);
+            return;
+        }
+      }),
+    [],
+  );
+
+  function toggleMic() {
+    if (mic === 'off') {
+      spokenBase.current = text;
+      setMicNote(null);
+      setMic('starting');
+      send({ type: 'dictate', on: true });
+    } else if (mic !== 'stopping') {
+      setMic('stopping');
+      send({ type: 'dictate', on: false });
+    }
+  }
+
   useEffect(() => {
     void window.pb.getState().then(setState);
     return window.pb.onState((next) => {
@@ -155,6 +225,13 @@ export function Panel() {
         setAnswers({});
       }
       if (next.phase !== 'settings') setText('');
+      if (next.phase === 'hidden') {
+        // Main stops the helper when the panel closes; reset the button with it.
+        setMic('off');
+        setLevel(0);
+        setMicNote(null);
+        submitAfterVoice.current = false;
+      }
       requestAnimationFrame(() => inputRef.current?.focus());
     });
   }, []);
@@ -182,7 +259,11 @@ export function Panel() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') send({ type: 'cancel' });
+      if (e.key === 'Escape') {
+        // First Esc stops listening; the next one closes the box.
+        if (mic === 'starting' || mic === 'listening') return toggleMic();
+        send({ type: 'cancel' });
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
         finish();
@@ -218,6 +299,12 @@ export function Panel() {
 
   /** The arrow / ⌘↵: the obvious next step for the current phase. */
   function finish() {
+    // ↵ while listening: stop, wait for the last words, then submit.
+    if (mic === 'starting' || mic === 'listening' || mic === 'stopping') {
+      submitAfterVoice.current = true;
+      if (mic !== 'stopping') toggleMic();
+      return;
+    }
     const typed = text.trim();
     switch (state.phase) {
       case 'asking':
@@ -242,7 +329,12 @@ export function Panel() {
     }
   }
 
+  finishRef.current = finish;
+
   const placeholder = (() => {
+    if (mic === 'starting') return 'Starting the microphone…';
+    if (mic === 'listening') return 'Listening… speak, then press the mic or ↵';
+    if (micNote) return micNote;
     switch (state.phase) {
       case 'capturing':
         return 'Reading the screen…';
@@ -301,6 +393,8 @@ export function Panel() {
   })();
 
   const showField = state.phase !== 'notice' && state.phase !== 'error';
+  // Voice is an input like the keyboard: available wherever the field takes text, except the API-key field.
+  const showMic = showField && state.phase !== 'settings' && (!busy || mic !== 'off');
   const options = [
     ...(question?.suggestions ?? []).map((s) => (
       <button type="button" class="opt" key={`q-${s}`} onClick={() => answer(s)}>
@@ -355,7 +449,7 @@ export function Panel() {
               disabled={busy}
               placeholder={placeholder}
               aria-label={placeholder || 'Message'}
-              class={busy ? 'field shimmer' : 'field'}
+              class={['field', busy && 'shimmer', mic !== 'off' && 'listening', micNote && mic === 'off' && 'note'].filter(Boolean).join(' ')}
               autocomplete="off"
               spellcheck={false}
               onInput={(e) => setText((e.currentTarget as HTMLInputElement).value)}
@@ -370,6 +464,19 @@ export function Panel() {
             <span class="field-spacer" />
           )}
           <div class="controls">
+            {showMic && (
+              <button
+                type="button"
+                class={mic === 'off' ? 'icon mic' : 'icon mic live'}
+                aria-label={mic === 'off' ? 'Dictate' : 'Stop dictating'}
+                aria-pressed={mic !== 'off'}
+                title={mic === 'off' ? 'Dictate — speak instead of typing' : 'Stop dictating (esc)'}
+                style={{ '--level': mic === 'listening' ? level.toFixed(2) : '0' }}
+                onClick={toggleMic}
+              >
+                <Icon d={MIC} size={14} />
+              </button>
+            )}
             <button type="button" class="icon" aria-label="Settings" title="Settings" onClick={() => send({ type: 'openSettings' })}>
               <Icon d={DOTS} size={14} />
             </button>

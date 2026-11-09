@@ -35,7 +35,10 @@ API key: paste it in the panel's Settings, **or** put `ANTHROPIC_API_KEY=sk-ant-
 
 First launch on macOS asks for two permissions, both under System Settings → Privacy & Security:
 **Accessibility** (read the field, paste) and **Screen Recording** (the window screenshot). Grant them to
-"Electron" while running from source; restart the app after granting Screen Recording. The tray menu has the ask
+"Electron" while running from source; restart the app after granting Screen Recording. The mic button in the
+box's bottom row dictates into the field with macOS speech recognition (on-device when your language
+supports it); the first use asks for **Microphone** and **Speech Recognition**. ↵ while listening stops and
+sends, Esc stops. The tray menu has the ask
 mode, the rewrite depth (full master prompt or concise), "Hide from screen sharing" (`setContentProtection`),
 the API key, and undo of the last insert.
 

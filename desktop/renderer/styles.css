@@ -434,6 +434,28 @@ kbd {
   background: var(--fill-2);
   color: var(--label);
 }
+/* Voice input. Off: a quiet icon like its neighbours, but in primary label colour because it is an
+   input, not an option. Listening: the ice secondary (the colour of "your input"), with a soft
+   halo that breathes with the microphone level (--level, 0–1, set inline). */
+.icon.mic {
+  color: var(--label-2);
+}
+.icon.mic.live {
+  background: var(--secondary-fill);
+  color: var(--secondary);
+  box-shadow: 0 0 0 calc(1px + var(--level, 0) * 5px) rgba(142, 216, 255, calc(0.12 + var(--level, 0) * 0.18));
+  transition: box-shadow 90ms linear;
+}
+.icon.mic.live:hover {
+  background: var(--secondary-fill);
+  color: var(--secondary);
+}
+.field.listening::placeholder {
+  color: var(--secondary);
+}
+.field.note::placeholder {
+  color: var(--warning);
+}
 /* The one coloured control: the primary action. Same 28 pt as its neighbours, a little space before it. */
 .go {
   width: 28px;
@@ -471,6 +493,10 @@ kbd {
   }
   .stage {
     animation: none;
+  }
+  .icon.mic.live {
+    box-shadow: 0 0 0 1px rgba(142, 216, 255, 0.3);
+    transition: none;
   }
   .caret {
     animation: none;

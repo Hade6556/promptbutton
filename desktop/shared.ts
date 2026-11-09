@@ -57,11 +57,22 @@ export type RendererAction =
   /** Re-read the screen and run again, ignoring the cached result. */
   | { type: 'refresh' }
   | { type: 'openSettings' }
-  | { type: 'saveSettings'; settings: Settings };
+  | { type: 'saveSettings'; settings: Settings }
+  /** Voice input: start or stop transcribing the microphone into the field. */
+  | { type: 'dictate'; on: boolean };
+
+/** Main → renderer while voice input runs. */
+export type DictationEvent =
+  | { type: 'listening' }
+  | { type: 'level'; level: number }
+  | { type: 'partial'; text: string }
+  | { type: 'final'; text: string }
+  | { type: 'error'; error: string };
 
 export interface PbApi {
   getState(): Promise<PanelState>;
   onState(callback: (state: PanelState) => void): () => void;
+  onDictation(callback: (event: DictationEvent) => void): () => void;
   send(action: RendererAction): void;
   /** Ask the window to fit this content height (px). */
   resize(height: number): void;

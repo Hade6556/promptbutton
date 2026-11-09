@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.github.Electron.promptbutton.dictate</string>
+	<key>CFBundleName</key>
+	<string>PromptButton Dictation</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>PromptButton turns what you say into text in its chat box. Recognition runs on this Mac when your language supports it.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>PromptButton listens only while the microphone button is on, to type what you say into its chat box.</string>
+</dict>
+</plist>
