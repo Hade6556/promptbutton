@@ -244,6 +244,8 @@ async function rewrite(answers: UserAnswer[]) {
 async function accept(text: string) {
   if (!current) return;
   const { capture } = current;
+  // Give focus back to the target app before writing; our window must not be key.
+  win?.hide();
   try {
     const outcome = await insertText(capture, text);
     console.log(`[PromptButton] insert into "${capture.appName}": ${outcome} (${text.length} chars)`);
@@ -373,8 +375,13 @@ app.whenReady().then(() => {
     });
     if (!ok) console.error(`[PromptButton] could not register ${chord}; another app owns it.`);
   }
-  // Scriptable trigger for testing and for buttons that are not keyboards: kill -USR2 <pid>
+  // Scriptable triggers for testing and for buttons that are not keyboards:
+  //   kill -USR2 <pid>  → improve the focused field (same as the hotkey)
+  //   kill -USR1 <pid>  → insert the finished rewrite (same as the arrow / ⌘↵)
   process.on('SIGUSR2', () => void trigger());
+  process.on('SIGUSR1', () => {
+    if (state.phase === 'done' && current?.text) void accept(current.text);
+  });
 
   ipcMain.handle('pb:getState', () => state);
   ipcMain.on('pb:action', (_event, action: RendererAction) => void handleAction(action));
