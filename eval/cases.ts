@@ -214,6 +214,38 @@ export const CASES: EvalCase[] = [
       'Translate six error messages into Lithuanian: “Something went wrong”, “Invalid email address”, “Password is too short”, “Session expired, please log in again”, “File is too large (max 10 MB)”, “No internet connection”. Keep the same formal register as the UI strings.',
   },
 
+  // ─── Brain dumps: should become structured master prompts ────────────────────
+  {
+    id: 'dump-pricing-page',
+    tag: 'ambiguous',
+    site: 'chatgpt',
+    history: [],
+    draft:
+      'ok so pricing page. ours is confusing, 5 tiers nobody gets it, support keeps getting "which plan do i need" tickets. competitors have 3. we have starter/pro/business/enterprise/custom lol. also the toggle monthly/yearly is hidden. idk if we should kill the free tier, marketing wants it, finance hates it. want copy too not just layout. and some way to test it, we have like 2k visitors/day on that page. SMBs mostly, 5-50 people companies, invoicing tool. make it good',
+    intent:
+      'A brief for redesigning the pricing page of an SMB invoicing SaaS: recommend collapsing 5 tiers to 3 with a rationale, decide what to do with the free tier (keep it but reposition it, with the finance concern addressed), make the monthly/yearly toggle prominent, write draft copy (name, one-line value prop, 3 feature bullets) per tier, and propose 3 A/B tests runnable at ~2k visitors/day with the metric for each. Under 600 words, structured.',
+  },
+  {
+    id: 'dump-flaky-etl',
+    tag: 'ambiguous',
+    site: 'claude',
+    history: [],
+    draft:
+      'the nightly etl keeps failing like 2x a week, airflow, python, pulls from the orders postgres replica into bigquery. sometimes timeout sometimes "connection reset", sometimes it just hangs till the 2h sla kills it. started maybe 3 weeks ago, we did upgrade the replica around then?? idk. no budget for new infra. i need to stop getting paged. also the retries make duplicates in bq which is its own mess. help',
+    intent:
+      'A diagnostic plan and fix proposal for a flaky Airflow/Python ETL from a Postgres replica to BigQuery: ranked hypotheses tied to the replica upgrade (connection/timeouts/statement_timeout, pooling), concrete checks for each, a fix for idempotency so retries do not create duplicates (merge/dedupe by key), and a short runbook. No new infrastructure. Output as a numbered runbook plus a one-paragraph summary for the on-call channel.',
+  },
+  {
+    id: 'dump-best-man-speech',
+    tag: 'ambiguous',
+    site: 'chatgpt',
+    history: [],
+    draft:
+      "best man speech for tomas. known him since uni, he was the guy who organised everything, trips, the flat, he once drove 6 hours to pick me up when my car died. his wife is ieva, met at a climbing gym 4 years ago, she made him less of a workaholic. there's the story about the lost passport in bangkok but his mum will be there so maybe not. wedding is in lithuanian but speech in english, some guests don't speak it. 3 min max i get nervous. not cheesy please",
+    intent:
+      'A best-man speech for Tomas, about 3 minutes (≈400 words), in simple English for a mixed-language audience, warm with light humour and not cheesy, using the uni/organiser stories and the 6-hour drive, mentioning Ieva and the climbing-gym meeting and how she balanced his workaholism, skipping the Bangkok passport story, ending with a toast; with short sentences that are easy to deliver nervously.',
+  },
+
   // ─── Clear in context: the gate should not ask ───────────────────────────────
   {
     id: 'clear-recipe-other-allergy',

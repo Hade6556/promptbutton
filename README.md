@@ -49,6 +49,16 @@ mode, "Hide from screen sharing" (`setContentProtection`), the API key, and undo
    answers; anything still unknown becomes a `[bracketed placeholder]`, never an invention. Use it, edit it
    in place, or cancel. Undo restores the original.
 
+## Brain dump → master prompt
+
+The rewriter picks a mode per draft: short **follow-ups** stay short, mostly-clear **requests** get tightened,
+and a **brain dump** becomes a master prompt with Goal · Context · Task · Constraints · Output · Done when ·
+Examples · Open questions (+ a role line and a "think first" line only when they earn their place). Every
+section is there because a vendor guide or a study says it moves output quality — the receipts are in
+[docs/master-prompt-playbook.md](docs/master-prompt-playbook.md): Anthropic's prompting best practices and
+Prompt Improver (+30% on a classification test), OpenAI's guide, a 2026 controlled comparison where
+checklist-structured prompts scored 7.50/8 vs 5.67 raw, and the Prompt Report.
+
 ## Why this design
 
 - Context-aware rewriting improves responses, more so in longer conversations — Sarkar et al. 2025, [arXiv 2503.16789](https://arxiv.org/abs/2503.16789v1)

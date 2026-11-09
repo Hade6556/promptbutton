@@ -42,6 +42,14 @@ export const SAMPLES: Sample[] = [
     draft: 'ok now do the same for the other one and put it all in a table',
   },
   {
+    id: 'dump',
+    label: 'Brain dump → master prompt',
+    note: 'A loose dump with several half-thoughts. Expect a structured prompt: goal, context, task, constraints, output, done-when.',
+    history: [],
+    draft:
+      'ok so pricing page. ours is confusing, 5 tiers nobody gets it, support keeps getting "which plan do i need" tickets. competitors have 3. we have starter/pro/business/enterprise/custom lol. also the toggle monthly/yearly is hidden. idk if we should kill the free tier, marketing wants it, finance hates it. want copy too not just layout. and some way to test it, we have like 2k visitors/day on that page. SMBs mostly, 5-50 people companies, invoicing tool. make it good',
+  },
+  {
     id: 'clear',
     label: 'Short, clear follow-up',
     note: 'A quick follow-up that is unambiguous in context. Expect no questions and a light touch.',

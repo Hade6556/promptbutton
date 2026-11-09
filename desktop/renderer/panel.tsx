@@ -18,6 +18,7 @@ const DOTS = (
     <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
   </>
 );
+const CLOSE = <path d="M18 6 6 18M6 6l12 12" />;
 
 /**
  * One box. Above the field: the single thing you need to know right now (a question, the
@@ -205,6 +206,9 @@ export function Panel() {
           <span class="spacer" />
           <button type="button" class="more" aria-label="Settings" title="Settings" onClick={() => send({ type: 'openSettings' })}>
             <Icon d={DOTS} size={14} />
+          </button>
+          <button type="button" class="more" aria-label="Close" title="Close (esc)" onClick={() => send({ type: 'cancel' })}>
+            <Icon d={CLOSE} size={13} />
           </button>
           <button type="button" class="go" aria-label="Continue" disabled={busy} onClick={finish}>
             <Icon d={ARROW} size={15} />
