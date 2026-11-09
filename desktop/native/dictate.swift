@@ -11,14 +11,70 @@
 // Close stdin (or send SIGTERM/SIGINT) to stop listening; the final text follows within ~1 s.
 //
 // Recognition runs on the device when the locale supports it (requiresOnDeviceRecognition),
-// so audio does not leave the Mac. The usage descriptions this needs live in an Info.plist
-// embedded in the binary (desktop/native/dictate-Info.plist, linked into __TEXT,__info_plist),
-// so the Electron bundle itself does not have to be modified and re-signed.
+// so audio does not leave the Mac.
+//
+// Privacy prompts: macOS checks the usage description in the *responsible* process's Info.plist.
+// Spawned by Electron, that is Electron's bundle, which has no NSSpeechRecognitionUsageDescription,
+// and TCC aborts the process. So on start the helper relaunches itself with responsibility
+// disclaimed (responsibility_spawnattrs_setdisclaim, the mechanism Terminal-style apps use): the
+// child is responsible for itself, TCC reads the Info.plist embedded in this binary
+// (desktop/native/dictate-Info.plist, linked into __TEXT,__info_plist), and the Electron bundle
+// never has to be modified and re-signed (which would reset its Accessibility and Screen
+// Recording grants). The child inherits stdin/stdout; the parent only waits and relays signals.
 import AVFoundation
+import Darwin
 import Foundation
 import Speech
 
 setvbuf(stdout, nil, _IOLBF, 0)
+
+private let disclaimedEnv = "PB_DICTATE_DISCLAIMED"
+
+/// Relaunches this binary as its own responsible process and exits with the child's status.
+/// Returns only when already disclaimed, or when the SPI is unavailable (then we carry on as-is).
+func relaunchDisclaimedIfNeeded() {
+    if getenv(disclaimedEnv) != nil { return }
+    typealias Disclaim = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t?>, Int32) -> Int32
+    guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "responsibility_spawnattrs_setdisclaim") else { return }
+    let disclaim = unsafeBitCast(symbol, to: Disclaim.self)
+
+    var attr: posix_spawnattr_t?
+    posix_spawnattr_init(&attr)
+    defer { posix_spawnattr_destroy(&attr) }
+    guard disclaim(&attr, 1) == 0 else { return }
+
+    setenv(disclaimedEnv, "1", 1)
+    let path = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.path
+    var argv: [UnsafeMutablePointer<CChar>?] = CommandLine.arguments.map { strdup($0) } + [nil]
+    defer { argv.forEach { free($0) } }
+    var pid: pid_t = 0
+    guard posix_spawn(&pid, path, nil, &attr, &argv, environ) == 0 else {
+        unsetenv(disclaimedEnv)
+        return
+    }
+
+    // Relay stop signals to the child; it delivers the final text and exits.
+    for sig in [SIGTERM, SIGINT, SIGHUP] {
+        signal(sig, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
+        source.setEventHandler { kill(pid, SIGTERM) }
+        source.resume()
+        _relaySources.append(source)
+    }
+    var status: Int32 = 0
+    while waitpid(pid, &status, 0) == -1 && errno == EINTR {}
+    let exited = (status & 0x7f) == 0
+    exit(exited ? (status >> 8) & 0xff : 1)
+}
+private var _relaySources: [DispatchSourceSignal] = []
+
+relaunchDisclaimedIfNeeded()
+
+// If whoever started us goes away (Electron quit or crashed), stop listening.
+let parentAtStart = getppid()
+Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+    if getppid() != parentAtStart { exit(0) }
+}
 
 func emit(_ object: [String: Any]) {
     guard let data = try? JSONSerialization.data(withJSONObject: object),

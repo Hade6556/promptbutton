@@ -58,7 +58,9 @@ export function stopDictation(): void {
 
 /** Cancel without waiting for the final text (panel closed). */
 export function cancelDictation(): void {
-  child?.kill('SIGKILL');
+  // SIGTERM, not SIGKILL: the helper relays it to its disclaimed child, which owns the microphone.
+  child?.stdin.end();
+  child?.kill('SIGTERM');
   child = null;
 }
 
