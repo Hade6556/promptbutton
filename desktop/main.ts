@@ -152,6 +152,12 @@ async function trigger() {
       notice(`Nothing to improve: no text in the focused field of ${capture.appName}. Click into a chat box or select your draft, then press ${HOTKEY.replace('Alt', '⌥').replace('Shift', '⇧').replace(/\+/g, '')}.`, { ttl: 5000 });
       return;
     }
+    // Never ship secrets to the model (e.g. the hotkey pressed while a .env file is focused).
+    if (/sk-ant-[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}/.test(capture.draft)) {
+      busy = false;
+      notice('The focused text looks like it contains an API key or secret, so it was not sent anywhere. Click into the chat box you want to improve and press again.', { ttl: 6000 });
+      return;
+    }
     const input: ImproveInput = { site: capture.appName, history: [], draft: capture.draft, screenshot: capture.screenshot };
     current = { capture, input, report: null, text: '' };
     await analyzeAndContinue();

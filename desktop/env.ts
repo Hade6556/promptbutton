@@ -46,6 +46,9 @@ export function resolveApiKey(saved: string | null): { key: string | undefined; 
   const env = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
   if (env) return { key: env, source: 'env' };
   const dotenv = readDotEnv().ANTHROPIC_API_KEY;
-  if (dotenv && dotenv.startsWith('sk-ant-')) return { key: dotenv, source: 'dotenv' };
+  // Real keys are long; this skips the template placeholder and half-pasted values.
+  if (dotenv && dotenv.startsWith('sk-ant-') && dotenv.length > 40 && !/PASTE|YOUR-KEY/i.test(dotenv)) {
+    return { key: dotenv, source: 'dotenv' };
+  }
   return { key: undefined, source: 'none' };
 }
