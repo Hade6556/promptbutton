@@ -251,11 +251,11 @@ export function Panel() {
       case 'rewriting':
         return 'Rewriting…';
       case 'asking':
-        return question ? 'Type an answer, or pick one below' : '';
+        return question ? 'Type an answer, or pick one above' : '';
       case 'done':
-        return 'Change something, or ↵ to insert';
+        return `Change something, or ↵ to insert into ${app}`;
       case 'replies':
-        return 'Pick a reply below or type your own, ↵ to put it in the box';
+        return 'Pick a reply above or type your own, ↵ to put it in the box';
       case 'settings':
         return state.settings?.apiKey ? 'Paste a new key to replace the saved one' : 'Paste your Anthropic API key (sk-ant-…)';
       default:
@@ -300,6 +300,29 @@ export function Panel() {
     }
   })();
 
+  const showField = state.phase !== 'notice' && state.phase !== 'error';
+  const options = [
+    ...(question?.suggestions ?? []).map((s) => (
+      <button type="button" class="opt" key={`q-${s}`} onClick={() => answer(s)}>
+        {s}
+      </button>
+    )),
+    ...replies.map((r) => (
+      <button
+        type="button"
+        class="opt"
+        key={`r-${r.label}`}
+        title={r.text}
+        onClick={() => {
+          setText(r.text);
+          inputRef.current?.focus();
+        }}
+      >
+        {r.label}
+      </button>
+    )),
+  ];
+
   return (
     <div class="wrap" ref={rootRef}>
       <div class="box" data-phase={state.phase}>
@@ -313,74 +336,55 @@ export function Panel() {
             />
           ))}
         </svg>
-        {/* Keyed so a new phase fades in, while streaming (rewriting → done) keeps the same node. */}
-        <div class="stage" key={state.phase === 'rewriting' || state.phase === 'done' ? 'result' : state.phase}>
-          {line}
-        </div>
-        <div class="field" hidden={state.phase === 'notice' || state.phase === 'error'}>
-          <input
-            ref={inputRef}
-            // Preact's input typing is a discriminated union per `type`; the runtime value is what matters here.
-            type={(state.phase === 'settings' ? 'password' : 'text') as 'text'}
-            value={text}
-            disabled={busy}
-            placeholder={placeholder}
-            class={busy ? 'shimmer' : ''}
-            autocomplete="off"
-            spellcheck={false}
-            onInput={(e) => setText((e.currentTarget as HTMLInputElement).value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
-                e.preventDefault();
-                finish();
-              }
-            }}
-          />
-        </div>
-        {(question?.suggestions.length || replies.length) > 0 && (
-          <div class="opts">
-            {question?.suggestions.map((s) => (
-              <button type="button" class="opt" key={s} onClick={() => answer(s)}>
-                {s}
-              </button>
-            ))}
-            {replies.map((r) => (
-              <button
-                type="button"
-                class="opt"
-                key={r.label}
-                title={r.text}
-                onClick={() => {
-                  setText(r.text);
-                  inputRef.current?.focus();
-                }}
-              >
-                {r.label}
-              </button>
-            ))}
+        {/* Content: what the box is saying, and the answers to it directly beneath. Keyed so a new
+            phase fades in, while streaming (rewriting → done) keeps the same node. */}
+        {(line || options.length > 0) && (
+          <div class="content stage" key={state.phase === 'rewriting' || state.phase === 'done' ? 'result' : state.phase}>
+            {line}
+            {options.length > 0 && <div class="opts">{options}</div>}
           </div>
         )}
-        <div class="row">
-          {state.phase === 'done' && (
-            <span class="hint">
-              <kbd>↵</kbd> insert into {app}
-            </span>
+        {/* Composer: the field and every control on one row, one baseline. */}
+        <div class="composer">
+          {showField ? (
+            <input
+              ref={inputRef}
+              // Preact's input typing is a discriminated union per `type`; the runtime value is what matters here.
+              type={(state.phase === 'settings' ? 'password' : 'text') as 'text'}
+              value={text}
+              disabled={busy}
+              placeholder={placeholder}
+              aria-label={placeholder || 'Message'}
+              class={busy ? 'field shimmer' : 'field'}
+              autocomplete="off"
+              spellcheck={false}
+              onInput={(e) => setText((e.currentTarget as HTMLInputElement).value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
+                  e.preventDefault();
+                  finish();
+                }
+              }}
+            />
+          ) : (
+            <span class="field-spacer" />
           )}
-          <span class="spacer" />
-          <button type="button" class="more" aria-label="Settings" title="Settings" onClick={() => send({ type: 'openSettings' })}>
-            <Icon d={DOTS} size={14} />
-          </button>
-          {!busy && state.phase !== 'settings' && (
-            <button type="button" class="more" aria-label="Scan again" title="Scan again (ignore cached result)" onClick={() => send({ type: 'refresh' })}>
-              <Icon d={REFRESH} size={13} />
+          <div class="controls">
+            <button type="button" class="icon" aria-label="Settings" title="Settings" onClick={() => send({ type: 'openSettings' })}>
+              <Icon d={DOTS} size={14} />
             </button>
-          )}
-          <button type="button" class="more" aria-label="Close" title="Close (esc)" onClick={() => send({ type: 'cancel' })}>
-            <Icon d={CLOSE} size={13} />
-          </button>
-          <button type="button" class="go" aria-label="Continue" disabled={busy} onClick={finish}>
-            <Icon d={ARROW} size={15} />
-          </button>
+            {!busy && state.phase !== 'settings' && (
+              <button type="button" class="icon" aria-label="Scan again" title="Scan again (ignore cached result)" onClick={() => send({ type: 'refresh' })}>
+                <Icon d={REFRESH} size={13} />
+              </button>
+            )}
+            <button type="button" class="icon" aria-label="Close" title="Close (esc)" onClick={() => send({ type: 'cancel' })}>
+              <Icon d={CLOSE} size={13} />
+            </button>
+            <button type="button" class="go" aria-label={state.phase === 'done' && !text.trim() ? `Insert into ${app}` : 'Continue'} title={state.phase === 'done' && !text.trim() ? `Insert into ${app} (↵)` : 'Continue (↵)'} disabled={busy} onClick={finish}>
+              <Icon d={ARROW} size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

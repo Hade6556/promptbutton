@@ -45,6 +45,8 @@
   --loading: var(--accent);
 
   --radius: 12px;
+  /* Layout: one left edge for every piece of text and every pill; an 8-pt rhythm vertically. */
+  --inset: 16px;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
@@ -98,7 +100,7 @@ p {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 6px 8px 8px;
+  padding: 0;
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow:
@@ -190,8 +192,20 @@ p {
   }
 }
 
+/* Layout, top to bottom:
+     content   — what the box says (question, result, summary, error), then its answer pills
+     ─────     — a hairline, only when there is content above
+     composer  — the field and every control on one row
+   Everything aligns to the same --inset from the box edge. */
+.content {
+  padding: 14px var(--inset) 14px;
+}
+.content + .composer {
+  border-top: 1px solid var(--separator);
+}
+
 .line {
-  padding: 8px 10px 2px;
+  padding: 0;
   color: var(--label);
   font-size: 13px;
   line-height: 18px;
@@ -220,9 +234,13 @@ p {
 .line.result[data-edge='bottom'] {
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
 }
+/* The scrollbar sits in the right inset, so text keeps the same right edge as the pills. */
+.line.result {
+  margin-right: calc(-1 * var(--inset) + 4px);
+  padding-right: calc(var(--inset) - 4px);
+}
 .line.result.rich {
   white-space: normal;
-  padding-right: 8px;
 }
 .line.error {
   color: var(--danger);
@@ -327,9 +345,31 @@ p {
   }
 }
 
-.field input {
-  width: 100%;
-  padding: 9px 10px 7px;
+/* Answer pills sit directly under the line they answer, on the same left edge. */
+.opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Composer: field on the left, controls on the right, one shared centre line. */
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* = PANEL_HEIGHT in main.ts, so the bare box fills the window exactly. */
+  min-height: 56px;
+  padding: 8px 14px 8px var(--inset);
+}
+.field,
+.field-spacer {
+  flex: 1;
+  min-width: 0;
+}
+.field {
+  height: 28px;
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--label);
@@ -337,32 +377,24 @@ p {
   line-height: 18px;
   outline: none;
 }
-.field input:focus-visible {
+.field:focus-visible {
   box-shadow: none;
 }
-.field input::placeholder {
+.field::placeholder {
   color: var(--label-3);
 }
-.field input.shimmer::placeholder {
+.field.shimmer::placeholder {
   color: var(--label-2);
 }
-
-/* Suggested answers wrap freely; the controls below them never move. */
-.opts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 2px 4px 4px;
-}
-.row {
+.controls {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 0 0 4px;
+  gap: 2px;
+  flex: none;
 }
 .opt {
-  height: 26px;
-  padding: 0 11px;
+  height: 28px;
+  padding: 0 12px;
   border-radius: 9999px;
   border: 0;
   background: var(--fill);
@@ -375,14 +407,6 @@ p {
 .opt:hover {
   background: var(--fill-hover);
 }
-.hint {
-  color: var(--label-3);
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding-left: 4px;
-}
 kbd {
   display: inline-grid;
   place-items: center;
@@ -394,11 +418,8 @@ kbd {
   font-size: 11px;
   color: var(--label-2);
 }
-.spacer {
-  flex: 1;
-}
 /* Icon buttons at the desktop default control size (28 pt). */
-.more {
+.icon {
   width: 28px;
   height: 28px;
   display: grid;
@@ -409,14 +430,15 @@ kbd {
   color: var(--label-3);
   cursor: pointer;
 }
-.more:hover {
+.icon:hover {
   background: var(--fill-2);
   color: var(--label);
 }
-/* The one coloured control: the primary action. */
+/* The one coloured control: the primary action. Same 28 pt as its neighbours, a little space before it. */
 .go {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
+  margin-left: 6px;
   display: grid;
   place-items: center;
   border: 0;
