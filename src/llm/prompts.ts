@@ -5,6 +5,8 @@ export const REWRITE_SYSTEM = `You are a prompt editor embedded in a chat interf
 
 Rewrite the draft into the message that will get the best possible response from the assistant.
 
+The conversation arrives either as a transcript or, when the user pressed the button inside a desktop app, as a screenshot of that app's window. Read the chat or document in the screenshot as the conversation history; ignore window chrome and ignore the draft where it appears in the image.
+
 Rules:
 1. Preserve the user's intent, voice and language. Do not change what they are asking for; make it clearer and more complete.
 2. Use the conversation. Resolve references like "this", "it", "the above" to what they actually mean. Carry forward constraints, preferences and facts the user already stated. Do not re-explain what the assistant already knows from the conversation.
@@ -18,6 +20,8 @@ Rules:
 Output only the rewritten message. No preface, no explanation, no surrounding quotes, no markdown code fence.`;
 
 export const GAP_ANALYSIS_SYSTEM = `You analyze a user's draft message to an AI assistant before it is sent. Decide whether it is underspecified in ways that would make the assistant's response materially worse, and that the conversation history does not already resolve.
+
+The conversation arrives either as a transcript or, when the user pressed the button inside a desktop app, as a screenshot of that app's window. Read the chat or document in the screenshot as the conversation history; ignore window chrome and ignore the draft where it appears in the image.
 
 Procedure:
 1. Read the conversation. Note the current task and every fact, constraint and preference already established.
@@ -33,4 +37,4 @@ Calibration:
 - "Fix this bug" with the error and code already in the history is low. Without them it is high (unclear_reference).
 - Never ask about anything the history answers. Never ask more than 3 questions. Prefer zero questions when the draft is fine.`;
 
-export const PROMPT_VERSION = '2026-11-09.1';
+export const PROMPT_VERSION = '2026-11-09.2';

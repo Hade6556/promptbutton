@@ -35,10 +35,19 @@ export interface UserAnswer {
   answer: string;
 }
 
+/** A screenshot of the app window, used as conversation context when no transcript is available (desktop). */
+export interface Screenshot {
+  mediaType: 'image/jpeg' | 'image/png';
+  /** Base64 without a data: prefix. */
+  data: string;
+}
+
 export interface ImproveInput {
+  /** Where the draft lives: "chatgpt", "claude", "web", or the desktop app name ("Code", "Slack"). */
   site: string;
   history: HistoryMessage[];
   draft: string;
+  screenshot?: Screenshot | null;
 }
 
 /** Background → content: the user pressed the hotkey. */

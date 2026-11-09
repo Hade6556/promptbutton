@@ -14,15 +14,25 @@ export function truncateHistory(history: HistoryMessage[]): HistoryMessage[] {
   return recent.map((m) => ({ role: m.role, text: clampText(m.text, MAX_CHARS_PER_MESSAGE) }));
 }
 
-/** Builds the user turn shared by the gap-analysis and rewrite calls. */
+/** Builds the text of the user turn shared by the gap-analysis and rewrite calls. */
 export function serializeInput(input: ImproveInput, answers: UserAnswer[] = []): string {
   const history = truncateHistory(input.history);
   const parts: string[] = [];
 
   parts.push(`<site>${escapeXml(input.site)}</site>`);
 
+  if (input.screenshot) {
+    parts.push(
+      `<screen>A screenshot of the ${escapeXml(input.site)} window is attached. It shows the conversation or document the draft belongs to; treat it as the conversation history. Ignore window chrome, and ignore the draft itself where it appears in the image.</screen>`,
+    );
+  }
+
   if (history.length === 0) {
-    parts.push('<conversation>(empty — this is the first message)</conversation>');
+    parts.push(
+      input.screenshot
+        ? '<conversation>(see the attached screenshot)</conversation>'
+        : '<conversation>(empty — this is the first message)</conversation>',
+    );
   } else {
     const omitted = input.history.length - history.length;
     const header = omitted > 0 ? ` earlier_messages_omitted="${omitted}"` : '';
@@ -42,4 +52,21 @@ export function serializeInput(input: ImproveInput, answers: UserAnswer[] = []):
   }
 
   return parts.join('\n\n');
+}
+
+export type UserContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png'; data: string } };
+
+/** The user turn as content blocks: the screenshot first (when present), then the serialized text. */
+export function buildUserContent(input: ImproveInput, answers: UserAnswer[] = []): UserContentBlock[] {
+  const blocks: UserContentBlock[] = [];
+  if (input.screenshot) {
+    blocks.push({
+      type: 'image',
+      source: { type: 'base64', media_type: input.screenshot.mediaType, data: input.screenshot.data },
+    });
+  }
+  blocks.push({ type: 'text', text: serializeInput(input, answers) });
+  return blocks;
 }

@@ -3,7 +3,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import type { AmbiguityType, GapReport, ImproveInput } from '../messaging';
 import { EFFORT, MODEL, PromptButtonError } from './config';
-import { serializeInput } from './context';
+import { buildUserContent } from './context';
 import { GAP_ANALYSIS_SYSTEM } from './prompts';
 
 const AMBIGUITY_TYPES = [
@@ -53,7 +53,7 @@ export async function analyzeGaps(client: Anthropic, input: ImproveInput): Promi
     max_tokens: 2048,
     output_config: { effort: EFFORT, format: zodOutputFormat(GapReportSchema) },
     system: [{ type: 'text', text: GAP_ANALYSIS_SYSTEM, cache_control: { type: 'ephemeral' } }],
-    messages: [{ role: 'user', content: serializeInput(input) }],
+    messages: [{ role: 'user', content: buildUserContent(input) }],
   });
 
   if (response.stop_reason === 'refusal') {

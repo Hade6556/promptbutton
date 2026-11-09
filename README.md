@@ -13,6 +13,27 @@ Works on **claude.ai** and **chatgpt.com**. Trigger: `Alt+Shift+P`, the ✦ butt
 **Try it without installing anything:** the playground at <https://hade6556.github.io/promptbutton/> runs the same
 two Claude calls on a conversation you paste in (bring your own Anthropic key; it stays in your browser).
 
+## Desktop app (works in any app, like VS Code)
+
+`desktop/` is an Electron menu-bar app for macOS. Press `⌥⇧P` in **any** app and a panel appears over it:
+
+- the draft is read from the focused field through the macOS Accessibility API (or from your selection);
+- the conversation is a **screenshot of the front window**, sent to Claude as an image — the same trick Cluely-style
+  overlays use, so it works in VS Code's chat, Cursor, Slack, ChatGPT desktop, anything;
+- questions → streamed rewrite → **Insert** writes the result back into the field (AX `AXValue`, verified; falls back
+  to pasting over a selection, then to copying with a "select all and paste" button — it never selects-all on its own);
+- the API call runs in Electron's Node process, so organisations that block browser calls need no proxy.
+
+```bash
+npm run desktop          # builds desktop/dist and launches; the script unsets ELECTRON_RUN_AS_NODE for VS Code terminals
+kill -USR2 <pid>         # scriptable trigger (the pid is in the startup log) — for tests or non-keyboard buttons
+```
+
+First launch on macOS asks for two permissions, both under System Settings → Privacy & Security:
+**Accessibility** (read the field, paste) and **Screen Recording** (the window screenshot). Grant them to
+"Electron" while running from source; restart the app after granting Screen Recording. The tray menu has the ask
+mode, "Hide from screen sharing" (`setContentProtection`), the API key, and undo of the last insert.
+
 ## What happens when you press
 
 1. **Read** — the last dozen turns are scraped from the page and sent with your draft.
@@ -94,6 +115,8 @@ src/llm/                    prompts, context serialization, gap analysis, rewrit
 src/ui/panel.ts             shadow-DOM panel: questions → streaming preview with diff → use / edit / undo; ✦ button
 src/utils/diff.ts           word-level LCS diff for the highlights
 web/                        playground + landing page (Preact + Vite); imports the same src/llm modules
+desktop/                    Electron overlay: main.ts (hotkey, panel, tray), capture.ts (AX + screenshot), insert.ts (write-back), renderer/ (Preact panel)
+proxy/server.mts            local forwarder for orgs that block browser calls (browser surfaces only)
 eval/                       28 cases with hidden intent, simulated-user answers, position-swapped judge
 hardware/                   CircuitPython firmware for a one-key USB keyboard sending Alt+Shift+P
 scripts/make-icons.mts      renders the keycap icon PNGs with no image dependencies

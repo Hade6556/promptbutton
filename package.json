@@ -8,13 +8,15 @@
     "dev": "wxt",
     "build": "wxt build",
     "zip": "wxt zip",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web && tsc --noEmit -p desktop",
     "postinstall": "wxt prepare",
     "eval": "node --import tsx eval/run.mts && node --import tsx eval/judge.mts",
     "web:dev": "vite --config web/vite.config.ts",
     "web:build": "vite build --config web/vite.config.ts",
     "web:preview": "vite preview --config web/vite.config.ts",
-    "proxy": "node --import tsx proxy/server.mts"
+    "proxy": "node --import tsx proxy/server.mts",
+    "desktop:build": "esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
+    "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron ."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
@@ -23,10 +25,13 @@
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
     "@types/node": "^26.6.6",
+    "electron": "^45.2.3",
+    "esbuild": "^0.28.2",
     "preact": "^11.2.0",
     "tsx": "latest",
     "typescript": "latest",
     "vite": "^8.3.7",
     "wxt": "latest"
-  }
+  },
+  "main": "desktop/dist/main.cjs"
 }

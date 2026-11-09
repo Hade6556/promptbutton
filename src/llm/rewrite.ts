@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { ImproveInput, UserAnswer } from '../messaging';
 import { EFFORT, MODEL, PromptButtonError } from './config';
-import { serializeInput } from './context';
+import { buildUserContent } from './context';
 import { REWRITE_SYSTEM } from './prompts';
 
 /** Strips a code fence or surrounding quotes if the model added them despite instructions. */
@@ -21,7 +21,7 @@ function params(input: ImproveInput, answers: UserAnswer[]) {
     fallbacks: 'default' as const,
     output_config: { effort: EFFORT },
     system: [{ type: 'text' as const, text: REWRITE_SYSTEM, cache_control: { type: 'ephemeral' as const } }],
-    messages: [{ role: 'user' as const, content: serializeInput(input, answers) }],
+    messages: [{ role: 'user' as const, content: buildUserContent(input, answers) }],
   };
 }
 
