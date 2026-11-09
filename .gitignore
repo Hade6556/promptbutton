@@ -3,6 +3,7 @@ node_modules/
 .wxt/
 web/dist/
 desktop/dist/
+desktop/bin/
 .env
 eval/results/*
 !eval/results/summary.md

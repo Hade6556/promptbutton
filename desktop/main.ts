@@ -4,7 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, screen, systemPreferences, Tray } from 'electron';
 import path from 'node:path';
-import { ASK_THRESHOLD } from '../src/llm/config';
+import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
 import { toResult } from '../src/llm/errors';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { rewritePrompt } from '../src/llm/rewrite';
@@ -44,9 +44,15 @@ function setState(patch: Partial<PanelState>) {
   win?.webContents.send('pb:state', state);
 }
 
+let resumeAfterSettings = false;
+
 function client(): Anthropic {
   // Node process: no CORS, so organisations that block browser calls work without a proxy.
-  // With no saved key the SDK falls back to ANTHROPIC_API_KEY / an `ant auth login` profile.
+  // With no saved key the SDK falls back to ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN.
+  const envKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+  if (!settings.apiKey && !envKey) {
+    throw new PromptButtonError('no_api_key', 'Add your Anthropic API key to get started. It is stored only on this Mac.');
+  }
   return new Anthropic({ apiKey: settings.apiKey ?? undefined, maxRetries: 1, timeout: 60_000 });
 }
 
@@ -113,6 +119,7 @@ function fail(error: unknown) {
   busy = false;
   if (!result.ok) {
     if (result.code === 'no_api_key' || result.code === 'auth') {
+      resumeAfterSettings = current !== null; // continue the run once a key is saved
       setState({ phase: 'settings', settings, error: result.error });
       showPanel(true);
       return;
@@ -133,7 +140,7 @@ async function trigger() {
     // Capture before showing the panel so the screenshot does not include it.
     const capture = await captureContext();
     console.log(
-      `[PromptButton] captured app="${capture.appName}" role=${capture.role || '?'} source=${capture.source} draft=${capture.draft.length} chars screenshot=${capture.screenshot ? `${Math.round((capture.screenshot.data.length * 3) / 4 / 1024)} KB` : 'none'}`,
+      `[PromptButton] captured app="${capture.appName}" role=${capture.role || '?'} via=${capture.method} source=${capture.source} settable=${capture.valueSettable} draft=${capture.draft.length} chars screenshot=${capture.screenshot ? `${Math.round((capture.screenshot.data.length * 3) / 4 / 1024)} KB` : 'none'}`,
     );
     if (capture.source === 'none') {
       busy = false;
@@ -142,6 +149,18 @@ async function trigger() {
     }
     const input: ImproveInput = { site: capture.appName, history: [], draft: capture.draft, screenshot: capture.screenshot };
     current = { capture, input, report: null, text: '' };
+    await analyzeAndContinue();
+  } catch (error) {
+    fail(error);
+  }
+}
+
+/** From a captured draft: gap analysis → questions or straight to the rewrite. Also used to resume after settings. */
+async function analyzeAndContinue() {
+  if (!current) return;
+  const { capture, input } = current;
+  busy = true;
+  try {
     setState({
       phase: 'analyzing',
       appName: capture.appName,
@@ -243,6 +262,11 @@ async function handleAction(action: RendererAction) {
       saveSettings(settings);
       win?.setContentProtection(settings.hideFromCapture);
       buildTray();
+      if (resumeAfterSettings && current) {
+        resumeAfterSettings = false;
+        console.log('[PromptButton] key saved — resuming the interrupted run');
+        return analyzeAndContinue();
+      }
       return hidePanel();
   }
 }
@@ -303,7 +327,10 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     // Prompts once for Accessibility (needed to read the focused field and to paste).
     const trusted = systemPreferences.isTrustedAccessibilityClient(true);
-    if (!trusted) console.warn('[PromptButton] Accessibility permission not granted yet (System Settings → Privacy & Security → Accessibility).');
+    const screenStatus = systemPreferences.getMediaAccessStatus('screen');
+    console.log(`[PromptButton] permissions: accessibility=${trusted ? 'granted' : 'NOT granted'} screen-recording=${screenStatus}`);
+    if (!trusted) console.warn('[PromptButton] Grant Accessibility: System Settings → Privacy & Security → Accessibility → Electron.');
+    if (screenStatus !== 'granted') console.warn('[PromptButton] Grant Screen Recording: System Settings → Privacy & Security → Screen Recording → Electron, then restart.');
   }
 
   if (!globalShortcut.register(HOTKEY, () => void trigger())) {

@@ -1,23 +1,11 @@
 // Puts the rewritten prompt back where the draft came from, safest method first:
-//  1. set the focused field's AXValue directly (verified by reading it back),
+//  1. set the focused field's AXValue through the helper (verified by reading it back),
 //  2. paste over the user's selection,
 //  3. copy to the clipboard and tell the user — never select-all without being asked.
 import { clipboard } from 'electron';
-import { runAppleScript, type Capture } from './capture';
+import { runAppleScript, runHelper, type Capture } from './capture';
 
 export type InsertOutcome = 'replaced' | 'pasted' | 'copied';
-
-const SET_VALUE_SCRIPT = `
-on run argv
-  set newText to item 1 of argv
-  set targetPid to (item 2 of argv) as integer
-  tell application "System Events"
-    set p to first application process whose unix id is targetPid
-    set f to value of attribute "AXFocusedUIElement" of p
-    set value of attribute "AXValue" of f to newText
-    return (value of attribute "AXValue" of f) as text
-  end tell
-end run`;
 
 const PASTE_SCRIPT = `
 on run argv
@@ -46,12 +34,13 @@ async function pasteInto(pid: number, text: string, selectAll: boolean): Promise
 }
 
 export async function insertText(capture: Capture, text: string): Promise<InsertOutcome> {
-  if (capture.source === 'field' && capture.pid) {
+  if (capture.source === 'field' && capture.pid && capture.valueSettable) {
     try {
-      const after = await runAppleScript(SET_VALUE_SCRIPT, [text, String(capture.pid)]);
-      if (after.trim() === text.trim()) return 'replaced';
+      const result = await runHelper<{ set: boolean; value: string; axError: number }>(['set', String(capture.pid)], text);
+      if (result.set && result.value.trim() === text.trim()) return 'replaced';
+      console.info(`[PromptButton] AXValue write not accepted (set=${result.set}, axError=${result.axError})`);
     } catch (error) {
-      console.info('[PromptButton] AXValue not settable:', error instanceof Error ? error.message : error);
+      console.info('[PromptButton] AXValue write failed:', error instanceof Error ? error.message : error);
     }
   }
   if (capture.source === 'selection' && capture.pid) {

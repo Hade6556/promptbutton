@@ -15,8 +15,9 @@
     "web:build": "vite build --config web/vite.config.ts",
     "web:preview": "vite preview --config web/vite.config.ts",
     "proxy": "node --import tsx proxy/server.mts",
-    "desktop:build": "esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
-    "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron ."
+    "desktop:build": "npm run desktop:helper && esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
+    "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron .",
+    "desktop:helper": "mkdir -p desktop/bin && xcrun swiftc -O -o desktop/bin/axhelper desktop/native/axhelper.swift"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
