@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { GapReport, HistoryMessage } from '../../src/messaging';
 
 /* ---------- Keycap: the one bold element ---------- */
@@ -35,12 +35,20 @@ function AutoTextarea(props: {
   ariaLabel: string;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
+  function fit() {
     const el = ref.current;
     if (!el) return;
     el.style.height = '0px';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [props.value]);
+    const borders = el.offsetHeight - el.clientHeight; // box-sizing: border-box
+    el.style.height = `${el.scrollHeight + borders}px`;
+  }
+  useLayoutEffect(fit, [props.value]);
+  useEffect(() => {
+    // Fonts load after first paint and change line wrapping; width changes too.
+    void document.fonts?.ready.then(fit);
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, []);
   return (
     <textarea
       ref={ref}

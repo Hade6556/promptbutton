@@ -286,9 +286,13 @@ main,
 }
 .pane-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
+}
+.pane-head h2 {
+  white-space: nowrap;
 }
 .select {
   display: inline-flex;
@@ -296,6 +300,10 @@ main,
   gap: 8px;
   color: var(--muted);
   font-size: 0.92rem;
+  min-width: 0;
+}
+.select span {
+  white-space: nowrap;
 }
 .select select {
   padding: 6px 8px;
@@ -352,6 +360,11 @@ textarea,
   color: var(--ink);
   resize: none;
   line-height: 1.45;
+}
+textarea {
+  /* Browsers with field-sizing grow natively; the JS measure covers the rest. */
+  field-sizing: content;
+  overflow: hidden;
 }
 textarea::placeholder,
 .answer::placeholder {
@@ -611,5 +624,16 @@ textarea::placeholder,
   }
   .turn-user {
     margin-left: 6%;
+  }
+  .draft-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .draft-actions .select {
+    justify-content: space-between;
+  }
+  .select select {
+    max-width: 100%;
+    flex: 1;
   }
 }
