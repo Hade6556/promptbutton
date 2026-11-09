@@ -44,6 +44,8 @@ let noticeTimer: NodeJS.Timeout | undefined;
 
 /** The last finished run, so re-opening on unchanged input costs no tokens. */
 const CACHE_TTL_MS = 10 * 60 * 1000;
+/** Within this window after a real scan, an empty-field reopen reuses the result even if the screen moved (streaming, scrolling). */
+const CACHE_GRACE_MS = 90 * 1000;
 const HASH_TOLERANCE_BITS = 12; // of 256: caret blinks and hover states pass, new text does not
 let lastRun: { key: string; hash: string | null; at: number; snapshot: PanelState; current: Run } | null = null;
 
@@ -58,12 +60,24 @@ function rememberRun() {
 }
 
 function cachedRun(capture: Capture): typeof lastRun {
-  if (!lastRun || Date.now() - lastRun.at > CACHE_TTL_MS) return null;
-  if (lastRun.key !== fingerprint(capture)) return null;
-  // With a draft, the text is the input. With an empty field, the screen is the input.
-  if (capture.source === 'none') {
-    if (!lastRun.hash || !capture.screenshotHash) return null;
-    if (hashDistance(lastRun.hash, capture.screenshotHash) > HASH_TOLERANCE_BITS) return null;
+  if (!lastRun) return null;
+  const elapsed = Date.now() - lastRun.at;
+  if (elapsed > CACHE_TTL_MS) {
+    console.log(`[PromptButton] cache miss: last run ${Math.round(elapsed / 1000)}s ago (ttl ${CACHE_TTL_MS / 1000}s)`);
+    return null;
+  }
+  if (lastRun.key !== fingerprint(capture)) {
+    console.log(`[PromptButton] cache miss: input changed (${lastRun.current.capture.source}/${lastRun.current.capture.draft.length} chars → ${capture.source}/${capture.draft.length} chars)`);
+    return null;
+  }
+  // With a draft, the text is the input. With an empty field, the screen is — but a chat that is
+  // still streaming or was scrolled is not "new input", so a short grace window ignores pixels.
+  if (capture.source === 'none' && elapsed > CACHE_GRACE_MS) {
+    const distance = lastRun.hash && capture.screenshotHash ? hashDistance(lastRun.hash, capture.screenshotHash) : Number.POSITIVE_INFINITY;
+    if (distance > HASH_TOLERANCE_BITS) {
+      console.log(`[PromptButton] cache miss: screen changed (hash distance ${distance} > ${HASH_TOLERANCE_BITS}, ${Math.round(elapsed / 1000)}s since scan)`);
+      return null;
+    }
   }
   return lastRun;
 }
