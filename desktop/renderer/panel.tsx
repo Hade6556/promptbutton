@@ -285,8 +285,15 @@ export function Panel() {
   return (
     <div class="wrap" ref={rootRef}>
       <div class="box" data-phase={state.phase}>
-        {busy && <div class="progress" role="progressbar" aria-label="Working" />}
-        {line}
+        <svg class={busy ? 'progress on' : 'progress'} role={busy ? 'progressbar' : undefined} aria-label={busy ? 'Working' : undefined} aria-hidden={!busy}>
+          <rect class="orbit tail" pathLength="100" />
+          <rect class="orbit mid" pathLength="100" />
+          <rect class="orbit head" pathLength="100" />
+        </svg>
+        {/* Keyed so a new phase fades in, while streaming (rewriting → done) keeps the same node. */}
+        <div class="stage" key={state.phase === 'rewriting' || state.phase === 'done' ? 'result' : state.phase}>
+          {line}
+        </div>
         <div class="field" hidden={state.phase === 'notice' || state.phase === 'error'}>
           <input
             ref={inputRef}

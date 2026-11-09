@@ -98,44 +98,75 @@ p {
   }
 }
 
-/* Status while the model works: a slow comet travelling the full edge of the box. The ring is a
-   conic gradient clipped to a 1.5 px border by a mask; the angle is a registered custom property
-   so the rotation interpolates smoothly, and linear timing keeps the speed constant. */
-@property --angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
+/* Status while the model works: a comet travelling the edge of the box. An SVG rounded rect with
+   pathLength="100" gives a perimeter in percent, so dashes move at constant speed whatever the box
+   size and hug the corners exactly. Three dashes of different length share one leading edge: a long
+   faint tail, a mid tail, and a short glowing head. The ring fades out when the work is done. */
 .progress {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   pointer-events: none;
-  --angle: 0deg;
-  background: conic-gradient(
-    from var(--angle),
-    transparent 0deg,
-    transparent 150deg,
-    rgba(48, 209, 88, 0.08) 220deg,
-    rgba(48, 209, 88, 0.45) 300deg,
-    var(--accent) 340deg,
-    #b8ffd0 352deg,
-    transparent 360deg
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  animation: orbit 4.2s linear infinite;
+  opacity: 0;
+  transition: opacity 380ms var(--ease-out);
+}
+.progress.on {
+  opacity: 1;
+}
+.progress .orbit {
+  --tail: 26; /* longest dash, in percent of the perimeter */
+  x: 0.75px;
+  y: 0.75px;
+  width: calc(100% - 1.5px);
+  height: calc(100% - 1.5px);
+  rx: calc(var(--radius) - 0.75px);
+  ry: calc(var(--radius) - 0.75px);
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: var(--len) calc(100 - var(--len));
+  animation: orbit 6s linear infinite;
+}
+/* A shorter dash starts (len − 26)% of a lap earlier so all three share one leading edge:
+   delay = (len − 26) / 100 × 6 s. Keyframes stay literal; Chromium does not interpolate
+   stroke-dashoffset through calc()/var(). */
+.progress .orbit.tail {
+  --len: 26;
+  opacity: 0.12;
+}
+.progress .orbit.mid {
+  --len: 14;
+  opacity: 0.32;
+  animation-delay: -0.72s;
+}
+.progress .orbit.head {
+  --len: 5;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 4px rgba(48, 209, 88, 0.75));
+  animation-delay: -1.26s;
 }
 @keyframes orbit {
+  from {
+    stroke-dashoffset: 100;
+  }
   to {
-    --angle: 360deg;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* What the box is showing. A new phase fades in; streaming text updates in place. */
+.stage {
+  animation: fade-in 360ms var(--ease-out);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -385,10 +416,14 @@ kbd {
   .sec {
     animation: none;
   }
-  .progress {
+  .progress .orbit {
     animation: none;
-    background: var(--accent);
-    opacity: 0.5;
+    stroke-dasharray: none;
+    filter: none;
+    opacity: 0.35;
+  }
+  .stage {
+    animation: none;
   }
   .caret {
     animation: none;
