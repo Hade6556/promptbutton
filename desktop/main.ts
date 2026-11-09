@@ -28,6 +28,9 @@ let tray: Tray | null = null;
 let settings: Settings = { apiKey: null, askMode: 'auto', hideFromCapture: false };
 let state: PanelState = { phase: 'hidden', hotkey: HOTKEY };
 let busy = false;
+/** Incremented on every trigger/close so results from a cancelled run are ignored. */
+let runId = 0;
+const stale = (id: number) => id !== runId;
 let current: { capture: Capture; input: ImproveInput; report: GapReport | null; text: string; answers: UserAnswer[] } | null = null;
 let lastInsert: { capture: Capture; original: string } | null = null;
 let noticeTimer: NodeJS.Timeout | undefined;
@@ -122,7 +125,8 @@ function hidePanel() {
   clearTimeout(noticeTimer);
   win?.hide();
   busy = false;
-  setState({ phase: 'hidden', report: null, text: '', error: undefined, notice: undefined, offerForcePaste: false });
+  runId++; // anything still in flight belongs to a closed run
+  setState({ phase: 'hidden', report: null, text: '', assist: undefined, error: undefined, notice: undefined, offerForcePaste: false });
 }
 
 function notice(text: string, options: { ttl?: number; offerForcePaste?: boolean } = {}) {
@@ -148,20 +152,19 @@ function fail(error: unknown) {
 }
 
 async function trigger() {
-  if (busy) return;
-  // A press while the panel is mid-interaction brings it to the front instead of cancelling.
-  if (state.phase === 'asking' || state.phase === 'done' || state.phase === 'replies' || state.phase === 'settings') {
-    showPanel(true);
-    return;
-  }
-  if (state.phase !== 'hidden' && state.phase !== 'notice') {
+  // The hotkey toggles: open and run when hidden, close when visible — even mid-run.
+  if (state.phase !== 'hidden') {
+    console.log(`[PromptButton] hotkey while ${state.phase} → closing`);
     hidePanel();
     return;
   }
+  if (busy) return;
+  const my = ++runId;
   busy = true;
   try {
     // Capture before showing the panel so the screenshot does not include it.
     const capture = await captureContext();
+    if (stale(my)) return;
     console.log(
       `[PromptButton] captured app="${capture.appName}" role=${capture.role || '?'} via=${capture.method} source=${capture.source} settable=${capture.valueSettable} draft=${capture.draft.length} chars screenshot=${capture.screenshot ? `${Math.round((capture.screenshot.data.length * 3) / 4 / 1024)} KB` : 'none'}`,
     );
@@ -177,6 +180,7 @@ async function trigger() {
       setState({ phase: 'analyzing', appName: capture.appName, source: 'none', draft: '', report: null, text: '', error: undefined });
       showPanel(false);
       const assist = await suggestReplies(client(), input);
+      if (stale(my)) return;
       console.log(`[PromptButton] reply assist: ${assist.replies.length} replies, ${assist.asks.length} asks`);
       busy = false;
       setState({ phase: 'replies', assist });
@@ -193,7 +197,7 @@ async function trigger() {
     current = { capture, input, report: null, text: '', answers: [] };
     await analyzeAndContinue();
   } catch (error) {
-    fail(error);
+    if (!stale(my)) fail(error);
   }
 }
 
@@ -201,6 +205,7 @@ async function trigger() {
 async function analyzeAndContinue() {
   if (!current) return;
   const { capture, input } = current;
+  const my = runId;
   busy = true;
   try {
     setState({
@@ -219,6 +224,7 @@ async function analyzeAndContinue() {
       return;
     }
     const report = await analyzeGaps(client(), input);
+    if (stale(my)) return;
     current.report = report;
     console.log(`[PromptButton] gap analysis mode=${report.mode} ambiguity=${report.ambiguity.toFixed(2)} missing=${report.missing.join(',') || '-'} questions=${report.questions.length}`);
     const shouldAsk = report.questions.length > 0 && (settings.askMode === 'always' || report.ambiguity >= ASK_THRESHOLD);
@@ -231,12 +237,13 @@ async function analyzeAndContinue() {
     setState({ report, asked: false });
     await rewrite([]);
   } catch (error) {
-    fail(error);
+    if (!stale(my)) fail(error);
   }
 }
 
 async function rewrite(answers: UserAnswer[], revision?: { previous: string; request: string }) {
   if (!current) return;
+  const my = runId;
   current.answers = answers;
   busy = true;
   try {
@@ -251,18 +258,19 @@ async function rewrite(answers: UserAnswer[], revision?: { previous: string; req
       current.input,
       answers,
       (delta) => {
-        if (!current) return;
+        if (!current || stale(my)) return;
         current.text += delta;
         setState({ text: current.text });
       },
       options,
     );
+    if (stale(my)) return;
     current.text = text;
     busy = false;
     setState({ phase: 'done', text });
     showPanel(true);
   } catch (error) {
-    fail(error);
+    if (!stale(my)) fail(error);
   }
 }
 
