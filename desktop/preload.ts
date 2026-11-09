@@ -9,6 +9,8 @@ const api: PbApi = {
     return () => ipcRenderer.off('pb:state', handler);
   },
   send: (action: RendererAction) => ipcRenderer.send('pb:action', action),
+  resize: (height: number) => ipcRenderer.send('pb:resize', height),
+  setMouseThrough: (ignore: boolean) => ipcRenderer.send('pb:mouse', ignore),
 };
 
 contextBridge.exposeInMainWorld('pb', api);

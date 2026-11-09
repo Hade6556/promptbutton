@@ -44,6 +44,8 @@ export type RendererAction =
   | { type: 'accept'; text: string }
   | { type: 'copy'; text: string }
   | { type: 'forcePaste' }
+  /** Re-run the rewrite with an extra instruction typed into the input box. */
+  | { type: 'refine'; note: string }
   | { type: 'cancel' }
   | { type: 'openSettings' }
   | { type: 'saveSettings'; settings: Settings };
@@ -52,6 +54,10 @@ export interface PbApi {
   getState(): Promise<PanelState>;
   onState(callback: (state: PanelState) => void): () => void;
   send(action: RendererAction): void;
+  /** Ask the window to fit this content height (px). */
+  resize(height: number): void;
+  /** Let clicks fall through to the app underneath when the pointer is off the pill/card. */
+  setMouseThrough(ignore: boolean): void;
 }
 
 declare global {

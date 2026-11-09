@@ -88,6 +88,7 @@ interface HelperFocused {
   bounds?: { x: number; y: number; w: number; h: number };
   role: string;
   value: string;
+  placeholder?: string;
   selectedText: string;
   valueSettable: boolean;
   diagnostics?: Record<string, unknown>;
@@ -188,7 +189,10 @@ export async function captureContext(): Promise<Capture> {
   }
 
   let selection = focused.selectedText.trim();
-  const field = focused.value.trim();
+  let field = focused.value.trim();
+  // Belt and braces for fields that expose the placeholder as their value (VS Code's chat box).
+  if (focused.placeholder && field === focused.placeholder.trim()) field = '';
+  if (/^(Queue another message|Ask .*|Type a message|Message .*|Send a message)…?\.{0,3}$/i.test(field)) field = '';
   if (!selection && !field) {
     // Nothing exposed (e.g. Chrome). If the user selected their draft, ⌘C gets it.
     const copied = await copySelection();

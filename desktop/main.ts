@@ -15,16 +15,19 @@ import { forcePaste, insertText } from './insert';
 import { loadSettings, saveSettings } from './settings';
 import type { PanelState, RendererAction, Settings } from './shared';
 
-const HOTKEY = 'Alt+Shift+P';
-const PANEL_WIDTH = 720;
-const PANEL_HEIGHT = 600;
+// Both chords trigger: ⌥⇧P is the documented one; ⌥⌘P is what people press when they read ⇧ as ⌘.
+const HOTKEYS = ['Alt+Shift+P', 'Alt+Command+P'];
+const HOTKEY = '⌥⇧P (or ⌥⌘P)';
+const PANEL_WIDTH = 640;
+const PANEL_HEIGHT = 72; // just the pill; the renderer asks for more as content appears
+const PANEL_MAX_HEIGHT = 760;
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let settings: Settings = { apiKey: null, askMode: 'auto', hideFromCapture: false };
 let state: PanelState = { phase: 'hidden', hotkey: HOTKEY };
 let busy = false;
-let current: { capture: Capture; input: ImproveInput; report: GapReport | null; text: string } | null = null;
+let current: { capture: Capture; input: ImproveInput; report: GapReport | null; text: string; answers: UserAnswer[] } | null = null;
 let lastInsert: { capture: Capture; original: string } | null = null;
 let noticeTimer: NodeJS.Timeout | undefined;
 
@@ -95,7 +98,16 @@ function positionPanel() {
   if (!win) return;
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const { x, y, width } = display.workArea;
-  win.setPosition(Math.round(x + (width - PANEL_WIDTH) / 2), y + 20);
+  win.setPosition(Math.round(x + (width - PANEL_WIDTH) / 2), y + 12);
+}
+
+/** The renderer reports its content height; keep the window exactly that tall, anchored at the top. */
+function fitPanel(height: number) {
+  if (!win) return;
+  const [x, y] = win.getPosition();
+  const next = Math.max(PANEL_HEIGHT, Math.min(PANEL_MAX_HEIGHT, Math.ceil(height)));
+  const [, currentHeight] = win.getSize();
+  if (next !== currentHeight) win.setBounds({ x, y, width: PANEL_WIDTH, height: next }, false);
 }
 
 function showPanel(takeFocus: boolean) {
@@ -136,6 +148,11 @@ function fail(error: unknown) {
 
 async function trigger() {
   if (busy) return;
+  // A press while the panel is mid-interaction brings it to the front instead of cancelling.
+  if (state.phase === 'asking' || state.phase === 'done' || state.phase === 'settings') {
+    showPanel(true);
+    return;
+  }
   if (state.phase !== 'hidden' && state.phase !== 'notice') {
     hidePanel();
     return;
@@ -149,7 +166,7 @@ async function trigger() {
     );
     if (capture.source === 'none') {
       busy = false;
-      notice(`Nothing to improve: no text in the focused field of ${capture.appName}. Click into a chat box or select your draft, then press ${HOTKEY.replace('Alt', '⌥').replace('Shift', '⇧').replace(/\+/g, '')}.`, { ttl: 5000 });
+      notice(`Nothing to improve: no text in the focused field of ${capture.appName}. Click into a chat box or select your draft, then press ${HOTKEY}.`, { ttl: 5000 });
       return;
     }
     // Never ship secrets to the model (e.g. the hotkey pressed while a .env file is focused).
@@ -159,7 +176,7 @@ async function trigger() {
       return;
     }
     const input: ImproveInput = { site: capture.appName, history: [], draft: capture.draft, screenshot: capture.screenshot };
-    current = { capture, input, report: null, text: '' };
+    current = { capture, input, report: null, text: '', answers: [] };
     await analyzeAndContinue();
   } catch (error) {
     fail(error);
@@ -206,6 +223,7 @@ async function analyzeAndContinue() {
 
 async function rewrite(answers: UserAnswer[]) {
   if (!current) return;
+  current.answers = answers;
   busy = true;
   try {
     setState({ phase: 'rewriting', text: '' });
@@ -228,6 +246,7 @@ async function accept(text: string) {
   const { capture } = current;
   try {
     const outcome = await insertText(capture, text);
+    console.log(`[PromptButton] insert into "${capture.appName}": ${outcome} (${text.length} chars)`);
     lastInsert = { capture, original: capture.draft };
     if (outcome === 'copied') {
       notice(`Copied. ${capture.appName} did not accept a direct replace — press ⌘V to paste, or let me select all and paste.`, {
@@ -248,6 +267,9 @@ async function handleAction(action: RendererAction) {
       return rewrite(action.answers);
     case 'skip':
       return rewrite([]);
+    case 'refine':
+      if (!current || !action.note.trim()) return;
+      return rewrite([...current.answers, { question: 'Additional instruction from the user', answer: action.note.trim() }]);
     case 'accept':
       return accept(action.text);
     case 'copy':
@@ -308,7 +330,7 @@ function buildTray() {
   });
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: `Improve prompt  (${HOTKEY.replace('Alt', '⌥').replace('Shift', '⇧').replace(/\+/g, '')})`, click: () => void trigger() },
+      { label: `Improve prompt  ${HOTKEY}`, click: () => void trigger() },
       { label: 'Undo last insert', click: () => void undo(), enabled: lastInsert !== null },
       { type: 'separator' },
       { label: 'Ask questions', submenu: [mode('auto', 'Only when the draft is ambiguous'), mode('always', 'Always'), mode('never', 'Never, just rewrite')] },
@@ -344,14 +366,21 @@ app.whenReady().then(() => {
     if (screenStatus !== 'granted') console.warn('[PromptButton] Grant Screen Recording: System Settings → Privacy & Security → Screen Recording → Electron, then restart.');
   }
 
-  if (!globalShortcut.register(HOTKEY, () => void trigger())) {
-    console.error(`[PromptButton] could not register ${HOTKEY}; another app owns it.`);
+  for (const chord of HOTKEYS) {
+    const ok = globalShortcut.register(chord, () => {
+      console.log(`[PromptButton] hotkey ${chord}`);
+      void trigger();
+    });
+    if (!ok) console.error(`[PromptButton] could not register ${chord}; another app owns it.`);
   }
   // Scriptable trigger for testing and for buttons that are not keyboards: kill -USR2 <pid>
   process.on('SIGUSR2', () => void trigger());
 
   ipcMain.handle('pb:getState', () => state);
   ipcMain.on('pb:action', (_event, action: RendererAction) => void handleAction(action));
+  ipcMain.on('pb:resize', (_event, height: number) => fitPanel(Number(height) || PANEL_HEIGHT));
+  // Transparent areas of the window must not swallow clicks meant for the app underneath.
+  ipcMain.on('pb:mouse', (_event, ignore: boolean) => win?.setIgnoreMouseEvents(Boolean(ignore), { forward: true }));
 
   console.log(`[PromptButton] key source at startup: ${resolveApiKey(settings.apiKey).source} (checked settings, env, ${dotEnvPaths().join(', ')})`);
   console.log(`[PromptButton] ready — ${HOTKEY} (pid ${process.pid})`);

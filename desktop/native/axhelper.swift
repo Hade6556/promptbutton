@@ -150,7 +150,11 @@ case "focused":
     if let focused = focus.element {
         out["role"] = string(focused, kAXRoleAttribute as String) ?? ""
         out["subrole"] = string(focused, kAXSubroleAttribute as String) ?? ""
-        out["value"] = string(focused, kAXValueAttribute as String) ?? ""
+        let value = string(focused, kAXValueAttribute as String) ?? ""
+        // Chromium/Electron fields report their placeholder as the value when empty.
+        let placeholder = string(focused, kAXPlaceholderValueAttribute as String) ?? ""
+        out["placeholder"] = placeholder
+        out["value"] = (!placeholder.isEmpty && value == placeholder) ? "" : value
         out["selectedText"] = string(focused, kAXSelectedTextAttribute as String) ?? ""
         var settable: DarwinBoolean = false
         AXUIElementIsAttributeSettable(focused, kAXValueAttribute as CFString, &settable)
