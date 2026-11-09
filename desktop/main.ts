@@ -10,6 +10,7 @@ import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { rewritePrompt } from '../src/llm/rewrite';
 import type { GapReport, ImproveInput, UserAnswer } from '../src/messaging';
 import { captureContext, type Capture } from './capture';
+import { dotEnvPaths, resolveApiKey } from './env';
 import { forcePaste, insertText } from './insert';
 import { loadSettings, saveSettings } from './settings';
 import type { PanelState, RendererAction, Settings } from './shared';
@@ -48,12 +49,16 @@ let resumeAfterSettings = false;
 
 function client(): Anthropic {
   // Node process: no CORS, so organisations that block browser calls work without a proxy.
-  // With no saved key the SDK falls back to ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN.
-  const envKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
-  if (!settings.apiKey && !envKey) {
-    throw new PromptButtonError('no_api_key', 'Add your Anthropic API key to get started. It is stored only on this Mac.');
+  // Key: saved in the app, or ANTHROPIC_API_KEY in the environment, or .env in the project / ~/.promptbutton.env.
+  const { key, source } = resolveApiKey(settings.apiKey);
+  if (!key) {
+    throw new PromptButtonError(
+      'no_api_key',
+      `No API key found. Paste one here, or put ANTHROPIC_API_KEY=sk-ant-… in ${dotEnvPaths()[0]} (no restart needed).`,
+    );
   }
-  return new Anthropic({ apiKey: settings.apiKey ?? undefined, maxRetries: 1, timeout: 60_000 });
+  console.log(`[PromptButton] using API key from ${source}`);
+  return new Anthropic({ apiKey: key, maxRetries: 1, timeout: 60_000 });
 }
 
 function createWindow() {
@@ -342,6 +347,7 @@ app.whenReady().then(() => {
   ipcMain.handle('pb:getState', () => state);
   ipcMain.on('pb:action', (_event, action: RendererAction) => void handleAction(action));
 
+  console.log(`[PromptButton] key source at startup: ${resolveApiKey(settings.apiKey).source} (checked settings, env, ${dotEnvPaths().join(', ')})`);
   console.log(`[PromptButton] ready — ${HOTKEY} (pid ${process.pid})`);
 });
 

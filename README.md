@@ -29,6 +29,10 @@ npm run desktop          # builds desktop/dist and launches; the script unsets E
 kill -USR2 <pid>         # scriptable trigger (the pid is in the startup log) — for tests or non-keyboard buttons
 ```
 
+API key: paste it in the panel's Settings, **or** put `ANTHROPIC_API_KEY=sk-ant-…` in a `.env` file in the repo (or
+`~/.promptbutton.env`). The file is read on every press, so no restart is needed. `npm run eval`, `npm run proxy` and
+`eval/smoke.mts` read the same `.env`.
+
 First launch on macOS asks for two permissions, both under System Settings → Privacy & Security:
 **Accessibility** (read the field, paste) and **Screen Recording** (the window screenshot). Grant them to
 "Electron" while running from source; restart the app after granting Screen Recording. The tray menu has the ask
