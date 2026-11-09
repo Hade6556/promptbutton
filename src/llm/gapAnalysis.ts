@@ -31,6 +31,9 @@ const GapReportSchema = z.object({
     .string()
     .nullable()
     .describe('For a deliverable: one sentence naming the specific practitioner whose answer the user wants (specialty, known for, judges by). null for quick or purely factual drafts'),
+  draft_is_placeholder: z
+    .boolean()
+    .describe('true when the draft is the input box’s own hint text (e.g. "Queue another message…", "Ask anything…") rather than something the user typed'),
   ambiguity: z.number().describe('0 = fully specified, 1 = the assistant would have to guess the core intent'),
   missing: z.array(z.enum(AMBIGUITY_TYPES)).describe('Ambiguity types that pass all three tests'),
   questions: z.array(
@@ -52,6 +55,7 @@ function normalize(raw: z.infer<typeof GapReportSchema>): GapReport {
     domain: raw.domain,
     scale: raw.scale,
     expert: raw.expert?.trim() || null,
+    isPlaceholder: raw.draft_is_placeholder,
     missing: raw.missing,
     questions: raw.questions.slice(0, MAX_QUESTIONS).map((q) => ({
       type: q.type,

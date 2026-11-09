@@ -246,6 +246,8 @@ export async function captureContext(): Promise<Capture> {
   // Belt and braces for fields that expose the placeholder as their value (VS Code's chat box).
   if (focused.placeholder && field === focused.placeholder.trim()) field = '';
   if (/^(Queue another message|Ask .*|Type a message|Message .*|Send a message)…?\.{0,3}$/i.test(field)) field = '';
+  // Chat boxes (VS Code, Cursor, Copilot, Slack) expose their hint as the value: a short imperative line ending in an ellipsis.
+  if (/^(Ask|Type|Queue|Message|Send|Add|Plan|Describe|Search|Write|Tell|Chat|Enter|Start|Edit|Reply)\b[^\n]{0,56}(…|\.\.\.)$/i.test(field)) field = '';
   if (!selection && !field) {
     // Nothing exposed (e.g. Chrome). If the user selected their draft, ⌘C gets it.
     const copied = await copySelection();

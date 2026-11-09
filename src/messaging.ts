@@ -55,6 +55,8 @@ export interface GapReport {
   scale: Scale;
   /** One sentence naming the specific practitioner whose answer the user wants; null for quick/factual drafts. */
   expert: string | null;
+  /** The "draft" is the chat box's own hint text ("Queue another message…"), not something the user typed. */
+  isPlaceholder: boolean;
   missing: AmbiguityType[];
   questions: GapQuestion[];
   alreadyClearBecause: string | null;

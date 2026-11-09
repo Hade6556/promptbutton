@@ -1,15 +1,37 @@
-/* One box, Cluely's input-box styling, emerald accent. */
+/* One box on a native macOS HUD material. The window supplies blur, shadow and corner radius; this
+   file paints a translucent fill, a hairline, system type, and the few colours the content needs.
+   Colour budget (HIG, Color › Liquid Glass): monochrome labels; the accent is spent on the primary
+   action (the arrow) and on status (progress line, caret). Yellow marks "needs your input". */
 :root {
-  --font: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --ink: #edeef2;
-  --ink-2: rgba(255, 255, 255, 0.72);
-  --ink-3: rgba(255, 255, 255, 0.42);
-  --bg: rgba(24, 23, 28, 0.93);
-  --hair: rgba(155, 155, 155, 0.4);
-  --accent-top: #27c07a;
-  --accent-bottom: #118a53;
-  --accent: #16a362;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Helvetica Neue', sans-serif;
+  /* Semantic colours for the dark material (macOS label levels). */
+  --label: rgba(255, 255, 255, 0.92);
+  --label-2: rgba(255, 255, 255, 0.6);
+  --label-3: rgba(255, 255, 255, 0.4);
+  --separator: rgba(255, 255, 255, 0.1);
+  --fill: rgba(255, 255, 255, 0.08);
+  --fill-2: rgba(255, 255, 255, 0.05);
+  --surface: rgba(28, 28, 30, 0.42);
+  --highlight: rgba(255, 255, 255, 0.14);
+  --accent: #30d158; /* systemGreen (dark) */
+  --accent-deep: #1f9d47;
+  --accent-ring: rgba(48, 209, 88, 0.45);
+  --signal: #ffd60a; /* systemYellow (dark): a value only the user can supply */
+  --signal-fill: rgba(255, 214, 10, 0.14);
+  --danger: #ff6961;
+  --radius: 12px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root {
+    --surface: rgba(28, 28, 30, 0.96);
+    --separator: rgba(255, 255, 255, 0.22);
+    --fill: rgba(255, 255, 255, 0.14);
+    --label-2: rgba(255, 255, 255, 0.78);
+    --label-3: rgba(255, 255, 255, 0.6);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -23,8 +45,8 @@ body,
 body {
   font-family: var(--font);
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--ink);
+  line-height: 18px;
+  color: var(--label);
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
@@ -39,72 +61,149 @@ p {
 }
 :focus-visible {
   outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .wrap {
   width: 600px;
-  padding: 4px 0;
 }
 
+/* The box fills the window; the window itself is rounded and shadowed by macOS. */
 .box {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 6px 8px 8px;
-  border-radius: 14px;
-  border: 0.5px solid var(--hair);
-  background: var(--bg);
+  border-radius: var(--radius);
+  background: var(--surface);
   box-shadow:
-    0 -1px 0 0 rgba(255, 255, 255, 0.25),
-    0 0 0 1px rgba(207, 226, 255, 0.18),
-    0 20px 50px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 0 var(--highlight),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
   -webkit-app-region: drag;
   user-select: text;
+  animation: appear 140ms var(--ease-out);
 }
 .box button,
 .box input {
   -webkit-app-region: no-drag;
 }
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Status: a hairline that sweeps along the top edge while the model works. */
+.progress {
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 14px;
+  height: 1.5px;
+  overflow: hidden;
+  border-radius: 1px;
+  pointer-events: none;
+}
+.progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sweep 1.4s var(--ease-out) infinite;
+}
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(350%);
+  }
+}
 
 .line {
   padding: 8px 10px 2px;
-  color: var(--ink);
+  color: var(--label);
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 18px;
   white-space: pre-wrap;
   /* Text must take the wheel: a drag region swallows scroll events. */
   -webkit-app-region: no-drag;
 }
 .line .n {
-  color: var(--ink-3);
+  color: var(--label-3);
   font-size: 11px;
 }
 .line.result {
-  color: #fff;
   max-height: 380px;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+/* Scroll edge effect: content fades where it meets the edge instead of being cut. */
+.line.result[data-edge='middle'] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+}
+.line.result[data-edge='top'] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+}
+.line.result[data-edge='bottom'] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
 }
 .line.result.rich {
   white-space: normal;
   padding-right: 8px;
 }
+.line.error {
+  color: var(--danger);
+}
+.line .summary {
+  color: var(--label);
+}
+.line .asks {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  color: var(--label-2);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Sections of a master prompt. Labels are monochrome Caption 1; the separator is inset to the text. */
+.sec {
+  animation: section-in 160ms var(--ease-out);
+}
 .sec + .sec {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid var(--separator);
+}
+@keyframes section-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .sec-label {
   display: block;
-  margin-bottom: 3px;
-  color: var(--accent-top);
-  font-size: 12px;
+  margin-bottom: 2px;
+  color: var(--label-2);
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 600;
 }
 .sec p {
   margin: 0;
-  color: var(--ink);
+  color: var(--label);
 }
 .sec p + p {
   margin-top: 4px;
@@ -113,49 +212,50 @@ p {
 .sec ol {
   margin: 2px 0 0;
   padding-left: 18px;
-  color: var(--ink);
+  color: var(--label);
 }
 .sec li {
   margin: 1px 0;
 }
 .sec li::marker {
-  color: var(--ink-3);
+  color: var(--label-3);
 }
-.assumed {
+.sec b {
+  font-weight: 600;
+}
+
+/* Tokens. "assumed" is a quiet fill; a placeholder is a signal, so it carries the one warm colour. */
+.assumed,
+.ph {
   display: inline-block;
-  margin-left: 4px;
-  padding: 0 5px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 0 6px;
   border-radius: 9999px;
-  color: var(--ink-3);
   font-size: 10px;
   line-height: 15px;
+  font-weight: 600;
   vertical-align: 1px;
+  white-space: nowrap;
+}
+.assumed {
+  margin-left: 4px;
+  background: var(--fill);
+  color: var(--label-2);
 }
 .ph {
-  color: #ffd27a;
+  background: var(--signal-fill);
+  color: var(--signal);
+  font-weight: 500;
+  white-space: normal;
 }
-.line.error {
-  color: #ff9d94;
-}
-.line .summary {
-  color: #fff;
-}
-.line .asks {
-  margin: 6px 0 0;
-  padding-left: 16px;
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.5;
-}
+
 .caret {
   display: inline-block;
   width: 2px;
   height: 1em;
   margin-left: 2px;
   vertical-align: -2px;
-  background: #fff;
-  animation: blink 0.8s steps(2) infinite;
+  background: var(--accent);
+  animation: blink 0.9s steps(2) infinite;
 }
 @keyframes blink {
   50% {
@@ -165,57 +265,54 @@ p {
 
 .field input {
   width: 100%;
-  padding: 10px 10px 8px;
+  padding: 9px 10px 7px;
   border: 0;
   background: transparent;
-  color: #fff;
+  color: var(--label);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 18px;
   outline: none;
-  box-shadow: inset 0 2px 20px -1px rgba(0, 0, 0, 0.05);
+}
+.field input:focus-visible {
+  box-shadow: none;
 }
 .field input::placeholder {
-  color: var(--ink-3);
+  color: var(--label-3);
 }
 .field input.shimmer::placeholder {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.9) 50%, rgba(255, 255, 255, 0.35) 100%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: shimmer 1.6s linear infinite;
-}
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
+  color: var(--label-2);
 }
 
-.row {
+/* Suggested answers wrap freely; the controls below them never move. */
+.opts {
   display: flex;
   flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 4px 4px;
+}
+.row {
+  display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 2px 0 4px;
+  padding: 2px 0 0 4px;
 }
 .opt {
-  height: 24px;
-  padding: 0 10px;
+  height: 26px;
+  padding: 0 11px;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(24, 23, 28, 0.1);
-  color: var(--ink-2);
+  border: 0;
+  background: var(--fill);
+  color: var(--label);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
 }
 .opt:hover {
-  border-color: var(--accent);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
 }
 .hint {
-  color: var(--ink-3);
+  color: var(--label-3);
   font-size: 12px;
   display: inline-flex;
   align-items: center;
@@ -229,28 +326,30 @@ kbd {
   height: 18px;
   padding: 0 4px;
   border-radius: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--fill);
   font-size: 11px;
-  color: var(--ink-2);
+  color: var(--label-2);
 }
 .spacer {
   flex: 1;
 }
+/* Icon buttons at the desktop default control size (28 pt). */
 .more {
-  width: 26px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border: 0;
   border-radius: 9999px;
   background: transparent;
-  color: var(--ink-3);
+  color: var(--label-3);
   cursor: pointer;
 }
 .more:hover {
-  color: #fff;
+  background: var(--fill-2);
+  color: var(--label);
 }
+/* The one coloured control: the primary action. */
 .go {
   width: 30px;
   height: 30px;
@@ -258,12 +357,28 @@ kbd {
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(180deg, var(--accent-top) 0%, var(--accent-bottom) 100%);
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
   color: #fff;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 .go:disabled {
   opacity: 0.45;
   cursor: progress;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .box,
+  .sec {
+    animation: none;
+  }
+  .progress::after {
+    animation: none;
+    width: 100%;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+  .caret {
+    animation: none;
+  }
 }

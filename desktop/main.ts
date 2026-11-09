@@ -122,7 +122,13 @@ function createWindow() {
     show: false,
     frame: false,
     transparent: true,
-    hasShadow: false,
+    // Real macOS material (NSVisualEffectView HUD) behind the box instead of painted glass: it blurs
+    // whatever app is underneath and honours Reduce Transparency on its own. The system draws the
+    // window shadow and corner radius, so the renderer paints only a translucent fill and a hairline.
+    vibrancy: 'hud',
+    visualEffectState: 'active',
+    roundedCorners: true,
+    hasShadow: true,
     resizable: false,
     minimizable: false,
     maximizable: false,
@@ -227,23 +233,8 @@ async function trigger(options: { fresh?: boolean } = {}) {
       `[PromptButton] captured app="${capture.appName}" role=${capture.role || '?'} via=${capture.method} source=${capture.source} settable=${capture.valueSettable} draft=${capture.draft.length} chars screenshot=${capture.screenshot ? `${Math.round((capture.screenshot.data.length * 3) / 4 / 1024)} KB` : 'none'}`,
     );
     if (capture.source === 'none') {
-      // Empty field: read the chat on screen and suggest what to say.
-      if (!capture.screenshot) {
-        busy = false;
-        notice(`Nothing to work with — type a draft in ${capture.appName}, or allow Screen Recording so I can read the chat.`, { ttl: 5000 });
-        return;
-      }
-      const input: ImproveInput = { site: capture.appName, history: [], draft: '', screenshot: capture.screenshot };
-      current = { capture, input, report: null, text: '', answers: [] };
-      setState({ phase: 'analyzing', appName: capture.appName, source: 'none', draft: '', report: null, text: '', error: undefined });
-      showPanel(false);
-      const assist = await suggestReplies(client(), input);
-      if (stale(my)) return;
-      console.log(`[PromptButton] reply assist: ${assist.replies.length} replies, ${assist.asks.length} asks`);
-      busy = false;
-      setState({ phase: 'replies', assist });
-      rememberRun();
-      showPanel(true);
+      current = { capture, input: { site: capture.appName, history: [], draft: '', screenshot: capture.screenshot }, report: null, text: '', answers: [] };
+      await suggestForEmptyField(my);
       return;
     }
     // Never ship secrets to the model (e.g. the hotkey pressed while a .env file is focused).
@@ -258,6 +249,28 @@ async function trigger(options: { fresh?: boolean } = {}) {
   } catch (error) {
     if (!stale(my)) fail(error);
   }
+}
+
+/** Empty field, or a "draft" that is only the box's own hint text: read the chat on screen and suggest what to say. */
+async function suggestForEmptyField(my: number) {
+  if (!current) return;
+  const { capture } = current;
+  if (!capture.screenshot) {
+    busy = false;
+    notice(`Nothing to work with — type a draft in ${capture.appName}, or allow Screen Recording so I can read the chat.`, { ttl: 5000 });
+    return;
+  }
+  const input: ImproveInput = { site: capture.appName, history: [], draft: '', screenshot: capture.screenshot };
+  current = { ...current, input, report: null, text: '', answers: [] };
+  setState({ phase: 'analyzing', appName: capture.appName, source: 'none', draft: '', report: null, text: '', error: undefined });
+  showPanel(false);
+  const assist = await suggestReplies(client(), input);
+  if (stale(my)) return;
+  console.log(`[PromptButton] reply assist: ${assist.replies.length} replies, ${assist.asks.length} asks`);
+  busy = false;
+  setState({ phase: 'replies', assist });
+  rememberRun();
+  showPanel(true);
 }
 
 /** From a captured draft: gap analysis → questions or straight to the rewrite. Also used to resume after settings. */
@@ -286,8 +299,14 @@ async function analyzeAndContinue() {
     if (stale(my)) return;
     current.report = report;
     console.log(
-      `[PromptButton] gap analysis mode=${report.mode} scale=${report.scale} domain=${report.domain} ambiguity=${report.ambiguity.toFixed(2)} missing=${report.missing.join(',') || '-'} questions=${report.questions.length}`,
+      `[PromptButton] gap analysis mode=${report.mode} scale=${report.scale} domain=${report.domain} ambiguity=${report.ambiguity.toFixed(2)} missing=${report.missing.join(',') || '-'} questions=${report.questions.length}${report.isPlaceholder ? ' placeholder=yes' : ''}`,
     );
+    if (report.isPlaceholder) {
+      // The field only held its own hint text ("Queue another message…"): treat it as empty.
+      console.log('[PromptButton] draft is the box’s hint text → reading the chat instead');
+      await suggestForEmptyField(my);
+      return;
+    }
     const shouldAsk = report.questions.length > 0 && (settings.askMode === 'always' || report.ambiguity >= ASK_THRESHOLD);
     if (shouldAsk) {
       busy = false;

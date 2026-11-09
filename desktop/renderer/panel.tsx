@@ -71,24 +71,38 @@ function BlockView({ block }: { block: Block }) {
  */
 function ResultView({ text, streaming }: { text: string; streaming: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState<'none' | 'top' | 'middle' | 'bottom'>('none');
+
+  /** Which edges have more content beyond them, for the scroll edge fade. */
+  function measure() {
+    const el = ref.current;
+    if (!el) return;
+    const overflow = el.scrollHeight - el.clientHeight;
+    if (overflow <= 2) return setEdge('none');
+    const atTop = el.scrollTop <= 2;
+    const atBottom = el.scrollTop >= overflow - 2;
+    setEdge(atTop ? 'top' : atBottom ? 'bottom' : 'middle');
+  }
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (streaming) el.scrollTop = el.scrollHeight;
     else el.scrollTop = 0;
+    measure();
   }, [text, streaming]);
 
   const sections = parseSections(text);
   if (!sections) {
     return (
-      <div class="line result" ref={ref}>
+      <div class="line result" ref={ref} data-edge={edge} onScroll={measure}>
         {text}
         {streaming && <span class="caret" />}
       </div>
     );
   }
   return (
-    <div class="line result rich" ref={ref}>
+    <div class="line result rich" ref={ref} data-edge={edge} onScroll={measure}>
       {sections.map((s, i) => (
         <section class="sec" key={i}>
           {s.label && <span class="sec-label">{s.label}</span>}
@@ -130,7 +144,7 @@ export function Panel() {
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const report = () => window.pb.resize(root.getBoundingClientRect().height + 8);
+    const report = () => window.pb.resize(root.getBoundingClientRect().height);
     const observer = new ResizeObserver(report);
     observer.observe(root);
     report();
@@ -271,6 +285,7 @@ export function Panel() {
   return (
     <div class="wrap" ref={rootRef}>
       <div class="box" data-phase={state.phase}>
+        {busy && <div class="progress" role="progressbar" aria-label="Working" />}
         {line}
         <div class="field" hidden={state.phase === 'notice' || state.phase === 'error'}>
           <input
@@ -292,26 +307,30 @@ export function Panel() {
             }}
           />
         </div>
+        {(question?.suggestions.length || replies.length) > 0 && (
+          <div class="opts">
+            {question?.suggestions.map((s) => (
+              <button type="button" class="opt" key={s} onClick={() => answer(s)}>
+                {s}
+              </button>
+            ))}
+            {replies.map((r) => (
+              <button
+                type="button"
+                class="opt"
+                key={r.label}
+                title={r.text}
+                onClick={() => {
+                  setText(r.text);
+                  inputRef.current?.focus();
+                }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div class="row">
-          {question?.suggestions.map((s) => (
-            <button type="button" class="opt" key={s} onClick={() => answer(s)}>
-              {s}
-            </button>
-          ))}
-          {replies.map((r) => (
-            <button
-              type="button"
-              class="opt"
-              key={r.label}
-              title={r.text}
-              onClick={() => {
-                setText(r.text);
-                inputRef.current?.focus();
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
           {state.phase === 'done' && (
             <span class="hint">
               <kbd>↵</kbd> insert into {app}

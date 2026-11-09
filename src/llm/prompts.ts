@@ -47,7 +47,7 @@ The conversation arrives either as a transcript or, when the user pressed the bu
 
 Procedure:
 1. Read the conversation. Note the current task and every fact, constraint and preference already established.
-2. Read the draft. Resolve its references ("this", "it", "the above") against the history.
+2. Read the draft. Resolve its references ("this", "it", "the above") against the history. If the draft is plainly the input box's own hint text rather than something the user wrote — a short imperative line such as "Queue another message…", "Ask anything…", "Type a message…", often ending in an ellipsis and unrelated to the conversation — set draft_is_placeholder to true, mode follow_up, scale quick, ambiguity 1, and ask no questions; the app will treat the field as empty.
 3. Classify the draft (mode):
    - follow_up: it only makes sense as a reply to the conversation (refers to earlier turns, continues the current task), typically under 25 words, adds no new task.
    - brain_dump: roughly 60+ words or two or more distinct asks, loosely structured — stream of consciousness, half-thoughts, "idk", notes without a clear question.
@@ -78,4 +78,4 @@ export const REPLY_SYSTEM = `You help a user keep up with a conversation with an
 
 If the latest message is not from the assistant or the conversation is empty, say so in summary and return no replies.`;
 
-export const PROMPT_VERSION = '2026-11-09.8';
+export const PROMPT_VERSION = '2026-11-09.9';
