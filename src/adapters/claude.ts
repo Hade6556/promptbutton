@@ -2,11 +2,13 @@ import type { HistoryMessage } from '../messaging';
 import type { SiteAdapter } from './types';
 import { readEditable, writeEditable } from './editable';
 
-// Selectors to verify in devtools — claude.ai ships UI changes often.
+// Composer verified 2026-11-09: <div class="tiptap ProseMirror" contenteditable data-testid="chat-input" role="textbox">.
+// Message selectors still need verifying on an open conversation — claude.ai ships UI changes often.
 const COMPOSER_CANDIDATES = [
+  '[data-testid="chat-input"][contenteditable="true"]',
   'div.ProseMirror[contenteditable="true"]',
   'fieldset div[contenteditable="true"]',
-  'div[contenteditable="true"][data-placeholder]',
+  'div[role="textbox"][contenteditable="true"]',
 ];
 const USER_MESSAGE = '[data-testid="user-message"]';
 const ASSISTANT_MESSAGE = '[data-is-streaming], .font-claude-message, .font-claude-response';
