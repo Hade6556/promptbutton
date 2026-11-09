@@ -35,10 +35,16 @@ API key: paste it in the panel's Settings, **or** put `ANTHROPIC_API_KEY=sk-ant-
 
 First launch on macOS asks for two permissions, both under System Settings → Privacy & Security:
 **Accessibility** (read the field, paste) and **Screen Recording** (the window screenshot). Grant them to
-"Electron" while running from source; restart the app after granting Screen Recording. The mic button in the
-box's bottom row dictates into the field with macOS speech recognition (on-device when your language
-supports it); the first use asks for **Microphone** and **Speech Recognition**. ↵ while listening stops and
-sends, Esc stops. The tray menu has the ask
+"Electron" while running from source; restart the app after granting Screen Recording.
+
+**Voice.** The mic button in the box's bottom row listens (macOS speech recognition, on-device when your
+language supports it) and stops by itself when you pause. What you said is then read against what the box is
+showing and acted on at once: with a master prompt on screen, "also make it TypeScript and drop the role"
+revises it; at a question, "for developers, single HTML file" answers two questions; over a chat, "go with
+option two but use Postgres" writes and inserts that reply; anywhere, a new request or brain dump becomes the
+draft and runs the full pipeline; "put it in", "undo", "skip", "start over" do what they say. A "heard" line
+shows what was understood, with Undo. The first use asks for **Microphone** and **Speech Recognition**.
+`npm run voice-smoke` checks the interpretation on 12 cases. The tray menu has the ask
 mode, the rewrite depth (full master prompt or concise), "Hide from screen sharing" (`setContentProtection`),
 the API key, and undo of the last insert.
 

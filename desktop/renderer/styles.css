@@ -200,8 +200,48 @@ p {
 .content {
   padding: 14px var(--inset) 14px;
 }
-.content + .composer {
+.content + .composer,
+.content + .heard {
   border-top: 1px solid var(--separator);
+}
+
+/* What voice just did: mic glyph, a few words, Undo. Quiet, on the composer's top edge. */
+.heard {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px var(--inset) 0;
+  color: var(--label-2);
+  font-size: 12px;
+  line-height: 16px;
+  animation: fade-in 240ms var(--ease-out);
+}
+.heard svg {
+  flex: none;
+  color: var(--secondary);
+}
+.heard-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.heard-undo {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.heard-undo:hover {
+  background: var(--secondary-fill);
 }
 
 .line {

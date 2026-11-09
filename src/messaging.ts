@@ -78,6 +78,44 @@ export interface ReplyAssist {
   replies: ReplySuggestion[];
 }
 
+/** What the panel is showing when the user speaks; the interpreter reads speech against it. */
+export type VoicePhase = 'empty' | 'asking' | 'done' | 'replies' | 'other';
+
+export interface VoiceContext {
+  phase: VoicePhase;
+  app: string;
+  /** The draft the run started from ('' when the field was empty). */
+  draft: string;
+  /** Asking: every question with its suggestions; `current` is the one on screen. */
+  questions?: { index: number; question: string; suggestions: string[] }[];
+  current?: number;
+  /** Done: the rewritten prompt on screen. */
+  rewrite?: string;
+  /** Replies: the chat summary and the suggested replies. */
+  summary?: string;
+  replies?: { index: number; label: string; text: string }[];
+  /** Text typed into the field before the mic went on. */
+  typed: string;
+  transcript: string;
+}
+
+export type VoiceCommand = 'insert' | 'undo' | 'skip' | 'cancel' | 'start_over' | 'rescan';
+
+export interface VoiceIntent {
+  intent: 'edit_prompt' | 'answer_questions' | 'reply' | 'new_draft' | 'command';
+  command: VoiceCommand | null;
+  /** edit_prompt: the change to make, as a clean written instruction. */
+  instruction: string;
+  /** Clean written text: the new draft, the reply, or a single answer. */
+  text: string;
+  /** answer_questions: answers by question index. */
+  answers: { index: number; answer: string }[];
+  /** A picked suggestion (asking) or reply (replies), by index; null if none. */
+  pick: number | null;
+  /** A few words for the "Heard:" line, e.g. "Add: TypeScript, no role section". */
+  heard: string;
+}
+
 /** Content → background: summarise the chat and suggest replies (empty field). */
 export interface SuggestRequest {
   type: 'suggest';

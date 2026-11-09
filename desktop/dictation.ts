@@ -6,6 +6,8 @@ import path from 'node:path';
 import type { DictationEvent } from './shared';
 
 const HELPER = path.join(__dirname, '..', 'bin', 'dictate');
+/** Seconds of silence, after something has been said, before listening ends by itself. */
+export const SILENCE_SECONDS = 1.4;
 
 let child: ChildProcessWithoutNullStreams | null = null;
 
@@ -16,7 +18,7 @@ export function isDictating(): boolean {
 export function startDictation(onEvent: (event: DictationEvent) => void): void {
   if (child) return;
   const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-  const proc = spawn(HELPER, [locale]);
+  const proc = spawn(HELPER, [locale, String(SILENCE_SECONDS)]);
   child = proc;
   let buffer = '';
   let ended = false;
@@ -41,6 +43,7 @@ export function startDictation(onEvent: (event: DictationEvent) => void): void {
         continue;
       }
       if (msg.status === 'listening') onEvent({ type: 'listening' });
+      else if (msg.status === 'auto_stop') onEvent({ type: 'stopping' });
       else if (typeof msg.level === 'number') onEvent({ type: 'level', level: msg.level });
       else if (typeof msg.partial === 'string') onEvent({ type: 'partial', text: msg.partial });
       else if (typeof msg.final === 'string') end({ type: 'final', text: msg.final });

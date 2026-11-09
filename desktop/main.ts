@@ -9,7 +9,8 @@ import { toResult } from '../src/llm/errors';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { suggestReplies } from '../src/llm/reply';
 import { rewritePrompt } from '../src/llm/rewrite';
-import type { GapReport, ImproveInput, RewriteOptions, UserAnswer } from '../src/messaging';
+import { interpretVoice } from '../src/llm/voice';
+import type { GapReport, ImproveInput, Result, RewriteOptions, UserAnswer, VoiceContext, VoiceIntent } from '../src/messaging';
 import { captureContext, hashDistance, type Capture } from './capture';
 import { cancelDictation, startDictation, stopDictation } from './dictation';
 import { dotEnvPaths, resolveApiKey } from './env';
@@ -195,6 +196,7 @@ function showPanel(takeFocus: boolean) {
 function hidePanel() {
   clearTimeout(noticeTimer);
   cancelDictation(); // the mic never stays on behind a closed panel
+  voiceSnapshots = [];
   win?.hide();
   busy = false;
   runId++; // anything still in flight belongs to a closed run
@@ -290,6 +292,77 @@ async function suggestForEmptyField(my: number) {
   setState({ phase: 'replies', assist });
   rememberRun();
   showPanel(true);
+}
+
+// ── Voice understanding ─────────────────────────────────────────────────────────────────────────
+// The renderer applies a voice intent through the same actions as the keyboard; main interprets it
+// against what the box shows and keeps snapshots so each voice-applied change can be undone.
+
+let voiceSnapshots: { state: PanelState; current: Run }[] = [];
+
+function voiceContext(transcript: string, typed: string, questionIndex: number): VoiceContext {
+  const base = { app: state.appName ?? current?.capture.appName ?? 'the app', draft: current?.input.draft ?? '', typed, transcript };
+  switch (state.phase) {
+    case 'done':
+      return { ...base, phase: 'done', rewrite: state.text ?? current?.text ?? '' };
+    case 'asking':
+      return {
+        ...base,
+        phase: 'asking',
+        current: questionIndex,
+        questions: (state.report?.questions ?? []).map((q, index) => ({ index, question: q.question, suggestions: q.suggestions })),
+      };
+    case 'replies':
+      return {
+        ...base,
+        phase: 'replies',
+        summary: state.assist?.summary,
+        replies: (state.assist?.replies ?? []).map((r, index) => ({ index, label: r.label, text: r.text })),
+      };
+    default:
+      return { ...base, phase: base.draft.trim() ? 'other' : 'empty' };
+  }
+}
+
+async function handleVoice(transcript: string, typed: string, questionIndex: number): Promise<Result<VoiceIntent>> {
+  const started = Date.now();
+  try {
+    const intent = await interpretVoice(client(), voiceContext(transcript, typed, questionIndex));
+    console.log(`[PromptButton] voice intent=${intent.intent}${intent.command ? `/${intent.command}` : ''} heard="${intent.heard}" (${Date.now() - started} ms, phase=${state.phase})`);
+    return { ok: true, value: intent };
+  } catch (error) {
+    console.warn('[PromptButton] voice interpretation failed', error instanceof Error ? error.message : error);
+    return toResult<never>(error);
+  }
+}
+
+function snapshotForVoice() {
+  if (!current) return;
+  voiceSnapshots.push({ state: { ...state }, current: { ...current, answers: [...current.answers] } });
+  if (voiceSnapshots.length > 10) voiceSnapshots.shift();
+}
+
+async function undoVoice() {
+  const snap = voiceSnapshots.pop();
+  if (!snap) {
+    // The last voice action was an insert into the app (the panel closed): put the original back.
+    if (lastInsert) await undo();
+    return;
+  }
+  runId++; // drop anything the undone change still has in flight
+  busy = false;
+  current = snap.current;
+  setState({ ...snap.state });
+  showPanel(true);
+  console.log(`[PromptButton] voice undo → ${snap.state.phase}`);
+}
+
+/** A dictated new request: becomes the draft for the full pipeline; the original field stays the insert target. */
+async function voiceDraft(text: string) {
+  if (!current || !text.trim()) return;
+  current = { ...current, input: { ...current.input, draft: text.trim() }, report: null, text: '', answers: [] };
+  runId++;
+  await analyzeAndContinue();
 }
 
 /** From a captured draft: gap analysis → questions or straight to the rewrite. Also used to resume after settings. */
@@ -440,6 +513,12 @@ async function handleAction(action: RendererAction) {
         if (event.type === 'final' || event.type === 'error') console.log(`[PromptButton] voice input ${event.type === 'final' ? `done (${event.text.length} chars)` : `error: ${event.error}`}`);
         win?.webContents.send('pb:dictation', event);
       });
+    case 'voiceSnapshot':
+      return snapshotForVoice();
+    case 'undoVoice':
+      return undoVoice();
+    case 'voiceDraft':
+      return voiceDraft(action.text);
     case 'refresh':
       return trigger({ fresh: true });
     case 'openSettings':
@@ -548,6 +627,9 @@ app.whenReady().then(() => {
 
   ipcMain.handle('pb:getState', () => state);
   ipcMain.on('pb:action', (_event, action: RendererAction) => void handleAction(action));
+  ipcMain.handle('pb:voice', (_event, transcript: string, typed: string, questionIndex: number) =>
+    handleVoice(String(transcript ?? ''), String(typed ?? ''), Number(questionIndex) || 0),
+  );
   ipcMain.on('pb:resize', (_event, height: number) => fitPanel(Number(height) || PANEL_HEIGHT));
   // Transparent areas of the window must not swallow clicks meant for the app underneath.
   ipcMain.on('pb:mouse', (_event, ignore: boolean) => win?.setIgnoreMouseEvents(Boolean(ignore), { forward: true }));

@@ -1,9 +1,11 @@
 // dictate — streaming speech-to-text for PromptButton (macOS).
 //
-//   dictate [locale]     e.g. `dictate en-US`; default is the system locale
+//   dictate [locale] [silence]   e.g. `dictate en-US 1.4`; default is the system locale and 1.4 s
+//                                 of silence before listening ends by itself (0 = only on request)
 //
 // Listens on the default microphone and prints one JSON object per line:
 //   {"status":"listening"}            once the microphone is open
+//   {"status":"auto_stop"}            listening ended on a pause; the final text follows
 //   {"level":0.42}                    input level 0–1, about 15 times a second (for the button)
 //   {"partial":"what was said so far"}
 //   {"final":"the whole utterance"}   then exits 0
@@ -84,6 +86,9 @@ func emit(_ object: [String: Any]) {
 }
 
 let locale = CommandLine.arguments.count > 1 ? Locale(identifier: CommandLine.arguments[1]) : Locale.current
+/// Seconds of silence after the user has said something before listening ends by itself (0 = never).
+let silenceSeconds = CommandLine.arguments.count > 2 ? (Double(CommandLine.arguments[2]) ?? 1.4) : 1.4
+let maxSessionSeconds = 90.0
 guard let recognizer = SFSpeechRecognizer(locale: locale) ?? SFSpeechRecognizer(), recognizer.isAvailable else {
     emit(["error": "unavailable"])
     exit(3)
@@ -97,6 +102,8 @@ if recognizer.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition 
 
 var task: SFSpeechRecognitionTask?
 var lastText = ""
+var lastChange = Date()
+var lastLevel: Float = 0
 var stopping = false
 var done = false
 
@@ -148,6 +155,7 @@ func start() {
         // −50 dB … 0 dB → 0 … 1
         let db = 20 * log10(max(rms, 0.000_01))
         let level = max(0, min(1, (db + 50) / 50))
+        DispatchQueue.main.async { lastLevel = level }
         emit(["level": (Double(level) * 100).rounded() / 100])
     }
     engine.prepare()
@@ -159,9 +167,27 @@ func start() {
     }
     emit(["status": "listening"])
 
+    // End on a pause: once something has been said, stop after `silenceSeconds` with no new words
+    // and a quiet input. Also stop after `maxSessionSeconds` whatever happens.
+    let startedAt = Date()
+    lastChange = Date()
+    Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { _ in
+        if stopping { return }
+        let quietFor = Date().timeIntervalSince(lastChange)
+        if silenceSeconds > 0, !lastText.isEmpty, quietFor >= silenceSeconds, lastLevel < 0.45 {
+            emit(["status": "auto_stop"])
+            stop()
+        } else if Date().timeIntervalSince(startedAt) >= maxSessionSeconds {
+            emit(["status": "auto_stop"])
+            stop()
+        }
+    }
+
     task = recognizer.recognitionTask(with: request) { result, error in
         if let result {
-            lastText = result.bestTranscription.formattedString
+            let text = result.bestTranscription.formattedString
+            if text != lastText { lastChange = Date() }
+            lastText = text
             if result.isFinal {
                 finish(lastText)
                 return

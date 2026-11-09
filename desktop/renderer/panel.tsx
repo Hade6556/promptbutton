@@ -157,14 +157,16 @@ export function Panel() {
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Voice input. The helper streams partial transcripts; each one replaces the spoken part of the
-  // field, appended after whatever was typed before the mic went on.
+  // Voice input. While listening, the live transcript shows in the field (after anything typed
+  // before the mic went on). When listening ends — on a pause, the mic button or ↵ — the words are
+  // interpreted against what the box shows and acted on at once; the "heard" line offers Undo.
   const [mic, setMic] = useState<Mic>('off');
   const [level, setLevel] = useState(0);
   const [micNote, setMicNote] = useState<string | null>(null);
+  const [understanding, setUnderstanding] = useState(false);
+  const [heard, setHeard] = useState<{ text: string; undoable: boolean } | null>(null);
   const spokenBase = useRef('');
-  const submitAfterVoice = useRef(false);
-  const finishRef = useRef<() => void>(() => {});
+  const onSpokenRef = useRef<(spoken: string, typed: string) => void>(() => {});
 
   useEffect(
     () =>
@@ -173,30 +175,25 @@ export function Panel() {
           case 'listening':
             setMic((m) => (m === 'starting' ? 'listening' : m));
             return;
+          case 'stopping':
+            setMic('stopping');
+            return;
           case 'level':
             setLevel(event.level);
             return;
           case 'partial':
             setText(joinSpoken(spokenBase.current, event.text));
             return;
-          case 'final': {
-            const next = joinSpoken(spokenBase.current, event.text);
-            setText(next);
+          case 'final':
             setMic('off');
             setLevel(0);
-            requestAnimationFrame(() => {
-              inputRef.current?.focus();
-              if (submitAfterVoice.current) {
-                submitAfterVoice.current = false;
-                finishRef.current();
-              }
-            });
+            setText(joinSpoken(spokenBase.current, event.text));
+            if (event.text.trim()) onSpokenRef.current(event.text.trim(), spokenBase.current);
+            else requestAnimationFrame(() => inputRef.current?.focus());
             return;
-          }
           case 'error':
             setMic('off');
             setLevel(0);
-            submitAfterVoice.current = false;
             setMicNote(event.error);
             return;
         }
@@ -205,9 +202,11 @@ export function Panel() {
   );
 
   function toggleMic() {
+    if (understanding) return;
     if (mic === 'off') {
       spokenBase.current = text;
       setMicNote(null);
+      setHeard(null);
       setMic('starting');
       send({ type: 'dictate', on: true });
     } else if (mic !== 'stopping') {
@@ -230,7 +229,8 @@ export function Panel() {
         setMic('off');
         setLevel(0);
         setMicNote(null);
-        submitAfterVoice.current = false;
+        setHeard(null);
+        setUnderstanding(false);
       }
       requestAnimationFrame(() => inputRef.current?.focus());
     });
@@ -275,7 +275,7 @@ export function Panel() {
 
   if (state.phase === 'hidden') return null;
 
-  const busy = state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting';
+  const busy = state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting' || understanding;
   const questions = state.report?.questions ?? [];
   const question = state.phase === 'asking' ? questions[qIndex] : undefined;
   const replies = state.phase === 'replies' ? (state.assist?.replies ?? []) : [];
@@ -297,14 +297,107 @@ export function Panel() {
     else rewriteWithAnswers(next);
   }
 
-  /** The arrow / ⌘↵: the obvious next step for the current phase. */
-  function finish() {
-    // ↵ while listening: stop, wait for the last words, then submit.
-    if (mic === 'starting' || mic === 'listening' || mic === 'stopping') {
-      submitAfterVoice.current = true;
-      if (mic !== 'stopping') toggleMic();
+  /**
+   * Spoken words, once listening ends: ask main what they mean here, then act at once through the
+   * same paths as the keyboard. A snapshot is taken first wherever the change can be undone.
+   */
+  async function onSpoken(spoken: string, typed: string) {
+    setUnderstanding(true);
+    setMicNote(null);
+    const result = await window.pb.interpretVoice(spoken, typed, qIndex);
+    setUnderstanding(false);
+    if (!result.ok) {
+      // Nothing is lost: the words stay in the field to edit or send with ↵.
+      setMicNote('Could not work out what to do — your words are in the box. Edit them, or ↵.');
+      requestAnimationFrame(() => inputRef.current?.focus());
       return;
     }
+    const intent = result.value;
+    const said = (s: string) => s || joinSpoken(typed, spoken);
+    const show = (undoable: boolean) => setHeard({ text: intent.heard || spoken, undoable });
+    setText('');
+
+    if (intent.intent === 'command') {
+      switch (intent.command) {
+        case 'insert':
+          if (state.phase === 'done' && state.text) return send({ type: 'accept', text: state.text });
+          if (state.phase === 'replies' && replies[0]) return send({ type: 'reply', text: replies[0].text });
+          return finish();
+        case 'undo':
+          setHeard(null);
+          return send({ type: 'undoVoice' });
+        case 'skip':
+          show(true);
+          send({ type: 'voiceSnapshot' });
+          return rewriteWithAnswers();
+        case 'cancel':
+          return send({ type: 'cancel' });
+        case 'start_over':
+        case 'rescan':
+          return send({ type: 'refresh' });
+        default:
+          return;
+      }
+    }
+
+    switch (intent.intent) {
+      case 'edit_prompt':
+        if (state.phase === 'done') {
+          show(true);
+          send({ type: 'voiceSnapshot' });
+          return send({ type: 'refine', note: said(intent.instruction) });
+        }
+        if (state.phase === 'asking') return answer(said(intent.instruction || intent.text));
+        show(true);
+        send({ type: 'voiceSnapshot' });
+        return send({ type: 'voiceDraft', text: said(intent.instruction || intent.text) });
+
+      case 'answer_questions': {
+        if (state.phase !== 'asking') {
+          show(true);
+          send({ type: 'voiceSnapshot' });
+          return send({ type: 'voiceDraft', text: said(intent.text) });
+        }
+        const merged = { ...answers };
+        for (const a of intent.answers) if (a.index >= 0 && a.index < questions.length) merged[a.index] = a.answer;
+        const picked = intent.pick !== null ? question?.suggestions[intent.pick] : undefined;
+        if (picked && !merged[qIndex]) merged[qIndex] = picked;
+        if (Object.keys(merged).length === Object.keys(answers).length && intent.text) merged[qIndex] = intent.text;
+        setAnswers(merged);
+        // Go to the next question still open; when none is left, rewrite.
+        const open = questions.findIndex((_, i) => !merged[i]?.trim());
+        if (open >= 0) {
+          setHeard({ text: intent.heard || spoken, undoable: false });
+          return setQIndex(open);
+        }
+        show(true);
+        send({ type: 'voiceSnapshot' });
+        return rewriteWithAnswers(merged);
+      }
+
+      case 'reply': {
+        const picked = intent.pick !== null ? replies[intent.pick]?.text : undefined;
+        const reply = intent.text || picked || joinSpoken(typed, spoken);
+        if (state.phase === 'replies') return send({ type: 'reply', text: reply });
+        show(true);
+        send({ type: 'voiceSnapshot' });
+        return send({ type: 'voiceDraft', text: reply });
+      }
+
+      case 'new_draft':
+        show(true);
+        send({ type: 'voiceSnapshot' });
+        return send({ type: 'voiceDraft', text: said(intent.text) });
+    }
+  }
+  onSpokenRef.current = (spoken, typed) => void onSpoken(spoken, typed);
+
+  /** The arrow / ⌘↵: the obvious next step for the current phase. */
+  function finish() {
+    // ↵ while listening: stop now; the words are then interpreted and acted on.
+    if (mic === 'starting' || mic === 'listening') return toggleMic();
+    if (mic === 'stopping' || understanding) return;
+    setHeard(null);
     const typed = text.trim();
     switch (state.phase) {
       case 'asking':
@@ -329,11 +422,10 @@ export function Panel() {
     }
   }
 
-  finishRef.current = finish;
-
   const placeholder = (() => {
     if (mic === 'starting') return 'Starting the microphone…';
-    if (mic === 'listening') return 'Listening… speak, then press the mic or ↵';
+    if (mic === 'listening') return 'Listening… pause when you’re done';
+    if (understanding) return 'Understanding…';
     if (micNote) return micNote;
     switch (state.phase) {
       case 'capturing':
@@ -438,6 +530,25 @@ export function Panel() {
             {options.length > 0 && <div class="opts">{options}</div>}
           </div>
         )}
+        {/* What voice just did, with a way back. Sits on the composer's top edge, same inset. */}
+        {heard && (
+          <div class="heard" role="status">
+            <Icon d={MIC} size={12} />
+            <span class="heard-text">{heard.text}</span>
+            {heard.undoable && (
+              <button
+                type="button"
+                class="heard-undo"
+                onClick={() => {
+                  setHeard(null);
+                  send({ type: 'undoVoice' });
+                }}
+              >
+                Undo
+              </button>
+            )}
+          </div>
+        )}
         {/* Composer: the field and every control on one row, one baseline. */}
         <div class="composer">
           {showField ? (
@@ -452,7 +563,10 @@ export function Panel() {
               class={['field', busy && 'shimmer', mic !== 'off' && 'listening', micNote && mic === 'off' && 'note'].filter(Boolean).join(' ')}
               autocomplete="off"
               spellcheck={false}
-              onInput={(e) => setText((e.currentTarget as HTMLInputElement).value)}
+              onInput={(e) => {
+                setText((e.currentTarget as HTMLInputElement).value);
+                setHeard(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
                   e.preventDefault();

@@ -13,6 +13,7 @@ const api: PbApi = {
     ipcRenderer.on('pb:dictation', handler);
     return () => ipcRenderer.off('pb:dictation', handler);
   },
+  interpretVoice: (transcript, typed, questionIndex) => ipcRenderer.invoke('pb:voice', transcript, typed, questionIndex),
   send: (action: RendererAction) => ipcRenderer.send('pb:action', action),
   resize: (height: number) => ipcRenderer.send('pb:resize', height),
   setMouseThrough: (ignore: boolean) => ipcRenderer.send('pb:mouse', ignore),

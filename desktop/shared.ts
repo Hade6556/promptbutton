@@ -1,5 +1,5 @@
 // Types shared by the Electron main process and the panel renderer.
-import type { Depth, GapReport, ReplyAssist, UserAnswer } from '../src/messaging';
+import type { Depth, GapReport, ReplyAssist, Result, UserAnswer, VoiceIntent } from '../src/messaging';
 import type { AskMode } from '../src/llm/config';
 
 export interface Settings {
@@ -59,11 +59,19 @@ export type RendererAction =
   | { type: 'openSettings' }
   | { type: 'saveSettings'; settings: Settings }
   /** Voice input: start or stop transcribing the microphone into the field. */
-  | { type: 'dictate'; on: boolean };
+  | { type: 'dictate'; on: boolean }
+  /** Voice: remember the box as it is, so the change about to be applied can be undone. */
+  | { type: 'voiceSnapshot' }
+  /** Voice: put the box back as it was before the last voice-applied change. */
+  | { type: 'undoVoice' }
+  /** Voice: the user dictated a new request; run the whole pipeline on it as the draft. */
+  | { type: 'voiceDraft'; text: string };
 
 /** Main → renderer while voice input runs. */
 export type DictationEvent =
   | { type: 'listening' }
+  /** Listening ended on a pause; the final text follows. */
+  | { type: 'stopping' }
   | { type: 'level'; level: number }
   | { type: 'partial'; text: string }
   | { type: 'final'; text: string }
@@ -73,6 +81,8 @@ export interface PbApi {
   getState(): Promise<PanelState>;
   onState(callback: (state: PanelState) => void): () => void;
   onDictation(callback: (event: DictationEvent) => void): () => void;
+  /** What the spoken words mean in the box's current state. */
+  interpretVoice(transcript: string, typed: string, questionIndex: number): Promise<Result<VoiceIntent>>;
   send(action: RendererAction): void;
   /** Ask the window to fit this content height (px). */
   resize(height: number): void;

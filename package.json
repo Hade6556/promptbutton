@@ -19,7 +19,8 @@
     "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron .",
     "desktop:helper": "mkdir -p desktop/bin && xcrun swiftc -O -o desktop/bin/axhelper desktop/native/axhelper.swift && xcrun swiftc -O -o desktop/bin/dictate desktop/native/dictate.swift -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker desktop/native/dictate-Info.plist",
     "smoke": "node --env-file-if-exists=.env --import tsx eval/smoke.mts",
-    "cost": "node --env-file-if-exists=.env --import tsx eval/cost.mts"
+    "cost": "node --env-file-if-exists=.env --import tsx eval/cost.mts",
+    "voice-smoke": "node --env-file-if-exists=.env --import tsx eval/voice.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
