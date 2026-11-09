@@ -23,11 +23,25 @@ export interface GapQuestion {
   suggestions: string[];
 }
 
+/** What kind of draft this is; decides how much structure the rewrite adds. */
+export type DraftMode = 'follow_up' | 'request' | 'brain_dump';
+
 export interface GapReport {
   ambiguity: number; // 0..1
+  mode: DraftMode;
   missing: AmbiguityType[];
   questions: GapQuestion[];
   alreadyClearBecause: string | null;
+}
+
+/** Extra steering for the rewrite call. */
+export interface RewriteOptions {
+  /** Classified by the gap analysis; the rewriter follows it unless clearly wrong. */
+  mode?: DraftMode;
+  /** A previous rewrite to revise instead of regenerating. */
+  previous?: string;
+  /** What to change about `previous`. */
+  revision?: string;
 }
 
 export interface UserAnswer {
@@ -66,6 +80,7 @@ export interface RewriteRequest {
   type: 'rewrite';
   input: ImproveInput;
   answers: UserAnswer[];
+  options?: RewriteOptions;
 }
 
 export type BackgroundRequest = AnalyzeRequest | RewriteRequest;

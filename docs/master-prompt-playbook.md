@@ -21,6 +21,15 @@ The system prompt that applies them is `src/llm/prompts.ts` (`REWRITE_SYSTEM`).
 | **"Think through the approach first"** — only for reasoning tasks | The Prompt Improver's first step is a dedicated reasoning section; CoT is the second most robust technique; skip it for simple writing | [2], [5] |
 | **Labelled sections / XML tags** | Tags "help Claude parse complex prompts unambiguously"; OpenAI orders identity → instructions → examples → context with Markdown/XML boundaries | Anthropic, *XML tags* [1]; OpenAI [3] |
 
+## Guardrails added after the audit (v4)
+
+- **Mode is decided once.** The gap analysis classifies the draft (`follow_up` / `request` / `brain_dump`) with concrete criteria (~25 words and dependent on history → follow-up; ~60+ words or ≥2 asks → dump) and hands `mode` to the rewriter, so the two passes cannot disagree.
+- **Choices are marked `(assumed)`.** Any format, length, role, default or success criterion the user did not state is labelled so it can be changed — the rewriter may pick sensible defaults, but never presents them as the user's requirements.
+- **No "think step by step".** The targets this tool writes for reason on their own; prescribed thinking steps make reasoning models worse (OpenAI: give reasoning models high-level goals; Anthropic: see *Overthinking and excessive thoroughness*). Analysis/planning tasks get a Done-when criterion asking for the reasoning behind the main recommendation instead.
+- **Length budget.** The user turn carries `max_chars` (≈2× the draft for dumps, less for the other modes). Structure, not bulk, is what the checklist study rewarded.
+- **Example sketch, never example content.** When output shape matters and the user gave no example, the rewrite adds a single placeholder line asking for one.
+- **Refine = revise.** A follow-up instruction is applied to the previous rewrite word for word, not regenerated from the draft.
+
 ## Rules the rewriter keeps in every mode
 
 - **Don't duplicate context.** Removing an accidentally duplicated paragraph *improved* accuracy in the Prompt Report's case study [5]. The rewrite deduplicates the dump instead of restating it.

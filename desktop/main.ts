@@ -8,7 +8,7 @@ import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
 import { toResult } from '../src/llm/errors';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { rewritePrompt } from '../src/llm/rewrite';
-import type { GapReport, ImproveInput, UserAnswer } from '../src/messaging';
+import type { GapReport, ImproveInput, RewriteOptions, UserAnswer } from '../src/messaging';
 import { captureContext, type Capture } from './capture';
 import { dotEnvPaths, resolveApiKey } from './env';
 import { forcePaste, insertText } from './insert';
@@ -206,7 +206,7 @@ async function analyzeAndContinue() {
     }
     const report = await analyzeGaps(client(), input);
     current.report = report;
-    console.log(`[PromptButton] gap analysis ambiguity=${report.ambiguity.toFixed(2)} missing=${report.missing.join(',') || '-'} questions=${report.questions.length}`);
+    console.log(`[PromptButton] gap analysis mode=${report.mode} ambiguity=${report.ambiguity.toFixed(2)} missing=${report.missing.join(',') || '-'} questions=${report.questions.length}`);
     const shouldAsk = report.questions.length > 0 && (settings.askMode === 'always' || report.ambiguity >= ASK_THRESHOLD);
     if (shouldAsk) {
       busy = false;
@@ -221,17 +221,28 @@ async function analyzeAndContinue() {
   }
 }
 
-async function rewrite(answers: UserAnswer[]) {
+async function rewrite(answers: UserAnswer[], revision?: { previous: string; request: string }) {
   if (!current) return;
   current.answers = answers;
   busy = true;
   try {
     setState({ phase: 'rewriting', text: '' });
-    const text = await rewritePrompt(client(), current.input, answers, (delta) => {
-      if (!current) return;
-      current.text += delta;
-      setState({ text: current.text });
-    });
+    const options: RewriteOptions = { mode: current.report?.mode };
+    if (revision) {
+      options.previous = revision.previous;
+      options.revision = revision.request;
+    }
+    const text = await rewritePrompt(
+      client(),
+      current.input,
+      answers,
+      (delta) => {
+        if (!current) return;
+        current.text += delta;
+        setState({ text: current.text });
+      },
+      options,
+    );
     current.text = text;
     busy = false;
     setState({ phase: 'done', text });
@@ -271,7 +282,8 @@ async function handleAction(action: RendererAction) {
       return rewrite([]);
     case 'refine':
       if (!current || !action.note.trim()) return;
-      return rewrite([...current.answers, { question: 'Additional instruction from the user', answer: action.note.trim() }]);
+      // Revise the previous rewrite instead of regenerating, so the parts the user liked survive.
+      return rewrite(current.answers, { previous: current.text, request: action.note.trim() });
     case 'accept':
       return accept(action.text);
     case 'copy':

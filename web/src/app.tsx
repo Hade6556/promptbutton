@@ -88,7 +88,7 @@ export function App() {
   async function runRewrite(input: ImproveInput, userAnswers: UserAnswer[], started: number) {
     setPhase('rewriting');
     setStreamed('');
-    const rewritten = await rewrite(input, userAnswers, (delta) => setStreamed((s) => s + delta));
+    const rewritten = await rewrite(input, userAnswers, (delta) => setStreamed((s) => s + delta), { mode: report?.mode });
     if (!rewritten.ok) {
       fail(rewritten.error, rewritten.code);
       return;

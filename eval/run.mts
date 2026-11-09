@@ -96,7 +96,7 @@ async function runCase(c: EvalCase): Promise<RunResult> {
   ms.answers = Math.round(performance.now() - t);
 
   t = performance.now();
-  const rewritten = await rewritePrompt(client, input, answers);
+  const rewritten = await rewritePrompt(client, input, answers, undefined, { mode: gap.mode });
   ms.rewrite = Math.round(performance.now() - t);
 
   t = performance.now();

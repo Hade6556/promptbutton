@@ -3,7 +3,7 @@ import { PromptButtonError } from '../../src/llm/config';
 import { toResult } from '../../src/llm/errors';
 import { analyzeGaps } from '../../src/llm/gapAnalysis';
 import { rewritePrompt } from '../../src/llm/rewrite';
-import type { GapReport, ImproveInput, Result, UserAnswer } from '../../src/messaging';
+import type { GapReport, ImproveInput, Result, RewriteOptions, UserAnswer } from '../../src/messaging';
 
 const KEY_STORAGE = 'promptbutton.apiKey';
 const BASE_URL_STORAGE = 'promptbutton.baseUrl';
@@ -55,9 +55,10 @@ export async function rewrite(
   input: ImproveInput,
   answers: UserAnswer[],
   onDelta?: (text: string) => void,
+  options?: RewriteOptions,
 ): Promise<Result<string>> {
   try {
-    return { ok: true, value: await rewritePrompt(client(), input, answers, onDelta) };
+    return { ok: true, value: await rewritePrompt(client(), input, answers, onDelta, options) };
   } catch (error) {
     return toResult<never>(error);
   }

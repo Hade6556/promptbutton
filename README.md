@@ -54,10 +54,13 @@ mode, "Hide from screen sharing" (`setContentProtection`), the API key, and undo
 The rewriter picks a mode per draft: short **follow-ups** stay short, mostly-clear **requests** get tightened,
 and a **brain dump** becomes a master prompt with Goal · Context · Task · Constraints · Output · Done when ·
 Examples · Open questions (+ a role line and a "think first" line only when they earn their place). Every
-section is there because a vendor guide or a study says it moves output quality — the receipts are in
+section traces to vendor guidance or a study — the receipts and their caveats are in
 [docs/master-prompt-playbook.md](docs/master-prompt-playbook.md): Anthropic's prompting best practices and
-Prompt Improver (+30% on a classification test), OpenAI's guide, a 2026 controlled comparison where
-checklist-structured prompts scored 7.50/8 vs 5.67 raw, and the Prompt Report.
+Prompt Improver, OpenAI's guide, a small 2026 comparison in which checklist-structured prompts beat raw ones
+(7.50 vs 5.67 on an 8-point single-rater rubric), and the Prompt Report. The evidence supports the bundle,
+not each section individually; `npm run eval` measures what it does on our own cases. Anything the rewriter
+chooses rather than the user stating it is marked `(assumed)`; it never adds "think step by step" for
+reasoning models, keeps a length budget, and refines a previous rewrite instead of regenerating it.
 
 ## Why this design
 

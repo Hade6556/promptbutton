@@ -19,7 +19,10 @@ const AMBIGUITY_TYPES = [
 
 // Keep the schema to the JSON-schema subset structured outputs accepts:
 // no numeric ranges or array length limits — those are enforced in normalize().
+const MODES = ['follow_up', 'request', 'brain_dump'] as const;
+
 const GapReportSchema = z.object({
+  mode: z.enum(MODES).describe('follow_up: short reply inside a running conversation; request: self-contained, mostly clear ask; brain_dump: long, loose or multi-part'),
   ambiguity: z.number().describe('0 = fully specified, 1 = the assistant would have to guess the core intent'),
   missing: z.array(z.enum(AMBIGUITY_TYPES)).describe('Ambiguity types that pass all three tests'),
   questions: z.array(
@@ -37,6 +40,7 @@ export const MAX_QUESTIONS = 3;
 function normalize(raw: z.infer<typeof GapReportSchema>): GapReport {
   return {
     ambiguity: Math.min(1, Math.max(0, Number.isFinite(raw.ambiguity) ? raw.ambiguity : 0)),
+    mode: raw.mode,
     missing: raw.missing,
     questions: raw.questions.slice(0, MAX_QUESTIONS).map((q) => ({
       type: q.type,

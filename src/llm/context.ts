@@ -1,4 +1,4 @@
-import type { HistoryMessage, ImproveInput, UserAnswer } from '../messaging';
+import type { DraftMode, HistoryMessage, ImproveInput, RewriteOptions, UserAnswer } from '../messaging';
 import { clampText } from '../adapters/editable';
 
 export const MAX_HISTORY_MESSAGES = 12;
@@ -14,8 +14,23 @@ export function truncateHistory(history: HistoryMessage[]): HistoryMessage[] {
   return recent.map((m) => ({ role: m.role, text: clampText(m.text, MAX_CHARS_PER_MESSAGE) }));
 }
 
+/**
+ * Character budget for the rewrite. Structure helps, bulk does not (checklist prompts in the
+ * 2026 comparison were the shortest and scored best), so the budget scales with the draft.
+ */
+export function lengthBudget(draftChars: number, mode: DraftMode | undefined): number {
+  switch (mode) {
+    case 'brain_dump':
+      return Math.max(700, Math.round(draftChars * 2) + 200);
+    case 'follow_up':
+      return Math.max(160, Math.round(draftChars * 1.5) + 60);
+    default:
+      return Math.max(300, Math.round(draftChars * 2));
+  }
+}
+
 /** Builds the text of the user turn shared by the gap-analysis and rewrite calls. */
-export function serializeInput(input: ImproveInput, answers: UserAnswer[] = []): string {
+export function serializeInput(input: ImproveInput, answers: UserAnswer[] = [], options: RewriteOptions = {}): string {
   const history = truncateHistory(input.history);
   const parts: string[] = [];
 
@@ -42,13 +57,26 @@ export function serializeInput(input: ImproveInput, answers: UserAnswer[] = []):
     parts.push(`<conversation${header}>\n${body}\n</conversation>`);
   }
 
-  parts.push(`<draft>\n${escapeXml(clampText(input.draft, MAX_DRAFT_CHARS))}\n</draft>`);
+  const draft = clampText(input.draft, MAX_DRAFT_CHARS);
+  parts.push(`<draft chars="${draft.length}">\n${escapeXml(draft)}\n</draft>`);
+
+  if (options.mode) {
+    parts.push(`<mode>${options.mode}</mode>`);
+    parts.push(
+      `<length_budget max_chars="${lengthBudget(draft.length, options.mode)}">Stay under this unless the user explicitly asked for copy, examples or code. Every line must change the answer.</length_budget>`,
+    );
+  }
 
   if (answers.length > 0) {
     const body = answers
       .map((a) => `<answer question="${escapeXml(a.question)}">${escapeXml(a.answer)}</answer>`)
       .join('\n');
     parts.push(`<user_answers>\n${body}\n</user_answers>`);
+  }
+
+  if (options.previous) {
+    parts.push(`<previous_rewrite>\n${escapeXml(options.previous)}\n</previous_rewrite>`);
+    parts.push(`<revision_request>\n${escapeXml(options.revision ?? 'Improve it.')}\n</revision_request>`);
   }
 
   return parts.join('\n\n');
@@ -59,7 +87,7 @@ export type UserContentBlock =
   | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png'; data: string } };
 
 /** The user turn as content blocks: the screenshot first (when present), then the serialized text. */
-export function buildUserContent(input: ImproveInput, answers: UserAnswer[] = []): UserContentBlock[] {
+export function buildUserContent(input: ImproveInput, answers: UserAnswer[] = [], options: RewriteOptions = {}): UserContentBlock[] {
   const blocks: UserContentBlock[] = [];
   if (input.screenshot) {
     blocks.push({
@@ -67,6 +95,6 @@ export function buildUserContent(input: ImproveInput, answers: UserAnswer[] = []
       source: { type: 'base64', media_type: input.screenshot.mediaType, data: input.screenshot.data },
     });
   }
-  blocks.push({ type: 'text', text: serializeInput(input, answers) });
+  blocks.push({ type: 'text', text: serializeInput(input, answers, options) });
   return blocks;
 }

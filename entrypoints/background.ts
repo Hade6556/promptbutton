@@ -20,7 +20,7 @@ async function handle(message: BackgroundRequest): Promise<AnalyzeResponse | Rew
       case 'analyze':
         return { ok: true, value: await analyzeGaps(client, message.input) };
       case 'rewrite':
-        return { ok: true, value: await rewritePrompt(client, message.input, message.answers) };
+        return { ok: true, value: await rewritePrompt(client, message.input, message.answers, undefined, message.options) };
     }
   } catch (error) {
     console.error('[PromptButton]', message.type, error);
@@ -31,8 +31,12 @@ async function handle(message: BackgroundRequest): Promise<AnalyzeResponse | Rew
 async function streamRewrite(request: RewriteRequest, post: (message: PortMessage) => void) {
   try {
     const client = await getClient();
-    const text = await rewritePrompt(client, request.input, request.answers, (delta) =>
-      post({ type: 'delta', text: delta }),
+    const text = await rewritePrompt(
+      client,
+      request.input,
+      request.answers,
+      (delta) => post({ type: 'delta', text: delta }),
+      request.options,
     );
     post({ type: 'done', text });
   } catch (error) {

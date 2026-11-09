@@ -18,7 +18,12 @@ import {
 import { createPanel } from '../src/ui/panel';
 
 /** Streams the rewrite from the background over a port; resolves with the final text. */
-function streamRewrite(input: ImproveInput, answers: UserAnswer[], onDelta: (text: string) => void): Promise<Result<string>> {
+function streamRewrite(
+  input: ImproveInput,
+  answers: UserAnswer[],
+  onDelta: (text: string) => void,
+  options?: RewriteRequest['options'],
+): Promise<Result<string>> {
   return new Promise((resolve) => {
     const port = browser.runtime.connect({ name: REWRITE_PORT });
     port.onMessage.addListener((message: PortMessage) => {
@@ -30,7 +35,7 @@ function streamRewrite(input: ImproveInput, answers: UserAnswer[], onDelta: (tex
     port.onDisconnect.addListener(() =>
       resolve({ ok: false, error: 'Lost the connection to the extension. Reload the page and try again.', code: 'unknown' }),
     );
-    port.postMessage({ type: 'rewrite', input, answers } satisfies RewriteRequest);
+    port.postMessage({ type: 'rewrite', input, answers, options } satisfies RewriteRequest);
   });
 }
 
@@ -125,7 +130,9 @@ export default defineContentScript({
       if (!current || busy) return;
       busy = true;
       panel.startPreview(current.input.draft, current.report);
-      const result = await streamRewrite(current.input, answers, (delta) => panel.appendDelta(delta));
+      const result = await streamRewrite(current.input, answers, (delta) => panel.appendDelta(delta), {
+        mode: current.report?.mode,
+      });
       busy = false;
       if (!result.ok) return panel.showError(result.error);
       panel.finishPreview(result.value);

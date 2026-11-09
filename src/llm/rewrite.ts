@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import type { ImproveInput, UserAnswer } from '../messaging';
+import type { ImproveInput, RewriteOptions, UserAnswer } from '../messaging';
 import { EFFORT, MODEL, PromptButtonError } from './config';
 import { buildUserContent } from './context';
 import { REWRITE_SYSTEM } from './prompts';
@@ -13,7 +13,7 @@ export function cleanOutput(text: string): string {
   return out;
 }
 
-function params(input: ImproveInput, answers: UserAnswer[]) {
+function params(input: ImproveInput, answers: UserAnswer[], options: RewriteOptions) {
   return {
     model: MODEL,
     max_tokens: 4096,
@@ -21,27 +21,30 @@ function params(input: ImproveInput, answers: UserAnswer[]) {
     fallbacks: 'default' as const,
     output_config: { effort: EFFORT },
     system: [{ type: 'text' as const, text: REWRITE_SYSTEM, cache_control: { type: 'ephemeral' as const } }],
-    messages: [{ role: 'user' as const, content: buildUserContent(input, answers) }],
+    messages: [{ role: 'user' as const, content: buildUserContent(input, answers, options) }],
   };
 }
 
 /**
  * Rewrites the draft. With `onDelta` the response is streamed and each text delta is
  * reported as it arrives; the returned string is always the cleaned full text.
+ * `options.mode` carries the gap analysis's classification; `options.previous` +
+ * `options.revision` turn the call into a minimal revision of an earlier rewrite.
  */
 export async function rewritePrompt(
   client: Anthropic,
   input: ImproveInput,
   answers: UserAnswer[],
   onDelta?: (text: string) => void,
+  options: RewriteOptions = {},
 ): Promise<string> {
   let response: Anthropic.Beta.BetaMessage;
   if (onDelta) {
-    const stream = client.beta.messages.stream(params(input, answers));
+    const stream = client.beta.messages.stream(params(input, answers, options));
     stream.on('text', (delta) => onDelta(delta));
     response = await stream.finalMessage();
   } else {
-    response = await client.beta.messages.create(params(input, answers));
+    response = await client.beta.messages.create(params(input, answers, options));
   }
 
   if (response.stop_reason === 'refusal') {
