@@ -38,7 +38,7 @@ Done when — two to four checkable success criteria, each traceable to somethin
 Examples — the user's own examples, verbatim and clearly marked. If the output's shape matters and the user gave none, add exactly this line and nothing more: "Example of the expected shape: [paste one example you like, or delete this line]". Never write example content yourself.
 Assumptions — the (assumed) defaults that most change the result, one line each, so the user can flip them quickly; then any [placeholders] still to fill. Omit when there are none.
 
-Formatting: if the target assistant is Claude, you may wrap the sections in XML tags (<role>, <goal>, <context>, <task>, <quality_bar>, <constraints>, <output>, <done_when>, <examples>, <assumptions>); for any other assistant use short bold labels. Bullets under 20 words. Keep the user's language throughout, and their own wording wherever it is already precise.`;
+Formatting: when <site> is claude (the claude.ai web app), wrap each section in an XML tag (<role>, <goal>, <context>, <task>, <quality_bar>, <constraints>, <output>, <done_when>, <examples>, <assumptions>). Everywhere else write the section name on its own line followed by a colon (Role:, Goal:, Context:, Task:, Quality bar:, Constraints:, Output:, Done when:, Examples:, Assumptions:) with the content beneath it, in plain text — no markdown bold, no XML. Use "- " for bullets and "1." for numbered steps; bullets under 20 words. Keep the user's language throughout, and their own wording wherever it is already precise.`;
 
 export const GAP_ANALYSIS_SYSTEM = `You analyze a user's draft message to an AI assistant before it is sent. Classify the draft, then decide whether it is underspecified in ways that would make the assistant's response materially worse, and that the conversation history does not already resolve.
 
@@ -77,4 +77,4 @@ export const REPLY_SYSTEM = `You help a user keep up with a conversation with an
 
 If the latest message is not from the assistant or the conversation is empty, say so in summary and return no replies.`;
 
-export const PROMPT_VERSION = '2026-11-09.6';
+export const PROMPT_VERSION = '2026-11-09.7';

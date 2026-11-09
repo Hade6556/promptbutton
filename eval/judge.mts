@@ -117,6 +117,8 @@ const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math
 const masterMedian = median(masterCases.map((v) => v.rewritten.length));
 const underMin = masterCases.filter((v) => v.rewritten.length < guideOf(v).min).map((v) => v.id);
 const overExpanded = conciseCases.filter((v) => v.rewritten.length > guideOf(v).max * 1.2).map((v) => v.id);
+const cutOriginal = verdicts.filter((v) => v.stop && v.stop.original !== 'end_turn').length;
+const cutRewritten = verdicts.filter((v) => v.stop && v.stop.rewritten !== 'end_turn').length;
 
 const row = (label: string, r: ReturnType<typeof rate>) => `| ${label} | ${r.n} | ${r.winRate} | ${r.tieRate} | ${r.lossRate} |`;
 const summary = `# PromptButton eval — ${new Date().toISOString().slice(0, 10)}
@@ -132,6 +134,7 @@ ${row('Cold first messages', cold)}
 **Gate:** asked on ${askRecall}% of ambiguous drafts (recall) · asked on ${falseAsk}% of clear drafts (false-ask rate).
 **Length:** rewrites are ${lengthRatio.toFixed(1)}× the draft on average.
 **Depth:** ${masterCases.length} master prompts (median ${masterMedian} chars; under the ${masterCases[0] ? guideOf(masterCases[0]).min : 1200}-char floor: ${underMin.length ? underMin.join(', ') : 'none'}) · ${conciseCases.length} concise rewrites (over-expanded: ${overExpanded.length ? overExpanded.join(', ') : 'none'}).
+**Responses cut off before finishing:** ${verdicts[0]?.stop ? `${cutOriginal} to the original draft · ${cutRewritten} to the rewrite` : 'not recorded in this run'}.
 
 | Case | Tag | Mode / scale / domain | Ambiguity | Asked | Chars | Verdict |
 |---|---|---|---|---|---|---|

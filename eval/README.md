@@ -1,6 +1,6 @@
 # Eval
 
-Does pressing the button actually get a better answer? Three numbers answer that:
+Does pressing the button actually get a better answer? Four numbers answer that:
 
 1. **Rewrite preferred** — share of cases where the assistant's response to the rewritten prompt beats its
    response to the original draft, judged pairwise with positions swapped (a win must survive both orders).
@@ -9,6 +9,8 @@ Does pressing the button actually get a better answer? Three numbers answer that
 3. **False-ask rate** — how often the gate asked questions on a draft tagged `clear`. This is the number that
    keeps the product from being annoying; the CLAM paper's finding is that forced clarification hurts on
    unambiguous requests.
+4. **Depth** — median length of the master prompts, which deliverable drafts fell under the 1,200-char floor,
+   and which follow-ups or quick asks got over-expanded. A good run has an empty list on both sides.
 
 ## How it works
 
@@ -26,9 +28,20 @@ npm run eval                 # run + judge
 node --import tsx eval/run.mts     # or step by step
 node --import tsx eval/judge.mts
 EVAL_ONLY=cold-blog,deep-sql-fix node --import tsx eval/run.mts   # a subset
+node --import tsx eval/compare.mts eval/results/v4.json eval/results/latest.json   # run vs run, head to head
 ```
 
-About 5 model calls per case plus 2 judge calls; 28 cases ≈ 200 short calls on `claude-opus-5-5`.
+About 5 model calls per case plus 2 judge calls; 37 cases ≈ 260 calls on `claude-opus-5-5` (≈ $8–10 with
+the 16k answer cap, 10–15 min). `compare.mts` judges two runs' *rewritten-prompt responses* against each
+other, case by case, so a prompt change can be scored as wins/losses rather than two independent win rates;
+`REGENERATE=1` re-answers both runs' prompts first so they share the same output cap.
+
+The answers to the prompts stream with a 16,000-token cap and record `stop_reason`. Do not lower it: on this
+model thinking counts toward `max_tokens`, and a 3,000 cap left several master-prompt answers empty, which
+the judge read as losses.
+
+`npm run cost` runs one real press (gap analysis + rewrite) three ways — extension text, desktop screenshot,
+quick ask — and prints token usage and dollars at the current rate card.
 
 ## Tuning
 

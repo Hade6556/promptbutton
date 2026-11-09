@@ -15,8 +15,9 @@ import { z } from 'zod';
 import { ASK_THRESHOLD, MODEL } from '../src/llm/config';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { rewritePrompt } from '../src/llm/rewrite';
-import type { GapReport, HistoryMessage, ImproveInput, UserAnswer } from '../src/messaging';
+import type { GapReport, ImproveInput, UserAnswer } from '../src/messaging';
 import { CASES, type CaseTag, type EvalCase } from './cases';
+import { pool, respond } from './lib.mts';
 
 export interface RunResult {
   id: string;
@@ -30,6 +31,8 @@ export interface RunResult {
   rewritten: string;
   responseOriginal: string;
   responseRewritten: string;
+  /** Stop reasons of the two responses; max_tokens means a cut-off answer. */
+  stop?: { original: string; rewritten: string };
   ms: { gap: number; answers: number; rewrite: number; responses: number };
 }
 
@@ -65,23 +68,6 @@ async function simulateUser(c: EvalCase, questions: GapReport['questions']): Pro
   return response.parsed_output?.answers ?? [];
 }
 
-async function respond(history: HistoryMessage[], prompt: string): Promise<string> {
-  const response = await client.beta.messages.create({
-    model: MODEL,
-    max_tokens: 3000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    output_config: { effort: 'low' },
-    messages: [...history.map((m) => ({ role: m.role, content: m.text })), { role: 'user', content: prompt }],
-  });
-  if (response.stop_reason === 'refusal') return '[refused]';
-  return response.content
-    .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
-    .trim();
-}
-
 async function runCase(c: EvalCase): Promise<RunResult> {
   const input: ImproveInput = { site: c.site, history: c.history, draft: c.draft };
   const ms = { gap: 0, answers: 0, rewrite: 0, responses: 0 };
@@ -106,7 +92,7 @@ async function runCase(c: EvalCase): Promise<RunResult> {
   ms.rewrite = Math.round(performance.now() - t);
 
   t = performance.now();
-  const [responseOriginal, responseRewritten] = await Promise.all([respond(c.history, c.draft), respond(c.history, rewritten)]);
+  const [original, improved] = await Promise.all([respond(client, c.history, c.draft), respond(client, c.history, rewritten)]);
   ms.responses = Math.round(performance.now() - t);
 
   return {
@@ -119,24 +105,11 @@ async function runCase(c: EvalCase): Promise<RunResult> {
     asked,
     answers,
     rewritten,
-    responseOriginal,
-    responseRewritten,
+    responseOriginal: original.text,
+    responseRewritten: improved.text,
+    stop: { original: original.stopReason, rewritten: improved.stopReason },
     ms,
   };
-}
-
-async function pool<T, R>(items: T[], size: number, worker: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(size, items.length) }, async () => {
-      while (next < items.length) {
-        const index = next++;
-        results[index] = await worker(items[index]!);
-      }
-    }),
-  );
-  return results;
 }
 
 const cases = only ? CASES.filter((c) => only.includes(c.id)) : CASES;
@@ -147,8 +120,9 @@ const results = await pool(cases, CONCURRENCY, async (c) => {
     const r = await runCase(c);
     const gate = r.asked ? `asked ${r.gap.questions.length}` : 'direct';
     const flag = (c.tag === 'clear') === r.asked ? '  ⚠ gate mismatch' : '';
+    const cut = r.stop && (r.stop.original !== 'end_turn' || r.stop.rewritten !== 'end_turn') ? `  ⚠ stop ${r.stop.original}/${r.stop.rewritten}` : '';
     console.log(
-      `${r.id.padEnd(30)} ${c.tag.padEnd(9)} ambiguity ${r.gap.ambiguity.toFixed(2)}  ${gate.padEnd(8)} ${r.gap.mode}/${r.gap.scale}/${r.gap.domain}  ${r.rewritten.length} chars  ${(r.ms.gap + r.ms.answers + r.ms.rewrite) / 1000}s${flag}`,
+      `${r.id.padEnd(30)} ${c.tag.padEnd(9)} ambiguity ${r.gap.ambiguity.toFixed(2)}  ${gate.padEnd(8)} ${r.gap.mode}/${r.gap.scale}/${r.gap.domain}  ${r.rewritten.length} chars  ${(r.ms.gap + r.ms.answers + r.ms.rewrite) / 1000}s${flag}${cut}`,
     );
     return r;
   } catch (error) {

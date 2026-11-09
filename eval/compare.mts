@@ -4,6 +4,8 @@
 // and how often non-dump cases received master-prompt structure.
 //
 //   node --env-file-if-exists=.env --import tsx eval/compare.mts eval/results/baseline-v3.json eval/results/latest.json
+//   REGENERATE=1 …   re-answers both runs' rewritten prompts with the current responder first, so two
+//                    runs made with different output caps are judged on equal footing.
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -11,6 +13,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { MODEL } from '../src/llm/config';
+import { CASES } from './cases';
+import { pool, respond } from './lib.mts';
 import type { RunResult } from './run.mts';
 
 const [aPath, bPath] = process.argv.slice(2);
@@ -41,28 +45,29 @@ async function judgeOnce(r: RunResult, responseA: string, responseB: string): Pr
   return res.parsed_output?.winner ?? 'tie';
 }
 
-async function pool<T, R>(items: T[], size: number, worker: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(size, items.length) }, async () => {
-      while (next < items.length) {
-        const i = next++;
-        out[i] = await worker(items[i]!);
-      }
-    }),
-  );
-  return out;
-}
-
-/** Counts bold/heading section labels — a proxy for "got the master-prompt treatment". */
-const sections = (text: string) => (text.match(/^(\*\*[^*\n]{2,40}\*\*|#{1,3} .+|<[a-z_]+>)/gm) ?? []).length;
+/** Counts section labels (bold, heading, XML tag or "Label:" line) — a proxy for "got the master-prompt treatment". */
+const sections = (text: string) =>
+  (text.match(/^(\*\*[^*\n]{2,40}\*\*|#{1,3} .+|<[a-z_]+>|(?:Role|Goal|Context|Task|Quality bar|Constraints|Output|Done when|Examples|Assumptions):)/gm) ?? []).length;
 
 const runA = JSON.parse(readFileSync(aPath, 'utf8')) as { results: RunResult[] };
 const runB = JSON.parse(readFileSync(bPath, 'utf8')) as { results: RunResult[] };
 const byId = new Map(runB.results.map((r) => [r.id, r]));
 const pairs = runA.results.filter((a) => byId.has(a.id)).map((a) => ({ a, b: byId.get(a.id)! }));
 console.log(`Comparing ${pairs.length} cases: A=${path.basename(aPath)} vs B=${path.basename(bPath)}\n`);
+
+if (process.env.REGENERATE === '1') {
+  console.log('Regenerating both runs’ answers to the rewritten prompts with the current responder…');
+  await pool(pairs, CONCURRENCY, async ({ a, b }) => {
+    const history = CASES.find((c) => c.id === a.id)?.history ?? [];
+    const [ra, rb] = await Promise.all([respond(client, history, a.rewritten), respond(client, history, b.rewritten)]);
+    a.responseRewritten = ra.text;
+    a.stop = { original: a.stop?.original ?? 'unknown', rewritten: ra.stopReason };
+    b.responseRewritten = rb.text;
+    b.stop = { original: b.stop?.original ?? 'unknown', rewritten: rb.stopReason };
+    console.log(`${a.id.padEnd(30)} answered  A ${ra.stopReason} ${ra.text.length} chars · B ${rb.stopReason} ${rb.text.length} chars`);
+  });
+  console.log('');
+}
 
 const rows = await pool(pairs, CONCURRENCY, async ({ a, b }) => {
   const [first, second] = await Promise.all([judgeOnce(a, a.responseRewritten, b.responseRewritten), judgeOnce(a, b.responseRewritten, a.responseRewritten)]);
@@ -80,8 +85,10 @@ const rows = await pool(pairs, CONCURRENCY, async ({ a, b }) => {
     sectionsB: sections(b.rewritten),
     askedA: a.asked,
     askedB: b.asked,
+    cutA: a.stop ? a.stop.rewritten !== 'end_turn' : false,
+    cutB: b.stop ? b.stop.rewritten !== 'end_turn' : false,
   };
-  console.log(`${row.id.padEnd(30)} ${row.verdict.padEnd(4)} len ${row.ratioA}x→${row.ratioB}x  sections ${row.sectionsA}→${row.sectionsB}  mode=${row.mode}`);
+  console.log(`${row.id.padEnd(30)} ${row.verdict.padEnd(4)} len ${row.ratioA}x→${row.ratioB}x  sections ${row.sectionsA}→${row.sectionsB}  mode=${row.mode}${row.cutA || row.cutB ? '  ⚠ cut off' : ''}`);
   return row;
 });
 
@@ -108,10 +115,11 @@ const md = `# Run comparison — ${path.basename(aPath)} (A) vs ${path.basename(
 ${table.map(([label, s]) => `| ${label} | ${s.n} | ${s.bWins} | ${s.ties} | ${s.aWins} | ${s.ratioA}x → ${s.ratioB}x | ${s.sectionsA} → ${s.sectionsB} |`).join('\n')}
 
 Clear cases with master-prompt structure in B (should be none): ${overStructured.length ? overStructured.join(', ') : 'none'}
+Answers cut off before finishing: A ${rows.filter((r) => r.cutA).length} · B ${rows.filter((r) => r.cutB).length}${process.env.REGENERATE === '1' ? ' (both runs re-answered with the same 16k cap)' : ''}
 
-| Case | Tag | Mode (B) | Verdict | Length A→B | Sections A→B | Asked A→B |
-|---|---|---|---|---|---|---|
-${rows.map((r) => `| ${r.id} | ${r.tag} | ${r.mode} | ${r.verdict} | ${r.ratioA}x→${r.ratioB}x | ${r.sectionsA}→${r.sectionsB} | ${r.askedA ? 'y' : 'n'}→${r.askedB ? 'y' : 'n'} |`).join('\n')}
+| Case | Tag | Mode (B) | Verdict | Length A→B | Sections A→B | Asked A→B | Cut off A→B |
+|---|---|---|---|---|---|---|---|
+${rows.map((r) => `| ${r.id} | ${r.tag} | ${r.mode} | ${r.verdict} | ${r.ratioA}x→${r.ratioB}x | ${r.sectionsA}→${r.sectionsB} | ${r.askedA ? 'y' : 'n'}→${r.askedB ? 'y' : 'n'} | ${r.cutA ? 'y' : 'n'}→${r.cutB ? 'y' : 'n'} |`).join('\n')}
 `;
 const out = path.join(HERE, 'results', 'compare.md');
 writeFileSync(out, md);

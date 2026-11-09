@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { PanelState } from '../shared';
+import { blocks, inlineRuns, parseSections, type Block } from './format';
 
 const send = (action: Parameters<Window['pb']['send']>[0]) => window.pb.send(action);
 
@@ -20,6 +21,86 @@ const DOTS = (
 );
 const CLOSE = <path d="M18 6 6 18M6 6l12 12" />;
 const REFRESH = <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />;
+
+function Line({ text }: { text: string }) {
+  return (
+    <>
+      {inlineRuns(text).map((run, i) => {
+        switch (run.kind) {
+          case 'assumed':
+            return (
+              <span class="assumed" key={i} title="A default the rewriter chose — change it if it is wrong">
+                assumed
+              </span>
+            );
+          case 'placeholder':
+            return (
+              <span class="ph" key={i} title="Only you know this — fill it in">
+                {run.text}
+              </span>
+            );
+          case 'bold':
+            return <b key={i}>{run.text}</b>;
+          default:
+            return run.text;
+        }
+      })}
+    </>
+  );
+}
+
+function BlockView({ block }: { block: Block }) {
+  if (block.kind === 'p') {
+    return (
+      <p>
+        <Line text={block.text} />
+      </p>
+    );
+  }
+  const items = block.items.map((item, i) => (
+    <li key={i}>
+      <Line text={item} />
+    </li>
+  ));
+  return block.kind === 'ol' ? <ol>{items}</ol> : <ul>{items}</ul>;
+}
+
+/**
+ * The rewrite, as sections when it is a master prompt (XML tags or "Role:" labels), otherwise as
+ * plain text. While streaming, the box follows the text; when done it scrolls back to the top.
+ */
+function ResultView({ text, streaming }: { text: string; streaming: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (streaming) el.scrollTop = el.scrollHeight;
+    else el.scrollTop = 0;
+  }, [text, streaming]);
+
+  const sections = parseSections(text);
+  if (!sections) {
+    return (
+      <div class="line result" ref={ref}>
+        {text}
+        {streaming && <span class="caret" />}
+      </div>
+    );
+  }
+  return (
+    <div class="line result rich" ref={ref}>
+      {sections.map((s, i) => (
+        <section class="sec" key={i}>
+          {s.label && <span class="sec-label">{s.label}</span>}
+          {blocks(s.body).map((b, j) => (
+            <BlockView block={b} key={j} />
+          ))}
+          {streaming && i === sections.length - 1 && <span class="caret" />}
+        </section>
+      ))}
+    </div>
+  );
+}
 
 /**
  * One box. Above the field: the single thing you need to know right now (a question, the
@@ -160,9 +241,9 @@ export function Panel() {
           </p>
         ) : null;
       case 'rewriting':
-        return state.text ? <p class="line result">{state.text}<span class="caret" /></p> : null;
+        return state.text ? <ResultView text={state.text} streaming /> : null;
       case 'done':
-        return <p class="line result">{state.text}</p>;
+        return <ResultView text={state.text ?? ''} streaming={false} />;
       case 'replies':
         return state.assist ? (
           <div class="line">

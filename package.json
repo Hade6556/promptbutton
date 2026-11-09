@@ -18,7 +18,8 @@
     "desktop:build": "npm run desktop:helper && esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
     "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron .",
     "desktop:helper": "mkdir -p desktop/bin && xcrun swiftc -O -o desktop/bin/axhelper desktop/native/axhelper.swift",
-    "smoke": "node --env-file-if-exists=.env --import tsx eval/smoke.mts"
+    "smoke": "node --env-file-if-exists=.env --import tsx eval/smoke.mts",
+    "cost": "node --env-file-if-exists=.env --import tsx eval/cost.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
