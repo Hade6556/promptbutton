@@ -1,17 +1,18 @@
 import { defineBackground } from 'wxt/utils/define-background';
 import { browser } from 'wxt/browser';
 import type { AnalyzeResponse, BackgroundRequest, RewriteResponse, TriggerMessage } from '../src/messaging';
-import { toResult } from '../src/llm/client';
+import { getClient, toResult } from '../src/llm/client';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { rewritePrompt } from '../src/llm/rewrite';
 
 async function handle(message: BackgroundRequest): Promise<AnalyzeResponse | RewriteResponse> {
   try {
+    const client = await getClient();
     switch (message.type) {
       case 'analyze':
-        return { ok: true, value: await analyzeGaps(message.input) };
+        return { ok: true, value: await analyzeGaps(client, message.input) };
       case 'rewrite':
-        return { ok: true, value: await rewritePrompt(message.input, message.answers) };
+        return { ok: true, value: await rewritePrompt(client, message.input, message.answers) };
     }
   } catch (error) {
     console.error('[PromptButton]', message.type, error);

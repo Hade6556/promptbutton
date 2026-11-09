@@ -1,5 +1,6 @@
+import type Anthropic from '@anthropic-ai/sdk';
 import type { ImproveInput, UserAnswer } from '../messaging';
-import { EFFORT, MODEL, PromptButtonError, getClient } from './client';
+import { EFFORT, MODEL, PromptButtonError } from './config';
 import { serializeInput } from './context';
 import { REWRITE_SYSTEM } from './prompts';
 
@@ -12,9 +13,11 @@ function cleanOutput(text: string): string {
   return out;
 }
 
-export async function rewritePrompt(input: ImproveInput, answers: UserAnswer[]): Promise<string> {
-  const client = await getClient();
-
+export async function rewritePrompt(
+  client: Anthropic,
+  input: ImproveInput,
+  answers: UserAnswer[],
+): Promise<string> {
   const response = await client.beta.messages.create({
     model: MODEL,
     max_tokens: 4096,

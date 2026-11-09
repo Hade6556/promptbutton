@@ -1,19 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ErrorCode, Result } from '../messaging';
+import type { Result } from '../messaging';
 import { apiKeyItem } from '../settings';
-
-export const MODEL = 'claude-opus-5-5';
-/** Low effort keeps the button snappy; the tasks are editing, not reasoning. */
-export const EFFORT = 'low' as const;
-
-export class PromptButtonError extends Error {
-  constructor(
-    public code: ErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+import { PromptButtonError } from './config';
 
 export async function getClient(): Promise<Anthropic> {
   const apiKey = await apiKeyItem.getValue();

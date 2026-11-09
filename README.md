@@ -34,6 +34,8 @@ If the shortcut does nothing, check `chrome://extensions/shortcuts` — another 
 npm run typecheck
 npm run build
 npm run eval       # (day 4) win rate vs. original prompts, false-ask rate on clear prompts
+
+ANTHROPIC_API_KEY=sk-ant-… node --import tsx eval/smoke.mts   # live check of both Claude calls on 3 fixtures
 ```
 
 ## Layout

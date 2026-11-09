@@ -1,7 +1,8 @@
+import type Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import type { AmbiguityType, GapReport, ImproveInput } from '../messaging';
-import { EFFORT, MODEL, PromptButtonError, getClient } from './client';
+import { EFFORT, MODEL, PromptButtonError } from './config';
 import { serializeInput } from './context';
 import { GAP_ANALYSIS_SYSTEM } from './prompts';
 
@@ -46,9 +47,7 @@ function normalize(raw: z.infer<typeof GapReportSchema>): GapReport {
   };
 }
 
-export async function analyzeGaps(input: ImproveInput): Promise<GapReport> {
-  const client = await getClient();
-
+export async function analyzeGaps(client: Anthropic, input: ImproveInput): Promise<GapReport> {
   const response = await client.messages.parse({
     model: MODEL,
     max_tokens: 2048,
