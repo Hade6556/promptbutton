@@ -1,34 +1,59 @@
 /* One box on a native macOS HUD material. The window supplies blur, shadow and corner radius; this
    file paints a translucent fill, a hairline, system type, and the few colours the content needs.
-   Colour budget (HIG, Color › Liquid Glass): monochrome labels; the accent is spent on the primary
-   action (the arrow) and on status (progress line, caret). Yellow marks "needs your input". */
+
+   Palette "Ember": warm basalt glass, one amber accent, one ice-blue secondary. The product turns a
+   rough draft into a finished prompt, so the accent is the colour of a heated filament: it lights
+   the primary action (the arrow) and status (the loader comet, the caret) and nothing else. Ice is
+   the sharp opposite of amber and marks what needs the user: [placeholders] and keyboard focus.
+   Labels are warm white at three levels. Every text pair is ≥ 4.5:1 on both the dark glass and the
+   light worst case (glass over bright content); see the contrast table in the commit message. */
 :root {
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Helvetica Neue', sans-serif;
-  /* Semantic colours for the dark material (macOS label levels). */
-  --label: rgba(255, 255, 255, 0.92);
-  --label-2: rgba(255, 255, 255, 0.6);
-  --label-3: rgba(255, 255, 255, 0.4);
-  --separator: rgba(255, 255, 255, 0.1);
-  --fill: rgba(255, 255, 255, 0.08);
-  --fill-2: rgba(255, 255, 255, 0.05);
-  --surface: rgba(28, 28, 30, 0.42);
-  --highlight: rgba(255, 255, 255, 0.14);
-  --accent: #30d158; /* systemGreen (dark) */
-  --accent-deep: #1f9d47;
-  --accent-ring: rgba(48, 209, 88, 0.45);
-  --signal: #ffd60a; /* systemYellow (dark): a value only the user can supply */
-  --signal-fill: rgba(255, 214, 10, 0.14);
-  --danger: #ff6961;
+
+  /* Background layers (the window material sits behind all of these). */
+  --bg-deep: #0e0b09; /* opaque fallback base */
+  --surface: rgba(23, 18, 15, 0.62); /* the glass fill: basalt #17120f */
+  --surface-solid: #17120f; /* Reduce Transparency / Increase Contrast */
+  --fill: rgba(255, 236, 214, 0.08); /* pills, tokens, kbd */
+  --fill-2: rgba(255, 236, 214, 0.05); /* icon-button hover */
+  --fill-hover: rgba(255, 236, 214, 0.14); /* pill hover */
+  --highlight: rgba(255, 228, 196, 0.16); /* top inner edge of the glass */
+  --hairline: rgba(255, 228, 196, 0.08); /* inner border of the glass */
+  --separator: rgba(247, 239, 230, 0.16);
+  --scrollbar: rgba(247, 239, 230, 0.2);
+
+  /* Text: warm white at three levels. */
+  --label: #f7efe6; /* 16.5:1 dark glass · 12.0:1 light worst case */
+  --label-2: rgba(247, 239, 230, 0.72); /* 8.9 · 7.0 */
+  --label-3: rgba(247, 239, 230, 0.58); /* 6.1 · 5.1 — placeholders, hints */
+
+  /* Accent: amber. Primary action and status only. */
+  --accent: #ffb547; /* 10.7 · 7.8 */
+  --accent-deep: #e8892a; /* lower stop of the button gradient */
+  --on-accent: #1f1408; /* arrow on the button: 6.9:1 on the deep stop */
+  --accent-glow: rgba(255, 181, 71, 0.55); /* loader head */
+
+  /* Secondary: ice. What needs the user — [placeholders] and keyboard focus. */
+  --secondary: #8ed8ff; /* 12.0 · 8.7 */
+  --secondary-fill: rgba(142, 216, 255, 0.13);
+  --focus-ring: rgba(142, 216, 255, 0.85); /* ≥ 3:1 as a UI element */
+
+  /* Status. */
+  --success: #7be0a0; /* 11.7 · 8.5 */
+  --warning: #ffe27a; /* 14.7 · 10.7 */
+  --danger: #ff7a6b; /* 7.4 · 5.4 */
+  --loading: var(--accent);
+
   --radius: 12px;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   :root {
-    --surface: rgba(28, 28, 30, 0.96);
-    --separator: rgba(255, 255, 255, 0.22);
-    --fill: rgba(255, 255, 255, 0.14);
-    --label-2: rgba(255, 255, 255, 0.78);
-    --label-3: rgba(255, 255, 255, 0.6);
+    --surface: var(--surface-solid);
+    --separator: rgba(247, 239, 230, 0.26);
+    --fill: rgba(255, 236, 214, 0.14);
+    --label-2: rgba(247, 239, 230, 0.82);
+    --label-3: rgba(247, 239, 230, 0.7);
   }
 }
 
@@ -61,7 +86,7 @@ p {
 }
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--accent-ring);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .wrap {
@@ -78,7 +103,7 @@ p {
   background: var(--surface);
   box-shadow:
     inset 0 1px 0 0 var(--highlight),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+    inset 0 0 0 0.5px var(--hairline);
   -webkit-app-region: drag;
   user-select: text;
   animation: appear 140ms var(--ease-out);
@@ -130,7 +155,7 @@ p {
   ry: calc(var(--radius) - 1.75px);
   shape-rendering: geometricPrecision;
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--loading);
   stroke-width: 1.5;
   stroke-linecap: butt;
   /* One segment = 1.25 % of the perimeter (SEG_LEN in panel.tsx). Delays and opacities are inline. */
@@ -141,7 +166,7 @@ p {
 }
 /* A soft glow on the leading segment only, in the same green. */
 .progress .orbit.head {
-  filter: drop-shadow(0 0 3px rgba(48, 209, 88, 0.6));
+  filter: drop-shadow(0 0 3px var(--accent-glow));
 }
 @keyframes orbit {
   from {
@@ -183,7 +208,7 @@ p {
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  scrollbar-color: var(--scrollbar) transparent;
 }
 /* Scroll edge effect: content fades where it meets the edge instead of being cut. */
 .line.result[data-edge='middle'] {
@@ -263,7 +288,7 @@ p {
   font-weight: 600;
 }
 
-/* Tokens. "assumed" is a quiet fill; a placeholder is a signal, so it carries the one warm colour. */
+/* Tokens. "assumed" is a quiet fill; a [placeholder] needs the user, so it carries the ice secondary. */
 .assumed,
 .ph {
   display: inline-block;
@@ -281,8 +306,8 @@ p {
   color: var(--label-2);
 }
 .ph {
-  background: var(--signal-fill);
-  color: var(--signal);
+  background: var(--secondary-fill);
+  color: var(--secondary);
   font-weight: 500;
   white-space: normal;
 }
@@ -348,7 +373,7 @@ p {
   white-space: nowrap;
 }
 .opt:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--fill-hover);
 }
 .hint {
   color: var(--label-3);
@@ -397,9 +422,9 @@ kbd {
   border: 0;
   border-radius: 50%;
   background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.45), 0 0 14px -4px var(--accent-glow);
 }
 .go:disabled {
   opacity: 0.45;
