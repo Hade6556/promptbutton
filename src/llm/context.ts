@@ -62,8 +62,10 @@ export function serializeInput(input: ImproveInput, answers: UserAnswer[] = [], 
 
   if (options.mode) {
     parts.push(`<mode>${options.mode}</mode>`);
+    // Answers are user-supplied content the rewrite must carry, so they count toward the budget's base.
+    const answerChars = answers.reduce((n, a) => n + a.answer.length, 0);
     parts.push(
-      `<length_budget max_chars="${lengthBudget(draft.length, options.mode)}">Stay under this unless the user explicitly asked for copy, examples or code. Every line must change the answer.</length_budget>`,
+      `<length_budget max_chars="${lengthBudget(draft.length + answerChars, options.mode)}">Stay under this unless the user explicitly asked for copy, examples or code. Every line must change the answer.</length_budget>`,
     );
   }
 
