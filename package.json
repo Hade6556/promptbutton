@@ -1,0 +1,24 @@
+{
+  "name": "promptbutton",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "wxt prepare",
+    "eval": "node --import tsx eval/run.mts && node --import tsx eval/judge.mts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "tsx": "latest",
+    "typescript": "latest",
+    "wxt": "latest"
+  }
+}

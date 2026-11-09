@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptButton</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>PromptButton</h1>
+        <p class="hint">Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> in a chat box.</p>
+      </header>
+
+      <section>
+        <label for="apiKey">Anthropic API key</label>
+        <div class="row">
+          <input id="apiKey" type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
+          <button id="save" type="button">Save</button>
+        </div>
+        <p class="hint">Stored only in this browser profile (chrome.storage.local). <button id="clear" class="link" type="button">Clear</button></p>
+      </section>
+
+      <section>
+        <label>When to ask clarifying questions</label>
+        <div class="modes">
+          <label><input type="radio" name="mode" value="auto" /> Only when the draft is ambiguous</label>
+          <label><input type="radio" name="mode" value="always" /> Always</label>
+          <label><input type="radio" name="mode" value="never" /> Never, just rewrite</label>
+        </div>
+      </section>
+
+      <p id="status" class="status" role="status"></p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
