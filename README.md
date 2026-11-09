@@ -9,6 +9,9 @@ rewrites the draft in your own voice. It never sends the message for you.
 
 Works on **claude.ai** and **chatgpt.com**. Trigger: `Alt+Shift+P` (or a USB button sending the same chord).
 
+**Try it without installing anything:** the playground at <https://hade6556.github.io/promptbutton/> runs the same
+two Claude calls on a conversation you paste in (bring your own Anthropic key; it stays in your browser).
+
 ## Why this design
 
 - Context-aware rewriting improves responses, more so in longer conversations — Sarkar et al. 2025, [arXiv 2503.16789](https://arxiv.org/abs/2503.16789v1)
@@ -31,7 +34,10 @@ claude.ai or chatgpt.com, type a draft, press `Alt+Shift+P`.
 If the shortcut does nothing, check `chrome://extensions/shortcuts` — another extension may own the chord.
 
 ```bash
-npm run typecheck
+npm run web:dev    # the playground / landing page (Preact + Vite) at http://localhost:5173
+npm run web:build  # → web/dist; deployed to GitHub Pages by .github/workflows/pages.yml on push to main
+
+npm run typecheck  # extension + web
 npm run build
 npm run eval       # (day 4) win rate vs. original prompts, false-ask rate on clear prompts
 
@@ -47,6 +53,7 @@ entrypoints/popup/          API key + "when to ask" mode
 src/adapters/               chatgpt, claude, generic — readDraft / readHistory / writeDraft
 src/llm/                    prompts, context serialization, gap analysis, rewrite
 src/ui/                     shadow-DOM toast (panel with questions comes next)
+web/                        playground + landing page; imports the same src/llm modules
 eval/                       cases + pairwise LLM judge
 ```
 

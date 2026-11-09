@@ -5,6 +5,11 @@ export const MODEL = 'claude-opus-5-5';
 /** Low effort keeps the button snappy; the tasks are editing, not deep reasoning. */
 export const EFFORT = 'low' as const;
 
+/** Gap-analysis ambiguity at or above this asks questions in 'auto' mode. Tuned by eval. */
+export const ASK_THRESHOLD = 0.6;
+
+export type AskMode = 'auto' | 'always' | 'never';
+
 export class PromptButtonError extends Error {
   constructor(
     public code: ErrorCode,
