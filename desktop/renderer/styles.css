@@ -100,8 +100,9 @@ p {
 
 /* Status while the model works: a comet travelling the edge of the box. An SVG rounded rect with
    pathLength="100" gives a perimeter in percent, so dashes move at constant speed whatever the box
-   size and hug the corners exactly. Three dashes of different length share one leading edge: a long
-   faint tail, a mid tail, and a short glowing head. The ring fades out when the work is done. */
+   size and hug the corners exactly. The comet is one colour: COMET in panel.tsx tiles it from short
+   dashes laid end to end (butt caps, no overlap, so alpha never stacks into bands), with opacity
+   easing up from tail to head. The ring fades out when the work is done. */
 .progress {
   position: absolute;
   inset: 0;
@@ -116,7 +117,6 @@ p {
   opacity: 1;
 }
 .progress .orbit {
-  --tail: 26; /* longest dash, in percent of the perimeter */
   x: 0.75px;
   y: 0.75px;
   width: calc(100% - 1.5px);
@@ -126,27 +126,16 @@ p {
   fill: none;
   stroke: var(--accent);
   stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-dasharray: var(--len) calc(100 - var(--len));
+  stroke-linecap: butt;
+  /* One segment = 1.25 % of the perimeter (SEG_LEN in panel.tsx). Delays and opacities are inline. */
+  stroke-dasharray: 1.25 98.75;
+  /* 6 s per lap; keep LAP_S in panel.tsx in sync. Literal keyframes: Chromium does not
+     interpolate stroke-dashoffset through calc()/var(). */
   animation: orbit 6s linear infinite;
 }
-/* A shorter dash starts (len − 26)% of a lap earlier so all three share one leading edge:
-   delay = (len − 26) / 100 × 6 s. Keyframes stay literal; Chromium does not interpolate
-   stroke-dashoffset through calc()/var(). */
-.progress .orbit.tail {
-  --len: 26;
-  opacity: 0.12;
-}
-.progress .orbit.mid {
-  --len: 14;
-  opacity: 0.32;
-  animation-delay: -0.72s;
-}
+/* A soft glow on the leading segment only, in the same green. */
 .progress .orbit.head {
-  --len: 5;
-  opacity: 0.95;
-  filter: drop-shadow(0 0 4px rgba(48, 209, 88, 0.75));
-  animation-delay: -1.26s;
+  filter: drop-shadow(0 0 3px rgba(48, 209, 88, 0.6));
 }
 @keyframes orbit {
   from {
@@ -416,11 +405,16 @@ kbd {
   .sec {
     animation: none;
   }
+  /* A still, dim ring: one full outline, the other segments hidden (their inline opacity would stack). */
   .progress .orbit {
+    display: none;
+  }
+  .progress .orbit.head {
+    display: inline;
     animation: none;
     stroke-dasharray: none;
     filter: none;
-    opacity: 0.35;
+    opacity: 0.35 !important;
   }
   .stage {
     animation: none;

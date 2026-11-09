@@ -22,6 +22,24 @@ const DOTS = (
 const CLOSE = <path d="M18 6 6 18M6 6l12 12" />;
 const REFRESH = <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />;
 
+/**
+ * The loader comet: one colour, a smooth fade from tail to head. It is tiled from short dashes that
+ * sit end to end on the box outline without overlapping (overlapping strokes add up their alpha and
+ * show as bands). Each dash covers SEG_LEN % of the perimeter and starts SEG_LEN % further ahead than
+ * the one behind it, via a negative delay on the same 6 s animation, so the comet moves as one piece.
+ * Keep LAP_S in sync with the animation duration on `.progress .orbit`.
+ */
+const LAP_S = 6;
+const SEGMENTS = 24;
+const SEG_LEN = 1.25; // % of the perimeter; the comet spans SEGMENTS × SEG_LEN = 30 %
+const COMET = Array.from({ length: SEGMENTS }, (_, i) => {
+  const t = (i + 1) / SEGMENTS; // 0 → tail end, 1 → head
+  return {
+    opacity: +(0.9 * t ** 2.2).toFixed(3),
+    delay: +(-(i * SEG_LEN * LAP_S) / 100).toFixed(4),
+  };
+});
+
 function Line({ text }: { text: string }) {
   return (
     <>
@@ -286,9 +304,14 @@ export function Panel() {
     <div class="wrap" ref={rootRef}>
       <div class="box" data-phase={state.phase}>
         <svg class={busy ? 'progress on' : 'progress'} role={busy ? 'progressbar' : undefined} aria-label={busy ? 'Working' : undefined} aria-hidden={!busy}>
-          <rect class="orbit tail" pathLength="100" />
-          <rect class="orbit mid" pathLength="100" />
-          <rect class="orbit head" pathLength="100" />
+          {COMET.map((seg, i) => (
+            <rect
+              key={i}
+              class={i === COMET.length - 1 ? 'orbit head' : 'orbit'}
+              pathLength="100"
+              style={{ opacity: seg.opacity, animationDelay: `${seg.delay}s` }}
+            />
+          ))}
         </svg>
         {/* Keyed so a new phase fades in, while streaming (rewriting → done) keeps the same node. */}
         <div class="stage" key={state.phase === 'rewriting' || state.phase === 'done' ? 'result' : state.phase}>
