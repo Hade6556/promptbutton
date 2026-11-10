@@ -15,8 +15,10 @@ two Claude calls on a conversation you paste in (bring your own Anthropic key; i
 
 **Landing page for the Mac app:** `site/` is a single static `index.html` plus `assets/`, built on the app's own
 Ember tokens. `npm run site` serves it at <http://localhost:5500>; it needs no backend, so it can be copied to any
-static host as is. The download link is `[DMG download URL]` until there is a build to point at. The product
-shots in `site/assets/shot-*.jpg` are real captures of the panel over a staged editor page (`site/stage/`):
+static host as is. `npm run site:deploy` copies `index.html` and `assets/` to the VPS at 72.61.138.63, where Caddy serves
+`/var/www/promptbutton` (config in `/etc/caddy/Caddyfile`; swap `:80` for the domain and `systemctl reload caddy` to get
+HTTPS). The download links point at `/download/PromptButton.dmg` on that host, a 404 until a signed DMG is uploaded there.
+The product shots in `site/assets/shot-*.jpg` are real captures of the panel over a staged editor page (`site/stage/`):
 `editor.html` is the backdrop, and `composite.html` renders the built panel renderer over it for states that
 need a finished prompt. Rebuild the renderer, copy `desktop/dist/renderer/assets` into `site/stage/panel/`, and
 re-shoot when the panel's look changes.
