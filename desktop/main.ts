@@ -2,7 +2,7 @@
 // Reads the focused field + a window screenshot, runs the same gap-analysis → questions →
 // rewrite pipeline as the extension, and writes the result back into the field.
 import Anthropic from '@anthropic-ai/sdk';
-import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, screen, systemPreferences, Tray } from 'electron';
+import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, systemPreferences, Tray } from 'electron';
 import path from 'node:path';
 import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
 import { toResult } from '../src/llm/errors';
@@ -186,11 +186,33 @@ function fitPanel(height: number) {
   if (next !== currentHeight || y !== currentY) win.setBounds({ x, y, width: PANEL_WIDTH, height: next }, false);
 }
 
+/**
+ * The window must float over every Space, full-screen apps included. A window that has lived through
+ * a sleep/wake or a full-screen Space being torn down can lose that membership (seen on macOS 26: the
+ * panel stopped appearing over full-screen VS Code until the app was restarted), so the layering is
+ * re-asserted before every show, and a hidden window is rebuilt after the Mac wakes or unlocks.
+ */
+function assertLayering() {
+  if (!win) return;
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+}
+
+function rebuildHiddenWindow(reason: string) {
+  if (!win || win.isVisible()) return;
+  console.log(`[PromptButton] rebuilding the panel window after ${reason}`);
+  win.destroy();
+  win = null;
+  createWindow();
+}
+
 function showPanel(takeFocus: boolean) {
   if (!win) createWindow();
   positionPanel();
+  assertLayering();
   if (takeFocus) win!.show();
   else win!.showInactive();
+  win!.moveTop();
 }
 
 function hidePanel() {
@@ -600,6 +622,8 @@ app.whenReady().then(() => {
   app.dock?.hide(); // menu-bar utility, no Dock icon
   createWindow();
   buildTray();
+  powerMonitor.on('resume', () => rebuildHiddenWindow('wake'));
+  powerMonitor.on('unlock-screen', () => rebuildHiddenWindow('unlock'));
 
   if (process.platform === 'darwin') {
     // Prompts once for Accessibility (needed to read the focused field and to paste).
