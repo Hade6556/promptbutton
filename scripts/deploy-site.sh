@@ -11,4 +11,4 @@ root="${DEPLOY_ROOT:-/var/www/promptbutton}"
 rsync -rltz --delete \
   --include='/index.html' --include='/assets/' --include='/assets/**' --exclude='*' \
   site/ "$host:$root/"
-echo "Deployed to http://${host#*@}/"
+echo "Deployed to https://pimpmypromt.ai/ (http://${host#*@}/)"
