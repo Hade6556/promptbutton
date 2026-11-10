@@ -10,3 +10,4 @@ eval/results/*
 *.local
 .DS_Store
 site/stage/panel/assets/
+release/

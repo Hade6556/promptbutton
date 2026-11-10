@@ -5,7 +5,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import path from 'node:path';
 import type { DictationEvent } from './shared';
 
-const HELPER = path.join(__dirname, '..', 'bin', 'dictate');
+// Packaged apps keep the helper outside app.asar (asarUnpack), where macOS can execute it.
+const HELPER = path.join(__dirname, '..', 'bin', 'dictate').replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 /** Seconds of silence, after something has been said, before listening ends by itself. */
 export const SILENCE_SECONDS = 1.4;
 

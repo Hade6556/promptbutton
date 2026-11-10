@@ -630,8 +630,8 @@ app.whenReady().then(() => {
     const trusted = systemPreferences.isTrustedAccessibilityClient(true);
     const screenStatus = systemPreferences.getMediaAccessStatus('screen');
     console.log(`[PromptButton] permissions: accessibility=${trusted ? 'granted' : 'NOT granted'} screen-recording=${screenStatus}`);
-    if (!trusted) console.warn('[PromptButton] Grant Accessibility: System Settings → Privacy & Security → Accessibility → Electron.');
-    if (screenStatus !== 'granted') console.warn('[PromptButton] Grant Screen Recording: System Settings → Privacy & Security → Screen Recording → Electron, then restart.');
+    if (!trusted) console.warn(`[PromptButton] Grant Accessibility: System Settings → Privacy & Security → Accessibility → ${app.getName()}.`);
+    if (screenStatus !== 'granted') console.warn(`[PromptButton] Grant Screen Recording: System Settings → Privacy & Security → Screen Recording → ${app.getName()}, then restart.`);
   }
 
   for (const chord of HOTKEYS) {

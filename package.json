@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
+  "author": "Pimp My Prompt",
   "type": "module",
   "scripts": {
     "dev": "wxt",
@@ -15,11 +16,14 @@
     "web:build": "vite build --config web/vite.config.ts",
     "web:preview": "vite preview --config web/vite.config.ts",
     "site": "vite site --port 5500 --strictPort",
+    "dev:staging": "vite site --port 5500 --strictPort --open /stage/avatar/preview.html",
     "site:deploy": "bash scripts/deploy-site.sh",
     "proxy": "node --env-file-if-exists=.env --import tsx proxy/server.mts",
     "desktop:build": "npm run desktop:helper && esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
     "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron .",
     "desktop:helper": "mkdir -p desktop/bin && xcrun swiftc -O -o desktop/bin/axhelper desktop/native/axhelper.swift && xcrun swiftc -O -o desktop/bin/dictate desktop/native/dictate.swift -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker desktop/native/dictate-Info.plist",
+    "desktop:dist": "bash scripts/package-mac.sh",
+    "release:upload": "bash scripts/upload-release.sh",
     "smoke": "node --env-file-if-exists=.env --import tsx eval/smoke.mts",
     "cost": "node --env-file-if-exists=.env --import tsx eval/cost.mts",
     "voice-smoke": "node --env-file-if-exists=.env --import tsx eval/voice.mts"
@@ -32,6 +36,7 @@
     "@preact/preset-vite": "^2.10.6",
     "@types/node": "^26.6.6",
     "electron": "^45.2.3",
+    "electron-builder": "^26.0.12",
     "esbuild": "^0.28.2",
     "preact": "^11.2.0",
     "tsx": "latest",
@@ -39,5 +44,54 @@
     "vite": "^8.3.7",
     "wxt": "latest"
   },
-  "main": "desktop/dist/main.cjs"
+  "main": "desktop/dist/main.cjs",
+  "build": {
+    "appId": "ai.pimpmypromt.mac",
+    "productName": "Pimp My Prompt",
+    "copyright": "© 2026 Pimp My Prompt",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "package.json",
+      "desktop/dist/**/*",
+      "!desktop/dist/**/*.map",
+      "desktop/bin/axhelper",
+      "desktop/bin/dictate",
+      "public/icon/**/*"
+    ],
+    "asarUnpack": [
+      "desktop/bin/**"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "minimumSystemVersion": "13.0",
+      "x64ArchFiles": "**/desktop/bin/*",
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSMicrophoneUsageDescription": "Voice input: what you say is turned into text or an edit to your prompt.",
+        "NSSpeechRecognitionUsageDescription": "Voice input is transcribed with macOS speech recognition, on-device when your language supports it.",
+        "NSAppleEventsUsageDescription": "Reads and writes the text field you are typing in when an app does not expose it to Accessibility."
+      }
+    },
+    "dmg": {
+      "artifactName": "PimpMyPrompt-${version}-universal.${ext}",
+      "title": "Pimp My Prompt ${version}",
+      "writeUpdateInfo": false
+    },
+    "afterPack": "build/after-pack.cjs"
+  }
 }

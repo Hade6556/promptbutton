@@ -15,7 +15,8 @@ import type { Screenshot } from '../src/messaging';
 import type { DraftSource } from './shared';
 
 const execFileAsync = promisify(execFile);
-const HELPER = path.join(__dirname, '..', 'bin', 'axhelper');
+// Packaged apps keep the helper outside app.asar (asarUnpack), where macOS can execute it.
+const HELPER = path.join(__dirname, '..', 'bin', 'axhelper').replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
 export interface Capture {
   appName: string;

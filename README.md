@@ -17,7 +17,21 @@ two Claude calls on a conversation you paste in (bring your own Anthropic key; i
 Ember tokens. `npm run site` serves it at <http://localhost:5500>; it needs no backend, so it can be copied to any
 static host as is. `npm run site:deploy` copies `index.html` and `assets/` to the VPS at 72.61.138.63, where Caddy serves
 `/var/www/promptbutton` as <https://pimpmypromt.ai> (config in `/etc/caddy/Caddyfile`). The page carries the launch name,
-Pimp My Prompt; the app and repo are still PromptButton. The download links point at `/download/PimpMyPrompt.dmg` on that host, a 404 until a signed DMG is uploaded there.
+Pimp My Prompt; the app and repo are still PromptButton. The download buttons point at `/download/PimpMyPrompt.dmg`; the page reads `/download/latest.json` to show the
+version and size, and shows an error instead of a dead link when it is missing. `npm run dev:staging` serves `site/`
+locally, staging pages included.
+
+**Mac download.** One universal DMG (Apple Silicon and Intel, macOS 13 or later):
+
+```bash
+npm run desktop:dist     # release/PimpMyPrompt-<version>-universal.dmg: universal Swift helpers, electron-builder, signing
+npm run release:upload   # uploads it, repoints /download/PimpMyPrompt.dmg, then writes /download/latest.json
+```
+
+With a "Developer ID Application" certificate in the keychain the build is signed with it, and notarized when
+`APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` are set. Without one it is signed ad hoc
+(`build/after-pack.cjs`): it launches, but macOS stops the first launch until the user clicks Open Anyway in
+System Settings → Privacy & Security, as the site's FAQ explains.
 The product shots in `site/assets/shot-*.jpg` are real captures of the panel over a staged editor page (`site/stage/`):
 `editor.html` is the backdrop, and `composite.html` renders the built panel renderer over it for states that
 need a finished prompt. Rebuild the renderer, copy `desktop/dist/renderer/assets` into `site/stage/panel/`, and
