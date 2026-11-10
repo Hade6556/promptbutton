@@ -170,18 +170,28 @@ body.menu-open .menu-btn .x { display: block; }
 .menubar { position: absolute; inset: 0 0 auto; height: 28px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between;
   background: rgba(14, 11, 9, 0.5); color: var(--p-label-2); font-size: 12px; }
 .menubar img { width: 14px; height: 14px; }
-.chat { position: absolute; left: 50%; top: 6%; bottom: 0; transform: translateX(-50%); width: min(92%, 980px);
-  border-radius: 14px 14px 0 0; background: #1c1a1c; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 30px 80px -30px rgba(0, 0, 0, 0.9); color: #d8d4cf; font-size: 13px; }
-.chat .titlebar { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
-.dots i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #5a5553; margin-right: 6px; }
-.chat .title { margin-inline: auto; color: #9a938d; font-size: 12px; }
-.chat .msgs { padding: 20px 24px 0; display: grid; gap: 12px; }
-.msg { max-width: 70%; padding: 10px 14px; border-radius: 14px; line-height: 1.45; }
-.msg.them { background: #2a2729; color: #cfcac5; }
-.chat .composer { position: absolute; left: 20px; right: 20px; bottom: 18px; min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px;
-  border-radius: 14px; background: #262325; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); color: #e9e3dc; }
-.chat .composer .send { width: 30px; height: 30px; border-radius: 50%; background: #4a443f; display: grid; place-items: center; }
-.chat .composer .send svg { width: 14px; height: 14px; stroke: #d9d2ca; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* A full-screen code editor as the layer behind the panel: activity bar, file list, code as bars, and
+   the editor's chat box holding the draft. No real product's chrome or text. */
+.editor { position: absolute; inset: 28px 0 0; display: grid; grid-template-columns: 48px 200px 1fr; background: #1c1a1c; color: #d8d4cf; font-size: 13px; }
+.editor .rail { background: #171516; border-right: 1px solid rgba(255, 255, 255, 0.06); display: grid; align-content: start; gap: 18px; padding: 16px 0; justify-items: center; }
+.editor .rail i { width: 20px; height: 20px; border-radius: 6px; background: #3a3537; }
+.editor .rail i:first-child { background: #8a8285; }
+.editor .files { background: #1a1819; border-right: 1px solid rgba(255, 255, 255, 0.06); padding: 14px 0; font-size: 12px; color: #a39b95; }
+.editor .files b { display: block; padding: 0 14px 10px; font-weight: 600; color: #cfc8c1; letter-spacing: 0.02em; font-size: 11px; }
+.editor .files span { display: block; padding: 5px 14px 5px 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.editor .files span.on { background: #262325; color: #f1ebe4; }
+.editor .main { position: relative; display: grid; grid-template-rows: 36px 1fr auto; min-width: 0; }
+.editor .tabs { display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 12px; color: #9a938d; }
+.editor .tabs span { padding: 0 16px; display: inline-flex; align-items: center; border-right: 1px solid rgba(255, 255, 255, 0.06); }
+.editor .tabs span.on { color: #f1ebe4; background: #1c1a1c; box-shadow: inset 0 -1px 0 var(--accent); }
+.editor .code { padding: 16px 20px; display: grid; gap: 9px; align-content: start; }
+.editor .code i { display: block; height: 8px; border-radius: 4px; background: #2e2a2c; }
+.editor .code i.k { background: #4a3f6b; } .editor .code i.s { background: #5a4a2a; } .editor .code i.f { background: #2b4a4a; }
+.editor .chatbox { margin: 0 20px 18px; min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px;
+  border-radius: 12px; background: #262325; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); color: #e9e3dc; }
+.editor .chatbox .send { width: 30px; height: 30px; border-radius: 50%; background: #4a443f; display: grid; place-items: center; flex: none; }
+.editor .chatbox .send svg { width: 14px; height: 14px; stroke: #d9d2ca; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.editor .chatbox span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The keys that press at the start of the demo. */
 .press { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); display: flex; gap: 6px; opacity: 0; transition: opacity 200ms var(--ease); }
@@ -238,8 +248,8 @@ body.menu-open .menu-btn .x { display: block; }
 .mac.paused .pause .stop { display: none; }
 @media (max-width: 767px) {
   .mac { padding: 22% 0 22%; border-radius: 16px 16px 0 0; }
-  .chat { width: 100%; top: 8%; border-radius: 12px 12px 0 0; }
-  .msg { max-width: 88%; }
+  .editor { grid-template-columns: 40px 1fr; }
+  .editor .files { display: none; }
   .panel { width: calc(100% - 24px); font-size: 12px; line-height: 17px; }
   .panel .content { padding: 12px 14px 2px; }
   .press { top: 3%; }
@@ -273,6 +283,15 @@ body.menu-open .menu-btn .x { display: block; }
 @keyframes scan { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 .lines i { display: block; height: 7px; border-radius: 4px; background: var(--p-fill); margin-top: 7px; }
 .lines i:nth-child(1) { width: 92%; } .lines i:nth-child(2) { width: 78%; } .lines i:nth-child(3) { width: 85%; }
+
+/* Before and after: the draft on the left as a plain field, the result on the right in the panel. */
+.ba { margin-top: 56px; display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .ba { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; } }
+.ba-col { display: grid; gap: 14px; }
+.ba-label { font-size: 0.875rem; font-weight: 600; color: var(--ink-3); }
+.ba-draft { min-height: 56px; display: flex; align-items: center; padding: 0 18px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); font-size: 1.0625rem; }
+.ba-panel { width: 100%; box-shadow: inset 0 1px 0 0 var(--p-highlight), inset 0 0 0 0.5px var(--p-hairline), 0 24px 60px -24px rgba(23, 18, 15, 0.5); }
+.ba-note { color: var(--ink-2); font-size: 0.9375rem; max-width: 44ch; }
 
 /* Feature rows: words left, the product right, top-aligned, the same split every time. */
 .rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(64px, 8vw, 120px); margin-top: 72px; }
@@ -353,6 +372,7 @@ body.menu-open .menu-btn .x { display: block; }
     <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="28" height="28" />PromptButton</a>
     <div class="nav-links">
       <a href="#how">How it works</a>
+      <a href="#demo">Before and after</a>
       <a href="#features">Features</a>
       <a href="#faq">Questions</a>
       <a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a>
@@ -368,6 +388,7 @@ body.menu-open .menu-btn .x { display: block; }
 </header>
 <div class="mobile-menu" id="mobileMenu">
   <a href="#how">How it works</a>
+  <a href="#demo">Before and after</a>
   <a href="#features">Features</a>
   <a href="#faq">Questions</a>
   <a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a>
@@ -390,12 +411,16 @@ body.menu-open .menu-btn .x { display: block; }
     </div>
 
     <div class="wrap demo">
-      <div class="mac" id="mac" role="img" aria-label="A Mac desktop with a chat app open. The draft in the chat box reads: i want to build a landing page. The PromptButton panel above it shows the finished prompt with Role, Goal, Task, Quality bar and Output sections.">
+      <div class="mac" id="mac" role="img" aria-label="A full-screen code editor on a Mac. The draft in its chat box reads: i want to build a landing page. The PromptButton panel floating above it shows the finished prompt with Role, Goal, Task, Quality bar and Output sections.">
         <div class="menubar" aria-hidden="true"><img src="assets/logo.svg" alt="" width="14" height="14" /><span>Tue 9:41</span></div>
-        <div class="chat" aria-hidden="true">
-          <div class="titlebar"><span class="dots"><i></i><i></i><i></i></span><span class="title">Chat</span></div>
-          <div class="msgs"><div class="msg them">Hi. What are we building today?</div></div>
-          <div class="composer"><span>i want to build a landing page</span><span class="send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
+        <div class="editor" aria-hidden="true">
+          <div class="rail"><i></i><i></i><i></i><i></i></div>
+          <div class="files"><b>SITE</b><span>assets</span><span class="on">index.html</span><span>styles.css</span><span>app.js</span><span>README.md</span></div>
+          <div class="main">
+            <div class="tabs"><span class="on">index.html</span><span>styles.css</span><span>Chat</span></div>
+            <div class="code"><i class="k" style="width:38%"></i><i style="width:62%"></i><i class="s" style="width:48%"></i><i style="width:30%"></i><i class="f" style="width:56%"></i><i style="width:70%"></i><i class="k" style="width:22%"></i><i style="width:64%"></i><i class="s" style="width:40%"></i><i style="width:52%"></i><i class="f" style="width:34%"></i><i style="width:58%"></i></div>
+            <div class="chatbox"><span>i want to build a landing page</span><span class="send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
+          </div>
         </div>
         <div class="press" id="press" aria-hidden="true"><span class="cap">⌥</span><span class="cap">⇧</span><span class="cap">P</span></div>
         <div class="panel" id="panel" aria-hidden="true">
@@ -426,21 +451,50 @@ body.menu-open .menu-btn .x { display: block; }
       </div>
       <ol class="steps">
         <li class="step accent">
-          <h3 class="h3">Reads the conversation</h3>
-          <p>Your draft comes from the field you are typing in. The chat around it comes from a screenshot of the front window, so it works in VS Code, Cursor, Slack or a browser.</p>
-          <div class="art" aria-hidden="true"><div class="mini"><div class="row">Reading the window</div><div class="scan"></div><div class="lines"><i></i><i></i><i></i></div></div></div>
+          <h3 class="h3">Press ⌥⇧P in any app</h3>
+          <p>Type a rough draft where you would normally type it: VS Code's chat, Cursor, Slack, a browser, even in full screen. Then press the shortcut.</p>
+          <div class="art" aria-hidden="true"><div class="mini"><div class="row">Where you are typing</div><div class="opts"><span class="opt pick">VS Code</span><span class="opt">Cursor</span><span class="opt">Claude</span><span class="opt">ChatGPT</span><span class="opt">Slack</span></div></div></div>
         </li>
         <li class="step">
-          <h3 class="h3">Asks only what is missing</h3>
-          <p>A gap check names what the model still needs and has not already learnt from the chat. At most three questions, each with answers you can tap or say.</p>
-          <div class="art" aria-hidden="true"><div class="mini"><div class="q">Who is the page for?</div><div class="opts"><span class="opt pick">Developers</span><span class="opt">Founders</span><span class="opt">Shoppers</span></div></div></div>
+          <h3 class="h3">It reads your screen</h3>
+          <p>Your draft comes from the field itself. The conversation around it comes from a screenshot of the front window, so no app needs an integration. If something is still missing, it asks, three questions at most.</p>
+          <div class="art" aria-hidden="true"><div class="mini"><div class="row">Reading the window…</div><div class="scan"></div><div class="q" style="margin-top:12px">Who is the page for?</div><div class="opts"><span class="opt pick">Developers</span><span class="opt">Founders</span><span class="opt">Shoppers</span></div></div></div>
         </li>
         <li class="step">
-          <h3 class="h3">Writes the prompt, you decide</h3>
-          <p>Role, goal, task, quality bar and the format you want back, streamed in. Facts come from the chat. Anything unknown is a marked placeholder, never a guess.</p>
+          <h3 class="h3">You get a better prompt</h3>
+          <p>Role, goal, task, quality bar and the format you want back, streamed in. Facts come from the chat. Anything unknown is a marked placeholder, never a guess. Insert it, edit it, or undo.</p>
           <div class="art" aria-hidden="true"><div class="mini"><span class="sec-label">Role</span><div>You are a senior product designer who ships front-end code<span class="caret"></span></div><div class="opts"><span class="opt">Insert</span><span class="opt">Edit</span><span class="opt">Undo</span></div></div></div>
         </li>
       </ol>
+    </div>
+  </section>
+
+  <section class="section" id="demo" style="padding-top:0">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="h2">Before and after</h2>
+        <p class="lead">The same request, as it was typed and as it was sent. The answer to the second one is the one you wanted.</p>
+      </div>
+      <div class="ba">
+        <div class="ba-col">
+          <h3 class="ba-label">Before</h3>
+          <div class="ba-draft"><span>i want to build a landing page</span></div>
+          <p class="ba-note">Nine words. The model has to guess who it is for, what it should do and what good looks like.</p>
+        </div>
+        <div class="ba-col">
+          <h3 class="ba-label">After</h3>
+          <div class="panel ba-panel" role="img" aria-label="The rewritten prompt: a Role, a Goal with two placeholders for product name and primary action, a three-item Task, a Quality bar and an Output line marked assumed.">
+            <div class="content">
+              <div class="sec in"><span class="sec-label">Role</span><div>You are a senior product designer who also ships production front-end code<span class="assumed">assumed</span>. You judge a page by whether a stranger gets it in five seconds.</div></div>
+              <div class="sec in"><span class="sec-label">Goal</span><div>A landing page for <span class="ph">[product name]</span> whose one job is getting visitors to <span class="ph">[primary action]</span>.</div></div>
+              <div class="sec in"><span class="sec-label">Task</span><div><ol><li>Hero: one headline, one subline, one button.</li><li>Three benefit sections with short copy.</li><li>Pricing, FAQ, footer with the call to action again.</li></ol></div></div>
+              <div class="sec in"><span class="sec-label">Quality bar</span><div>Correct at 375, 768 and 1280 px. Visible focus states, contrast of at least 4.5:1, alt text. Placeholder copy in our voice, marked.</div></div>
+              <div class="sec in"><span class="sec-label">Output</span><div>One index.html with embedded CSS and JS<span class="assumed">assumed</span>, plus the command to serve it.</div></div>
+            </div>
+          </div>
+          <p class="ba-note">Every line came from the screen or a default labelled as assumed. The two placeholders are the only things it could not know.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -528,24 +582,24 @@ body.menu-open .menu-btn .x { display: block; }
       <div class="section-head"><h2 class="h2">Questions</h2></div>
       <div class="faq">
         <details>
+          <summary>What happens to my screen and my text?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">On each press, the draft and one screenshot of the front window go from your Mac straight to Anthropic's API with your own key, and the rewritten prompt comes back. Nothing is stored or routed through a server of ours, because there is none. You can also hide the panel itself from screen sharing.</div>
+        </details>
+        <details>
+          <summary>Which permissions does it ask for?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">Accessibility, to read the field you are typing in and write back into it, and Screen Recording, to see the conversation in the front window. Voice adds Microphone and Speech Recognition, which runs on-device when your language supports it. macOS asks once for each.</div>
+        </details>
+        <details>
+          <summary>What does it cost?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">It runs on your own Anthropic API key. A full press costs a few cents of API usage, and a spoken edit costs under one cent. The price of the app itself is <span class="todo">[REPLACE: app price or free]</span>.</div>
+        </details>
+        <details>
           <summary>How is this different from a prompt enhancer in a browser?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="a">Enhancers make a prompt longer. PromptButton reads the whole conversation first, works out which of goal, audience, format, constraints and success criteria is missing, asks only when it matters, and then writes the prompt an expert in that field would write. It also works in every app, not one site.</div>
         </details>
         <details>
-          <summary>Who is it for?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-          <div class="a">Anyone on a Mac who asks AI assistants for real work: code, documents, analysis, plans. If you have ever typed “make it better” and got something worse, it is for you.</div>
-        </details>
-        <details>
-          <summary>What does it cost?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-          <div class="a">It runs on your own Anthropic API key. A full press costs a few cents of API usage, and a spoken edit costs under one cent. The price of the app itself is <span class="todo">TODO</span> to be set before launch.</div>
-        </details>
-        <details>
           <summary>Does it send messages for me?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="a">No. It writes the rewritten prompt into the field you were typing in and stops. Sending is always your action, and Undo restores what was there before.</div>
-        </details>
-        <details>
-          <summary>What does it need access to?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-          <div class="a">Accessibility, to read the field and write back into it, and Screen Recording, to see the conversation in the front window. Voice adds Microphone and Speech Recognition, which runs on-device when your language supports it. Nothing is stored on a server of ours, because there is none.</div>
         </details>
         <details>
           <summary>Which apps and languages work?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -577,7 +631,7 @@ body.menu-open .menu-btn .x { display: block; }
         <div><h3>Compare</h3><ul><li><a href="#faq">Versus prompt enhancers</a></li><li><a href="#how">Versus a prompting course</a></li><li><a href="#features">Versus writing it yourself</a></li></ul></div>
         <div><h3>Support</h3><ul><li><a href="https://github.com/Hade6556/promptbutton/issues" rel="noopener">Report a problem</a></li><li><a href="https://github.com/Hade6556/promptbutton#readme" rel="noopener">Set-up guide</a></li></ul></div>
       </div>
-      <div class="legal"><span>© 2026 PromptButton.</span><span>Privacy policy and terms <span class="todo">TODO</span></span></div>
+      <div class="legal"><span>© 2026 PromptButton.</span><span class="todo">[REPLACE: privacy policy and terms links]</span></div>
     </div>
   </div>
 </footer>
@@ -612,7 +666,7 @@ body.menu-open .menu-btn .x { display: block; }
     ['Role', 'You are a senior product designer who also ships production front-end code<span class="assumed">assumed</span>. You judge a page by whether a stranger gets it in five seconds.'],
     ['Goal', 'A landing page for <span class="ph">[product name]</span> whose one job is getting visitors to <span class="ph">[primary action]</span>.'],
     ['Task', '<ol><li>Hero: one headline, one subline, one button.</li><li>Three benefit sections with short copy.</li><li>Pricing, FAQ, footer with the call to action again.</li></ol>'],
-    ['Quality bar', 'Correct at 375, 768 and 1280 px. Visible focus states, contrast of at least 4.5:1, alt text. Placeholder copy in our voice, marked TODO.'],
+    ['Quality bar', 'Correct at 375, 768 and 1280 px. Visible focus states, contrast of at least 4.5:1, alt text. Placeholder copy in our voice, marked.'],
     ['Output', 'One index.html with embedded CSS and JS<span class="assumed">assumed</span>, plus the command to serve it.'],
   ];
   const mac = $('mac'), panel = $('panel'), content = $('panelContent'), field = $('panelField'), ring = $('ring'), ringRect = $('ringRect'), press = $('press'), pauseBtn = $('pauseBtn');
