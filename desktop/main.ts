@@ -2,7 +2,7 @@
 // Reads the focused field + a window screenshot, runs the same gap-analysis → questions →
 // rewrite pipeline as the extension, and writes the result back into the field.
 import Anthropic from '@anthropic-ai/sdk';
-import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, systemPreferences, Tray } from 'electron';
+import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, systemPreferences, Tray } from 'electron';
 import path from 'node:path';
 import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
 import { toResult } from '../src/llm/errors';
@@ -151,6 +151,24 @@ function createWindow() {
   win.setContentProtection(settings.hideFromCapture);
   void win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.on('closed', () => (win = null));
+  // A panel window never makes the app active, so the menu's ⌘C/⌘V/⌘X/⌘A/⌘Z never fire. Do them here.
+  const contents = win.webContents;
+  contents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return;
+    const key = input.key.toLowerCase();
+    if (key === 'c' && !input.shift) {
+      event.preventDefault();
+      void contents.executeJavaScript('String(window.getSelection() || "")').then((selected: string) => {
+        if (selected) return contents.copy();
+        // Nothing selected: copy what the panel is showing.
+        const shown = state.phase === 'error' ? state.error : state.phase === 'done' ? current?.text : '';
+        if (shown) clipboard.writeText(shown);
+      });
+    } else if (key === 'v' && !input.shift) { event.preventDefault(); contents.paste(); }
+    else if (key === 'x' && !input.shift) { event.preventDefault(); contents.cut(); }
+    else if (key === 'a' && !input.shift) { event.preventDefault(); contents.selectAll(); }
+    else if (key === 'z') { event.preventDefault(); if (input.shift) contents.redo(); else contents.undo(); }
+  });
 }
 
 /** The box rests a little below the menu bar — about an eighth of the way down the screen — centred, and grows downward. */
@@ -232,7 +250,21 @@ function notice(text: string, options: { ttl?: number; offerForcePaste?: boolean
   if (options.ttl) noticeTimer = setTimeout(hidePanel, options.ttl);
 }
 
+/** Without Accessibility the app can neither read the field nor write into it, so say that and open the right pane. */
+function needAccessibility() {
+  busy = false;
+  const name = app.getName();
+  setState({
+    phase: 'error',
+    error: `${name} needs Accessibility access to read and write the field you are typing in. In the window that just opened, turn on ${name}, then press ${HOTKEY} again. If it is already on, remove it with the minus button and add it back.`,
+  });
+  showPanel(true);
+  void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+}
+
 function fail(error: unknown) {
+  const raw = error instanceof Error ? error.message : String(error);
+  if (/not allowed to send keystrokes|not allowed assistive access|\(1002\)|\(-25211\)|\(-1719\)/i.test(raw)) return needAccessibility();
   const result = toResult<never>(error);
   busy = false;
   if (!result.ok) {
@@ -255,6 +287,7 @@ async function trigger(options: { fresh?: boolean } = {}) {
     return;
   }
   if (busy) return;
+  if (process.platform === 'darwin' && !systemPreferences.isTrustedAccessibilityClient(false)) return needAccessibility();
   const my = ++runId;
   busy = true;
   try {
@@ -617,7 +650,12 @@ function buildTray() {
   );
 }
 
+// One copy only: a second launch would add a second tray icon and fight over the hotkey.
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on('second-instance', () => console.log('[PromptButton] already running; ignoring the second launch'));
+
 app.whenReady().then(() => {
+  if (!app.hasSingleInstanceLock()) return;
   settings = loadSettings();
   app.dock?.hide(); // menu-bar utility, no Dock icon
   createWindow();

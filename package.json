@@ -1,6 +1,7 @@
 {
   "name": "promptbutton",
-  "version": "0.1.0",
+  "productName": "Pimp My Prompt",
+  "version": "0.1.1",
   "private": true,
   "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
   "author": "Pimp My Prompt",

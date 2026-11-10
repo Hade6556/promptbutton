@@ -113,25 +113,42 @@ function ResultView({ text, streaming }: { text: string; streaming: boolean }) {
     setEdge(atTop ? 'top' : atBottom ? 'bottom' : 'middle');
   }
 
+  // Follow the stream only while the reader stays at the bottom. Scrolling up hands control to them.
+  const follow = useRef(true);
+  const wasStreaming = useRef(false);
+  function onScroll() {
+    const el = ref.current;
+    if (el && streaming) follow.current = el.scrollTop >= el.scrollHeight - el.clientHeight - 24;
+    measure();
+  }
+  function onWheel(e: WheelEvent) {
+    if (streaming && e.deltaY < 0) follow.current = false;
+  }
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (streaming) el.scrollTop = el.scrollHeight;
-    else el.scrollTop = 0;
+    if (streaming) {
+      if (!wasStreaming.current) follow.current = true; // a new run starts following again
+      if (follow.current) el.scrollTop = el.scrollHeight;
+    } else if (wasStreaming.current && follow.current) {
+      el.scrollTop = 0; // finished while following: show the prompt from its start
+    }
+    wasStreaming.current = streaming;
     measure();
   }, [text, streaming]);
 
   const sections = parseSections(text);
   if (!sections) {
     return (
-      <div class="line result" ref={ref} data-edge={edge} onScroll={measure}>
+      <div class="line result" ref={ref} data-edge={edge} onScroll={onScroll} onWheel={onWheel}>
         {text}
         {streaming && <span class="caret" />}
       </div>
     );
   }
   return (
-    <div class="line result rich" ref={ref} data-edge={edge} onScroll={measure}>
+    <div class="line result rich" ref={ref} data-edge={edge} onScroll={onScroll} onWheel={onWheel}>
       {sections.map((s, i) => (
         <section class="sec" key={i}>
           {s.label && <span class="sec-label">{s.label}</span>}
