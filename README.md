@@ -37,6 +37,32 @@ The product shots in `site/assets/shot-*.jpg` are real captures of the panel ove
 need a finished prompt. Rebuild the renderer, copy `desktop/dist/renderer/assets` into `site/stage/panel/`, and
 re-shoot when the panel's look changes.
 
+## Windows
+
+The same app runs on Windows 10 and 11 (x64 and ARM64). Only the system layer differs:
+
+| | macOS | Windows |
+|---|---|---|
+| Read and write the focused field | `desktop/native/axhelper.swift` (Accessibility) | `desktop/native/win/Program.cs` (UI Automation), built to `desktop/bin-win/winhelper.exe` |
+| Keyboard fallbacks (copy, select all, paste) | AppleScript | the same helper, `SendInput`, after the hotkey's modifiers are released |
+| Window screenshot | `screencapture` | Electron `desktopCapturer` |
+| Hotkey | ⌥⇧P or ⌥⌘P | Alt+Shift+P or Ctrl+Alt+P |
+| Voice | macOS speech recognition | not yet |
+| Permissions | Accessibility and Screen Recording | none |
+
+The helper targets .NET Framework 4.7.2, which ships with Windows, so users install nothing extra. It compiles on a Mac with the .NET SDK.
+
+```bash
+npm run desktop:dist:win      # release/PimpMyPrompt-Setup-<version>.exe, one installer for x64 and ARM64
+npm run release:upload:win    # publishes it as /download/PimpMyPrompt-Setup.exe and adds it to latest.json
+```
+
+The installer is per-user, needs no administrator rights, adds Start menu and desktop shortcuts and opens the app.
+It is unsigned, so Windows shows "Windows protected your PC" until it has a code-signing certificate: users click
+More info, then Run anyway. To see what the helper reads on a given PC, run
+`"%LOCALAPPDATA%\Programs\Pimp My Prompt\resources\app.asar.unpacked\desktop\bin-win\winhelper.exe" selftest`
+and click into a text field within three seconds.
+
 ## Accounts, limits and billing (server/)
 
 Consumers sign in instead of bringing a key. `server/` is a small Node 24 service on the VPS (systemd unit

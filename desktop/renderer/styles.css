@@ -631,3 +631,8 @@ kbd {
     transition: none;
   }
 }
+
+/* Windows: no system blur behind the window, so the glass becomes a near-solid fill to stay legible. */
+:root[data-platform='win32'] {
+  --surface: rgba(23, 18, 15, 0.97);
+}

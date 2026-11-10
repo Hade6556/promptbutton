@@ -17,6 +17,10 @@ export function isDictating(): boolean {
 }
 
 export function startDictation(onEvent: (event: DictationEvent) => void): void {
+  if (process.platform !== 'darwin') {
+    onEvent({ type: 'error', error: 'Voice input is not available on this system yet. Type instead.' });
+    return;
+  }
   if (child) return;
   const locale = Intl.DateTimeFormat().resolvedOptions().locale;
   const proc = spawn(HELPER, [locale, String(SILENCE_SECONDS)]);

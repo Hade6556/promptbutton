@@ -6,6 +6,7 @@
   try { if (params.get('state')) state = JSON.parse(decodeURIComponent(escape(atob(params.get('state'))))); } catch (e) { console.error(e); }
   const listeners = [];
   window.pb = {
+    platform: 'darwin',
     getState: () => Promise.resolve(state),
     onState: (cb) => { listeners.push(cb); return () => {}; },
     onDictation: () => () => {},

@@ -116,6 +116,8 @@ export type DictationEvent =
   | { type: 'error'; error: string };
 
 export interface PbApi {
+  /** process.platform of the app: 'darwin' or 'win32'. */
+  platform: string;
   getState(): Promise<PanelState>;
   onState(callback: (state: PanelState) => void): () => void;
   onDictation(callback: (event: DictationEvent) => void): () => void;

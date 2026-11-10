@@ -10,6 +10,7 @@
 //  4. copy to the clipboard and tell the user.
 import { clipboard } from 'electron';
 import { runAppleScript, runHelper, type Capture } from './capture';
+import { isWindows, runWinHelper } from './win';
 
 export type InsertOutcome = 'replaced' | 'pasted' | 'copied';
 
@@ -36,7 +37,7 @@ end run`;
 
 /** The focused element is a text field we may write into: the draft filled it, or it was empty. */
 function isWritableField(capture: Capture): boolean {
-  return capture.source === 'field' || (capture.source === 'none' && /^AXText(Area|Field)$/.test(capture.role));
+  return capture.source === 'field' || (capture.source === 'none' && /^(AXText(Area|Field)|Edit|Document)$/.test(capture.role));
 }
 
 /** A field whose entire content was the draft (or nothing) and that looks like a message box, not a document. */
@@ -44,25 +45,36 @@ function isChatLikeField(capture: Capture): boolean {
   return isWritableField(capture) && capture.draft.length <= 2000 && capture.draft.split('\n').length <= 20;
 }
 
-async function activate(pid: number) {
-  await runAppleScript(ACTIVATE_SCRIPT, [String(pid)]);
+async function activate(capture: Capture) {
+  if (isWindows) {
+    await runWinHelper(['activate', String(capture.hwnd)]);
+    await delay(120);
+    return;
+  }
+  await runAppleScript(ACTIVATE_SCRIPT, [String(capture.pid)]);
   await delay(220);
 }
 
-async function readBack(pid: number): Promise<string | null> {
+async function readBack(capture: Capture): Promise<string | null> {
   try {
-    const focused = await runHelper<{ value: string; pid: number }>(['focused']);
-    return focused.pid === pid ? focused.value : null;
+    const focused = await (isWindows ? runWinHelper<{ value: string; pid: number }>(['focused']) : runHelper<{ value: string; pid: number }>(['focused']));
+    return focused.pid === capture.pid ? focused.value : null;
   } catch {
     return null;
   }
 }
 
-async function paste(text: string, selectAll: boolean): Promise<void> {
+/** Writes straight into the focused field: AXValue on macOS, UI Automation's ValuePattern on Windows. */
+function setValue(capture: Capture, text: string): Promise<{ set: boolean; value: string; axError?: number }> {
+  return isWindows ? runWinHelper(['set', String(capture.hwnd)], text) : runHelper(['set', String(capture.pid)], text);
+}
+
+async function paste(capture: Capture, text: string, selectAll: boolean): Promise<void> {
   const previous = await clipboard.readText();
   clipboard.writeText(text);
   try {
-    await runAppleScript(PASTE_SCRIPT, [selectAll ? 'all' : 'selection']);
+    if (isWindows) await runWinHelper(['paste', String(capture.hwnd), selectAll ? 'all' : 'selection']);
+    else await runAppleScript(PASTE_SCRIPT, [selectAll ? 'all' : 'selection']);
     await delay(250);
   } finally {
     // Give the target app time to consume the clipboard before restoring the user's.
@@ -75,16 +87,16 @@ export async function insertText(capture: Capture, text: string): Promise<Insert
     clipboard.writeText(text);
     return 'copied';
   }
-  await activate(capture.pid);
+  await activate(capture);
 
   // 1. Direct AX write (native text views only — Electron editors accept it into a hidden
   //    textarea without updating what the user sees, so they skip straight to paste).
   if (isWritableField(capture) && capture.valueSettable && !capture.chromium) {
     try {
-      const result = await runHelper<{ set: boolean; value: string; axError: number }>(['set', String(capture.pid)], text);
+      const result = await setValue(capture, text);
       if (result.set && result.value.trim() === text.trim()) {
         await delay(200);
-        const still = await readBack(capture.pid);
+        const still = await readBack(capture);
         if (still === null || still.trim() === text.trim()) return 'replaced';
         console.info('[PromptButton] AXValue write was reverted by the app; trying paste');
       } else {
@@ -98,8 +110,8 @@ export async function insertText(capture: Capture, text: string): Promise<Insert
   // 2. Replace the whole message box by select-all + paste (Monaco/VS Code, Slack, web apps).
   if (isChatLikeField(capture)) {
     try {
-      await paste(text, true);
-      const after = await readBack(capture.pid);
+      await paste(capture, text, true);
+      const after = await readBack(capture);
       if (after === null || after.trim() === text.trim() || (after.trim() !== capture.fieldText.trim() && after.includes(text.slice(0, 40)))) {
         return 'pasted';
       }
@@ -112,7 +124,7 @@ export async function insertText(capture: Capture, text: string): Promise<Insert
   // 3. Paste over the user's own selection.
   if (capture.source === 'selection') {
     try {
-      await paste(text, false);
+      await paste(capture, text, false);
       return 'pasted';
     } catch (error) {
       console.info('[PromptButton] paste failed:', error instanceof Error ? error.message : error);
@@ -125,6 +137,6 @@ export async function insertText(capture: Capture, text: string): Promise<Insert
 
 /** User-requested: select all and paste, no verification. */
 export async function forcePaste(capture: Capture, text: string): Promise<void> {
-  await activate(capture.pid);
-  await paste(text, true);
+  await activate(capture);
+  await paste(capture, text, true);
 }

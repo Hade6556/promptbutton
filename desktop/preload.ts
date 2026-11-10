@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { DictationEvent, PanelState, PbApi, RendererAction } from './shared';
 
 const api: PbApi = {
+  platform: process.platform,
   getState: () => ipcRenderer.invoke('pb:getState') as Promise<PanelState>,
   onState: (callback) => {
     const handler = (_event: IpcRendererEvent, state: PanelState) => callback(state);

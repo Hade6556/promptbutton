@@ -18,9 +18,12 @@ import { forcePaste, insertText } from './insert';
 import { loadSettings, saveSettings } from './settings';
 import type { AccountScreen, AccountView, PanelState, RendererAction, Settings } from './shared';
 
-// Both chords trigger: ⌥⇧P is the documented one; ⌥⌘P is what people press when they read ⇧ as ⌘.
-const HOTKEYS = ['Alt+Shift+P', 'Alt+Command+P'];
-const HOTKEY = '⌥⇧P (or ⌥⌘P)';
+const IS_MAC = process.platform === 'darwin';
+// macOS: ⌥⇧P is the documented chord; ⌥⌘P is what people press when they read ⇧ as ⌘.
+// Windows: Alt+Shift+P matches the Mac; Ctrl+Alt+P is the fallback if a keyboard-layout switcher eats Alt+Shift.
+const HOTKEYS = IS_MAC ? ['Alt+Shift+P', 'Alt+Command+P'] : ['Alt+Shift+P', 'Control+Alt+P'];
+const HOTKEY = IS_MAC ? '⌥⇧P (or ⌥⌘P)' : 'Alt+Shift+P (or Ctrl+Alt+P)';
+const PASTE_KEYS = IS_MAC ? '⌘V' : 'Ctrl+V';
 const PANEL_WIDTH = 600;
 const PANEL_HEIGHT = 56; // the bare box; the renderer asks for more as content appears
 const PANEL_MAX_HEIGHT = 760;
@@ -284,12 +287,11 @@ function createWindow() {
     show: false,
     frame: false,
     transparent: true,
-    // Real macOS material (NSVisualEffectView HUD) behind the box instead of painted glass: it blurs
+    // macOS: real material (NSVisualEffectView HUD) behind the box instead of painted glass: it blurs
     // whatever app is underneath and honours Reduce Transparency on its own. The system draws the
     // window shadow and corner radius, so the renderer paints only a translucent fill and a hairline.
-    vibrancy: 'hud',
-    visualEffectState: 'active',
-    roundedCorners: true,
+    // Windows has no blur behind transparent windows, so the renderer paints a solid fill there.
+    ...(IS_MAC ? { vibrancy: 'hud' as const, visualEffectState: 'active' as const, roundedCorners: true } : {}),
     hasShadow: true,
     resizable: false,
     minimizable: false,
@@ -297,8 +299,8 @@ function createWindow() {
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    // Panel windows float over full-screen apps and can take key focus without activating the whole app.
-    type: 'panel',
+    // macOS panel windows float over full-screen apps and take key focus without activating the whole app.
+    ...(IS_MAC ? { type: 'panel' } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -311,10 +313,12 @@ function createWindow() {
   win.setContentProtection(settings.hideFromCapture);
   void win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.on('closed', () => (win = null));
-  // A panel window never makes the app active, so the menu's ⌘C/⌘V/⌘X/⌘A/⌘Z never fire. Do them here.
+  // A panel window never makes the app active, so the menu's ⌘C/⌘V/⌘X/⌘A/⌘Z never fire. Do them here
+  // (Ctrl on Windows, where the same handler also copies the shown result when nothing is selected).
   const contents = win.webContents;
   contents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return;
+    const primary = IS_MAC ? input.meta && !input.control : input.control && !input.meta;
+    if (input.type !== 'keyDown' || !primary || input.alt) return;
     const key = input.key.toLowerCase();
     if (key === 'c' && !input.shift) {
       event.preventDefault();
@@ -373,7 +377,7 @@ function fitPanel(height: number) {
 function assertLayering() {
   if (!win) return;
   win.setAlwaysOnTop(true, 'screen-saver');
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  if (IS_MAC) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 }
 
 function rebuildHiddenWindow(reason: string) {
@@ -684,7 +688,7 @@ async function accept(text: string) {
     console.log(`[PromptButton] insert into "${capture.appName}": ${outcome} (${text.length} chars)`);
     lastInsert = { capture, original: capture.draft };
     if (outcome === 'copied') {
-      notice(`Copied. ${capture.appName} did not accept a direct replace — press ⌘V to paste, or let me select all and paste.`, {
+      notice(`Copied. ${capture.appName} did not accept a direct replace — press ${PASTE_KEYS} to paste, or let me select all and paste.`, {
         offerForcePaste: true,
       });
       return;
@@ -692,7 +696,7 @@ async function accept(text: string) {
     hidePanel();
   } catch (error) {
     clipboard.writeText(text);
-    notice(`Copied to the clipboard (${error instanceof Error ? error.message : 'insert failed'}). Press ⌘V to paste.`, { ttl: 6000 });
+    notice(`Copied to the clipboard (${error instanceof Error ? error.message : 'insert failed'}). Press ${PASTE_KEYS} to paste.`, { ttl: 6000 });
   }
 }
 
@@ -715,6 +719,7 @@ async function handleAction(action: RendererAction) {
     case 'forcePaste':
       if (current) {
         try {
+          if (!IS_MAC) win?.hide(); // Windows: focus must leave the panel before the keystrokes
           await forcePaste(current.capture, current.text);
           hidePanel();
         } catch (error) {
@@ -780,9 +785,14 @@ async function undo() {
 }
 
 function buildTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'public', 'icon', '32.png')).resize({ width: 18, height: 18 });
-  tray ??= new Tray(icon);
-  tray.setToolTip('PromptButton');
+  const size = IS_MAC ? 18 : 16;
+  const icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'public', 'icon', '32.png')).resize({ width: size, height: size });
+  if (!tray) {
+    tray = new Tray(icon);
+    // Windows tray icons open their menu on right-click only; make a left-click do the same.
+    if (!IS_MAC) tray.on('click', () => tray?.popUpContextMenu());
+  }
+  tray.setToolTip(app.getName());
   const mode = (value: Settings['askMode'], label: string): Electron.MenuItemConstructorOptions => ({
     label,
     type: 'radio',

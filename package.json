@@ -22,11 +22,14 @@
     "server:test": "cd server && node --test test/*.test.mts",
     "server:deploy": "bash scripts/deploy-server.sh",
     "proxy": "node --env-file-if-exists=.env --import tsx proxy/server.mts",
-    "desktop:build": "npm run desktop:helper && esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
+    "desktop:build": "npm run desktop:helper && npm run desktop:bundle",
     "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron .",
+    "desktop:bundle": "esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
     "desktop:helper": "mkdir -p desktop/bin && xcrun swiftc -O -o desktop/bin/axhelper desktop/native/axhelper.swift && xcrun swiftc -O -o desktop/bin/dictate desktop/native/dictate.swift -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker desktop/native/dictate-Info.plist",
     "desktop:dist": "bash scripts/package-mac.sh",
+    "desktop:dist:win": "bash scripts/package-win.sh",
     "release:upload": "bash scripts/upload-release.sh",
+    "release:upload:win": "bash scripts/upload-release-win.sh",
     "smoke": "node --env-file-if-exists=.env --import tsx eval/smoke.mts",
     "cost": "node --env-file-if-exists=.env --import tsx eval/cost.mts",
     "voice-smoke": "node --env-file-if-exists=.env --import tsx eval/voice.mts"
@@ -60,12 +63,11 @@
       "package.json",
       "desktop/dist/**/*",
       "!desktop/dist/**/*.map",
-      "desktop/bin/axhelper",
-      "desktop/bin/dictate",
       "public/icon/**/*"
     ],
     "asarUnpack": [
-      "desktop/bin/**"
+      "desktop/bin/**",
+      "desktop/bin-win/**"
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -88,13 +90,44 @@
         "NSMicrophoneUsageDescription": "Voice input: what you say is turned into text or an edit to your prompt.",
         "NSSpeechRecognitionUsageDescription": "Voice input is transcribed with macOS speech recognition, on-device when your language supports it.",
         "NSAppleEventsUsageDescription": "Reads and writes the text field you are typing in when an app does not expose it to Accessibility."
-      }
+      },
+      "files": [
+        "desktop/bin/axhelper",
+        "desktop/bin/dictate"
+      ]
     },
     "dmg": {
       "artifactName": "PimpMyPrompt-${version}-universal.${ext}",
       "title": "Pimp My Prompt ${version}",
       "writeUpdateInfo": false
     },
-    "afterPack": "build/after-pack.cjs"
+    "afterPack": "build/after-pack.cjs",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "files": [
+        "desktop/bin-win/winhelper.exe",
+        "desktop/bin-win/winhelper.exe.config"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Pimp My Prompt",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "PimpMyPrompt-Setup-${version}.${ext}"
+    }
   }
 }

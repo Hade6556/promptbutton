@@ -261,6 +261,8 @@ function ResultView({ text, streaming }: { text: string; streaming: boolean }) {
  * rewrite, a status). In the field: your answer or a change. The arrow does the next step.
  */
 export function Panel() {
+  // Platform-specific styling (Windows paints a solid panel: no blur behind transparent windows there).
+  document.documentElement.dataset.platform = window.pb.platform;
   const [state, setState] = useState<PanelState>({ phase: 'hidden' });
   /** The last state seen, for comparisons inside the long-lived state listener. */
   const stateRef = useRef<PanelState>({ phase: 'hidden' });
@@ -611,7 +613,8 @@ export function Panel() {
 
   const showField = state.phase !== 'notice' && state.phase !== 'error' && !(state.phase === 'settings' && state.accountScreen?.mode === 'account');
   // Voice is an input like the keyboard: available wherever the field takes text, except the API-key field.
-  const showMic = showField && state.phase !== 'settings' && (!busy || mic !== 'off');
+  // Voice uses macOS speech recognition; other systems get the keyboard only for now.
+  const showMic = window.pb.platform === 'darwin' && showField && state.phase !== 'settings' && (!busy || mic !== 'off');
   const options = [
     ...(question?.suggestions ?? []).map((s) => (
       <button type="button" class="opt" key={`q-${s}`} onClick={() => answer(s)}>

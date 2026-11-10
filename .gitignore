@@ -11,3 +11,7 @@ eval/results/*
 .DS_Store
 site/stage/panel/assets/
 release/
+desktop/bin-win/
+desktop/native/win/bin/
+desktop/native/win/obj/
+desktop/native/win/out/

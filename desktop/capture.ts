@@ -13,6 +13,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type { Screenshot } from '../src/messaging';
 import type { DraftSource } from './shared';
+import { averageHash, captureWindow, isWindows, runWinHelper, type WinFocused } from './win';
 
 const execFileAsync = promisify(execFile);
 // Packaged apps keep the helper outside app.asar (asarUnpack), where macOS can execute it.
@@ -20,6 +21,8 @@ const HELPER = path.join(__dirname, '..', 'bin', 'axhelper').replace(`app.asar${
 
 export interface Capture {
   appName: string;
+  /** Windows: the target window's handle, for focusing it again before inserting. 0 on macOS. */
+  hwnd: number;
   bundleId: string;
   pid: number;
   role: string;
@@ -200,12 +203,13 @@ async function focusedViaAppleScript(): Promise<HelperFocused> {
   return { app, bundleId, pid: Number.parseInt(pidText, 10) || 0, bounds, role, value, selectedText, valueSettable: true };
 }
 
-/** Last resort: ⌘C the current selection and read the clipboard, then put the clipboard back. */
+/** Last resort: ⌘C / Ctrl+C the current selection and read the clipboard, then put the clipboard back. */
 async function copySelection(): Promise<string> {
   const previous = await clipboard.readText();
   clipboard.writeText('');
   try {
-    await runAppleScript('tell application "System Events" to keystroke "c" using command down');
+    if (isWindows) await runWinHelper(['copy']);
+    else await runAppleScript('tell application "System Events" to keystroke "c" using command down');
     await delay(200);
     return (await clipboard.readText()).trim();
   } finally {
@@ -230,10 +234,21 @@ async function screenshot(bounds: Capture['bounds']): Promise<{ shot: Screenshot
   }
 }
 
+async function windowsScreenshot(focused: WinFocused): Promise<{ shot: Screenshot | null; hash: string | null }> {
+  const image = await captureWindow(focused.hwnd, focused.bounds);
+  if (!image) return { shot: null, hash: null };
+  const jpeg = image.toJPEG(80);
+  if (jpeg.length < 1000) return { shot: null, hash: null };
+  return { shot: { mediaType: 'image/jpeg', data: jpeg.toString('base64') }, hash: averageHash(image) };
+}
+
 export async function captureContext(): Promise<Capture> {
-  let focused: HelperFocused;
+  let focused: HelperFocused & { hwnd?: number };
   let method: Capture['method'] = 'ax';
-  try {
+  if (isWindows) {
+    focused = await runWinHelper<WinFocused>(['focused']);
+    if (focused.diagnostics) console.debug('[PromptButton] uia', JSON.stringify(focused.diagnostics));
+  } else try {
     focused = await runHelper<HelperFocused>(['focused']);
     if (focused.diagnostics) console.debug('[PromptButton] ax', JSON.stringify(focused.diagnostics));
   } catch (error) {
@@ -261,9 +276,10 @@ export async function captureContext(): Promise<Capture> {
   const source: DraftSource = selection ? 'selection' : field ? 'field' : 'none';
   if (source === 'none') method = 'none';
 
-  const { shot, hash } = await screenshot(focused.bounds ?? null);
+  const { shot, hash } = isWindows ? await windowsScreenshot(focused as WinFocused) : await screenshot(focused.bounds ?? null);
   return {
     appName: focused.app || 'this app',
+    hwnd: focused.hwnd ?? 0,
     bundleId: focused.bundleId,
     pid: focused.pid,
     role: focused.role,
@@ -271,7 +287,11 @@ export async function captureContext(): Promise<Capture> {
     selectedText: focused.selectedText,
     valueSettable: focused.valueSettable !== false,
     // Electron accepts AXManualAccessibility (0 = success); native apps and Chrome reject it.
-    chromium: focused.diagnostics?.manualAccessibility === 0 || /\b(Code|Cursor|Slack|Discord|Notion|Figma|Linear)\b/.test(focused.app),
+    // macOS: Electron accepts AXManualAccessibility (0 = success). Windows: UI Automation reports Chromium as "Chrome".
+    chromium:
+      focused.diagnostics?.manualAccessibility === 0 ||
+      focused.diagnostics?.framework === 'Chrome' ||
+      /\b(Code|Cursor|Slack|Discord|Notion|Figma|Linear|Teams)\b/.test(focused.app),
     source,
     method,
     draft: selection || field,
