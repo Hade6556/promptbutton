@@ -4,381 +4,273 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PromptButton for Mac</title>
-<meta name="description" content="Press one key on a rough draft and get the prompt an expert would write. PromptButton reads the conversation in front of you, asks only what is missing, and rewrites your draft in any Mac app." />
+<meta name="description" content="Press one key on a rough draft and get the prompt an expert would write. PromptButton reads the screen in front of you, asks only what is missing, and rewrites your draft in any Mac app." />
 <meta name="page-type" content="software" />
 <meta name="site-kind" content="software" />
 <meta name="color-scheme" content="light" />
-<meta name="theme-color" content="#fffcf7" />
+<meta name="theme-color" content="#1b1016" />
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
 <meta property="og:title" content="PromptButton for Mac" />
-<meta property="og:description" content="Press one key. Get the prompt an expert would write." />
+<meta property="og:description" content="One key. The prompt an expert would write." />
+<meta property="og:image" content="assets/shot-done.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preload" as="image" href="assets/scene.svg" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap" rel="stylesheet" />
 <style>
-/* Page tokens. The amber, the basalt ink and the glass tokens of the panel are the app's own
-   (desktop/renderer/styles.css, palette "Ember"); the page ground is white so the amber reads as
-   light, the way Cluely's blue reads on its white body. */
+/* Tokens. The amber, the basalt and the glass values are the app's own (desktop/renderer/styles.css,
+   palette "Ember"). The page runs white, the way the reference runs its accent on white. */
 :root {
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, 'Helvetica Neue', sans-serif;
-  --paper: #fffcf7;
-  --paper-2: #f8f2e9;
+  --serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --paper: #ffffff;
+  --paper-2: #f7f3ec;
+  --paper-3: #efe9df;
   --ink: #17120f;
-  --ink-2: rgba(23, 18, 15, 0.72);
-  --ink-3: rgba(23, 18, 15, 0.56);
-  --line: rgba(23, 18, 15, 0.1);
-  --line-2: rgba(23, 18, 15, 0.16);
+  --ink-2: #4a433e;
+  --ink-3: #8c847d; /* 4.5:1 on white */
+  --line: #e9e4dc;
   --accent: #ffb547;
   --accent-deep: #e8892a;
-  --accent-ink: #b2600f; /* amber as text on white: 4.6:1 */
-  --accent-soft: rgba(255, 181, 71, 0.18);
-  --on-accent: #1f1408;
+  --accent-ink: #b2600f;
+  --btn-top: #cf6f16;
+  --btn-bottom: #a3530e; /* white on this: 5.2:1 */
   --glow: rgba(255, 181, 71, 0.55);
   --focus: #0b6e9e;
-  /* The panel: the app's own dark tokens. */
-  --p-surface: rgba(23, 18, 15, 0.9);
-  --p-solid: #17120f;
-  --p-label: #f7efe6;
-  --p-label-2: rgba(247, 239, 230, 0.72);
-  --p-label-3: rgba(247, 239, 230, 0.58);
-  --p-fill: rgba(255, 236, 214, 0.08);
-  --p-highlight: rgba(255, 228, 196, 0.16);
-  --p-hairline: rgba(255, 228, 196, 0.08);
-  --p-separator: rgba(247, 239, 230, 0.16);
-  --p-secondary: #8ed8ff;
-  --p-secondary-fill: rgba(142, 216, 255, 0.13);
-  /* Layout and motion. */
   --wrap: 1280px;
   --gut: 20px;
   --r: 12px;
   --r-lg: 24px;
+  --r-xl: 32px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --t-fast: 250ms;
   --t-quick: 150ms;
 }
-@media (min-width: 768px) { :root { --gut: 48px; } }
-@media (min-width: 1440px) { :root { --gut: 80px; } }
+@media (min-width: 768px) { :root { --gut: 32px; } }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font);
-  font-size: 17px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: clip;
-}
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: clip; }
 h1, h2, h3, p, ul, ol { margin: 0; }
 ul, ol { padding: 0; list-style: none; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 img, svg { display: block; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .wrap { width: min(100% - 2 * var(--gut), var(--wrap)); margin-inline: auto; }
 
-/* Type: one family. Size and tracking carry the headings, not weight. */
-.h1 { font-size: clamp(2.5rem, 6.6vw, 4.75rem); line-height: 1.02; letter-spacing: -0.03em; font-weight: 500; text-wrap: balance; }
-.h2 { font-size: clamp(2rem, 4.2vw, 3.25rem); line-height: 1.06; letter-spacing: -0.025em; font-weight: 500; text-wrap: balance; }
-.h3 { font-size: clamp(1.375rem, 2.2vw, 1.75rem); line-height: 1.2; letter-spacing: -0.015em; font-weight: 500; }
-.lead { font-size: clamp(1.125rem, 1.5vw, 1.375rem); line-height: 1.45; color: var(--ink-2); text-wrap: pretty; }
-.body { font-size: 1.0625rem; color: var(--ink-2); }
-.muted { color: var(--ink-3); }
+/* Type. One serif for the hero and the closing line, the system sans for everything else. */
+.h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2.75rem, 7.2vw, 5rem); line-height: 0.98; letter-spacing: -0.0125em; color: #fff; text-wrap: balance; }
+.h2 { font-size: clamp(2rem, 4.4vw, 3.5rem); line-height: 1.12; letter-spacing: -0.023em; font-weight: 500; text-wrap: balance;
+  background: linear-gradient(90deg, #19191d 0%, #626275 100%); -webkit-background-clip: text; background-clip: text; color: transparent; display: inline-block; }
+.h2-sm { font-size: clamp(1.75rem, 3.4vw, 2.5rem); line-height: 1.2; letter-spacing: -0.03em; font-weight: 500; }
+.lead { font-size: 1.125rem; line-height: 1.6; color: var(--ink-3); text-wrap: pretty; }
+.body { font-size: 1rem; color: var(--ink-2); }
 
-/* Buttons: one pair. Primary steps up on hover and presses on click. */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-  height: 48px; padding: 0 22px; border-radius: 9999px;
-  font-weight: 500; font-size: 1rem; white-space: nowrap;
-  transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
-}
+/* Buttons: the glass primary (44 px, 12 px radius, lit from the lower right) and a quiet secondary. */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 20px; border-radius: 12px; font-weight: 500; font-size: 1rem; letter-spacing: -0.008em; white-space: nowrap; position: relative; overflow: hidden;
+  transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
 .btn:hover { transform: translateY(-1px); }
 .btn:active { transform: translateY(1px); transition-duration: var(--t-quick); }
-.btn-primary {
-  color: var(--on-accent);
-  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.5), 0 8px 24px -10px var(--glow);
-}
-.btn-primary:hover { box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.5), 0 14px 32px -10px var(--glow); }
-.btn-quiet { color: var(--ink); background: #fff; box-shadow: inset 0 0 0 1px var(--line-2); height: 42px; padding: 0 18px; font-size: 0.9375rem; }
-.btn-quiet:hover { background: var(--paper-2); }
-.btn-lg { height: 56px; padding: 0 28px; font-size: 1.0625rem; }
-.btn .apple { width: 17px; height: 17px; fill: currentColor; }
-.link { color: var(--accent-ink); font-weight: 500; background-image: linear-gradient(currentColor, currentColor); background-size: 0 1px; background-repeat: no-repeat; background-position: 0 100%; transition: background-size var(--t-fast) var(--ease); }
-.link:hover { background-size: 100% 1px; }
+.btn .apple { width: 16px; height: 16px; fill: currentColor; }
+.btn-primary { color: #fff;
+  background:
+    radial-gradient(101% 101% at 66% 82%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(115% 115% at 10% 17%, rgba(255, 228, 196, 0.35) 0%, rgba(255, 228, 196, 0) 60%),
+    linear-gradient(180deg, var(--btn-top) 0%, var(--btn-bottom) 100%);
+  box-shadow: 0 14px 28px -12px var(--glow), inset -3px -3px 4px rgba(255, 236, 214, 0.35), inset 3px 3px 4px rgba(120, 60, 10, 0.18); }
+.btn-primary::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+.btn-primary:hover { box-shadow: 0 18px 34px -12px var(--glow), inset -3px -3px 4px rgba(255, 236, 214, 0.4), inset 3px 3px 4px rgba(120, 60, 10, 0.18); }
+.btn-ghost { color: #fff; background: rgba(255, 255, 255, 0.12); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); height: 40px; padding: 0 16px; font-size: 0.9375rem; }
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.2); }
+.btn-sm { height: 40px; padding: 0 18px; font-size: 0.9375rem; }
 
-/* Header: fixed, white glass, the quiet download button. */
-.site-header { position: fixed; inset: 0 0 auto; z-index: 20; height: 72px; display: flex; align-items: center;
-  background: rgba(255, 252, 247, 0.72); backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3);
-  border-bottom: 1px solid transparent; transition: border-color var(--t-fast) var(--ease); }
-.site-header.scrolled { border-color: var(--line); }
-.nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.125rem; letter-spacing: -0.01em; }
-.brand img { width: 28px; height: 28px; }
-.nav-links { display: none; align-items: center; gap: 4px; }
-.nav-links a { display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 9999px; color: var(--ink-2); font-weight: 500; white-space: nowrap; transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
-.nav-links a:hover { color: var(--ink); background: var(--paper-2); }
-.nav-right { display: flex; align-items: center; gap: 8px; }
-.menu-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 9999px; color: var(--ink); }
-.menu-btn:hover { background: var(--paper-2); }
+/* Header: transparent over the scene, white type. */
+.site-header { position: absolute; inset: 0 0 auto; z-index: 20; padding-top: 10px; color: #fff; }
+.nav { display: flex; align-items: center; justify-content: space-between; height: 44px; gap: 24px; }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 1.0625rem; letter-spacing: -0.01em; }
+.brand img { width: 22px; height: 22px; }
+.nav-links { display: none; align-items: center; gap: 2px; margin-right: auto; margin-left: 28px; }
+.nav-links a { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 10px; font-size: 0.875rem; font-weight: 500; color: rgba(255, 255, 255, 0.86); transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
+.nav-links a:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
+.menu-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; color: #fff; }
+.menu-btn:hover { background: rgba(255, 255, 255, 0.12); }
 .menu-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
 .menu-btn .x { display: none; }
-.mobile-menu { display: none; position: fixed; inset: 72px 0 auto; z-index: 19; padding: 8px var(--gut) 20px; background: var(--paper); border-bottom: 1px solid var(--line); box-shadow: 0 30px 60px -30px rgba(23, 18, 15, 0.25); }
-.mobile-menu a { display: flex; align-items: center; min-height: 52px; padding: 0 12px; border-radius: 10px; font-size: 1.125rem; font-weight: 500; }
-.mobile-menu a:hover { background: var(--paper-2); }
-.mobile-menu .btn { margin-top: 10px; width: 100%; }
+.mobile-menu { display: none; position: fixed; inset: 64px 12px auto; z-index: 19; padding: 8px; border-radius: 16px; background: rgba(27, 16, 22, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.1); color: #fff; }
+.mobile-menu a { display: flex; align-items: center; min-height: 50px; padding: 0 14px; border-radius: 10px; font-size: 1.0625rem; font-weight: 500; }
+.mobile-menu a:hover { background: rgba(255, 255, 255, 0.1); }
+.mobile-menu .btn { margin: 8px 6px 6px; width: calc(100% - 12px); }
 body.menu-open .mobile-menu { display: block; }
 body.menu-open .menu-btn .bars { display: none; }
 body.menu-open .menu-btn .x { display: block; }
 @media (min-width: 1024px) { .nav-links { display: flex; } .menu-btn, .mobile-menu { display: none !important; } }
-@media (max-width: 767px) { .nav-right .btn-quiet { display: none; } }
+@media (max-width: 767px) { .nav-right .btn-ghost { display: none; } }
 
-/* The download pill that floats in once the hero button has gone. Desktop only; on a phone the
-   header button is one tap away. */
-.float-cta { position: fixed; right: 20px; top: 14px; z-index: 30; width: max-content; opacity: 0; transform: translateY(-6px); pointer-events: none;
-  transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
+/* The download pill that floats in once the hero button has gone. */
+.float-cta { position: fixed; right: 10px; top: 10px; z-index: 30; width: max-content; opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
 .float-cta.show { opacity: 1; transform: none; pointer-events: auto; }
-.float-cta .btn { height: 44px; }
 @media (max-width: 1023px) { .float-cta { display: none; } }
 
-/* ---------- Hero: a sunrise in amber, the words on the bright part, the Mac on the warm part ---------- */
-.hero { position: relative; padding: 152px 0 0; text-align: center; overflow: hidden; }
-.hero::before { content: ""; position: absolute; inset: 0; z-index: -1;
-  background:
-    radial-gradient(42% 36% at 76% 64%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(90% 55% at 50% 100%, var(--accent-deep) 0%, rgba(232, 137, 42, 0) 70%),
-    linear-gradient(180deg, var(--paper) 0%, #fff0d6 26%, #ffd591 56%, #ffb547 84%, #f09a36 100%); }
-.hero .h1 { margin-inline: auto; max-width: 16ch; }
-.hero .lead { margin: 24px auto 0; max-width: 46ch; color: var(--ink-2); }
-.hero .cta { margin-top: 36px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.hero .cta small { font-size: 0.9375rem; color: var(--ink-2); }
-.key { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 6px; margin: 0 1px; vertical-align: -3px;
-  background: #fff; color: var(--ink); font-size: 0.8125rem; font-weight: 600; box-shadow: 0 1px 0 var(--line-2), inset 0 0 0 1px var(--line); }
+/* ---------- Hero: the scene, white serif, the Mac at the foot fading into the page ---------- */
+.hero { position: relative; overflow: hidden; padding: 150px 0 0; text-align: center; min-height: 100svh; }
+.hero .scene { position: absolute; inset: 0 0 auto; height: 86%; z-index: -2; background: url(assets/scene.svg) center bottom / cover no-repeat; }
+.hero .scene::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255, 255, 255, 0) 52%, rgba(255, 255, 255, 0.55) 78%, #fff 96%); }
+.hero .mask { position: absolute; inset: auto 0 0; height: 14%; z-index: -2; background: #fff; }
+.hero .h1 { margin-inline: auto; max-width: 22ch; }
+.hero .rule { width: 384px; max-width: 70%; height: 1px; margin: 34px auto 22px; border: 0; background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.45) 50%, rgba(255, 255, 255, 0) 100%); }
+.hero .sub { margin-inline: auto; max-width: 560px; font-size: 1.1875rem; line-height: 1.4; font-weight: 500; letter-spacing: -0.02em; color: #fff; text-wrap: balance; }
+.hero .cta { margin-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.hero .cta small { font-size: 0.875rem; color: rgba(255, 255, 255, 0.86); }
+.key { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; margin: 0 1px; vertical-align: -3px; background: rgba(255, 255, 255, 0.14); color: #fff; font-size: 0.75rem; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.3); }
+.hero .mac { position: relative; margin: 64px auto 0; width: min(100% - 2 * var(--gut), 1152px); border-radius: 18px 18px 0 0; overflow: hidden;
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.5), 0 40px 90px -30px rgba(23, 18, 15, 0.55), 0 0 0 1px rgba(23, 18, 15, 0.08); }
+.hero .mac img { width: 100%; height: auto; aspect-ratio: 2940 / 1912; }
 
-/* Hero entrance, once on load. */
-[data-enter] > * { opacity: 0; transform: translateY(12px); animation: enter 600ms var(--ease) forwards; }
-[data-enter] > :nth-child(2) { animation-delay: 80ms; }
-[data-enter] > :nth-child(3) { animation-delay: 160ms; }
-@keyframes enter { to { opacity: 1; transform: none; } }
-.demo { margin-top: 72px; opacity: 0; transform: translateY(24px); animation: enter 700ms var(--ease) 240ms forwards; }
+/* Word-by-word rise for the headline, fade-up for the rest; once, on load. */
+.w { display: inline-block; overflow: hidden; padding-bottom: 0.18em; margin-bottom: -0.18em; vertical-align: bottom; }
+.w > span { display: inline-block; animation: word-rise 0.55s var(--ease) both; animation-delay: calc(var(--i) * 60ms); }
+@keyframes word-rise { from { transform: translateY(1.25em); } to { transform: none; } }
+.fade-up { opacity: 0; transform: translateY(8px); animation: fade-up 0.6s var(--ease) forwards; }
+@keyframes fade-up { to { opacity: 1; transform: none; } }
+.hero .rule.fade-up { animation-delay: 420ms; }
+.hero .sub.fade-up { animation-delay: 520ms; }
+.hero .cta.fade-up { animation-delay: 640ms; }
+.hero .mac.fade-up { animation-delay: 760ms; animation-duration: 0.8s; }
 
-/* The Mac: a dark desktop frame; the chat window is a layer behind, the panel is in flow so the
-   frame always grows with it and nothing is ever cut. */
-.mac { position: relative; padding: 17% 0 13%; border-radius: var(--r-lg) var(--r-lg) 0 0; overflow: hidden; text-align: left;
-  background: radial-gradient(70% 50% at 20% 110%, rgba(255, 181, 71, 0.32), transparent 70%), radial-gradient(50% 40% at 90% 10%, rgba(142, 216, 255, 0.14), transparent 70%), linear-gradient(160deg, #2a1a10 0%, #0f0c0a 60%, #140e0b 100%);
-  box-shadow: 0 -1px 0 rgba(255, 244, 228, 0.35), 0 40px 80px -40px rgba(23, 18, 15, 0.55); }
-.menubar { position: absolute; inset: 0 0 auto; height: 28px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between;
-  background: rgba(14, 11, 9, 0.5); color: var(--p-label-2); font-size: 12px; }
-.menubar img { width: 14px; height: 14px; }
-/* A full-screen code editor as the layer behind the panel: activity bar, file list, code as bars, and
-   the editor's chat box holding the draft. No real product's chrome or text. */
-.editor { position: absolute; inset: 28px 0 0; display: grid; grid-template-columns: 48px 200px 1fr; background: #1c1a1c; color: #d8d4cf; font-size: 13px; }
-.editor .rail { background: #171516; border-right: 1px solid rgba(255, 255, 255, 0.06); display: grid; align-content: start; gap: 18px; padding: 16px 0; justify-items: center; }
-.editor .rail i { width: 20px; height: 20px; border-radius: 6px; background: #3a3537; }
-.editor .rail i:first-child { background: #8a8285; }
-.editor .files { background: #1a1819; border-right: 1px solid rgba(255, 255, 255, 0.06); padding: 14px 0; font-size: 12px; color: #a39b95; }
-.editor .files b { display: block; padding: 0 14px 10px; font-weight: 600; color: #cfc8c1; letter-spacing: 0.02em; font-size: 11px; }
-.editor .files span { display: block; padding: 5px 14px 5px 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.editor .files span.on { background: #262325; color: #f1ebe4; }
-.editor .main { position: relative; display: grid; grid-template-rows: 36px 1fr auto; min-width: 0; }
-.editor .tabs { display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 12px; color: #9a938d; }
-.editor .tabs span { padding: 0 16px; display: inline-flex; align-items: center; border-right: 1px solid rgba(255, 255, 255, 0.06); }
-.editor .tabs span.on { color: #f1ebe4; background: #1c1a1c; box-shadow: inset 0 -1px 0 var(--accent); }
-.editor .code { padding: 16px 20px; display: grid; gap: 9px; align-content: start; }
-.editor .code i { display: block; height: 8px; border-radius: 4px; background: #2e2a2c; }
-.editor .code i.k { background: #4a3f6b; } .editor .code i.s { background: #5a4a2a; } .editor .code i.f { background: #2b4a4a; }
-.editor .chatbox { margin: 0 20px 18px; min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px;
-  border-radius: 12px; background: #262325; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); color: #e9e3dc; }
-.editor .chatbox .send { width: 30px; height: 30px; border-radius: 50%; background: #4a443f; display: grid; place-items: center; flex: none; }
-.editor .chatbox .send svg { width: 14px; height: 14px; stroke: #d9d2ca; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.editor .chatbox span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* The keys that press at the start of the demo. */
-.press { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); display: flex; gap: 6px; opacity: 0; transition: opacity 200ms var(--ease); }
-.press .cap { min-width: 36px; height: 36px; padding: 0 10px; display: grid; place-items: center; border-radius: 9px; background: linear-gradient(180deg, #2a2320, #1a1412); color: var(--p-label); font-weight: 600; font-size: 14px;
-  box-shadow: inset 0 1px 0 var(--p-highlight), 0 4px 0 #0a0807, 0 10px 24px -8px rgba(0, 0, 0, 0.9); transition: transform 90ms, box-shadow 90ms; }
-.press.show { opacity: 1; }
-.press.down .cap { transform: translateY(3px); box-shadow: inset 0 1px 0 var(--p-highlight), 0 1px 0 #0a0807; }
-
-/* The PromptButton panel: the same box as the app, drawn with the app's tokens. */
-.panel { position: relative; width: min(92%, 600px); margin-inline: auto; border-radius: var(--r);
-  background: var(--p-surface); backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  box-shadow: inset 0 1px 0 0 var(--p-highlight), inset 0 0 0 0.5px var(--p-hairline), 0 30px 90px -20px rgba(0, 0, 0, 0.85);
-  color: var(--p-label); font-size: 13px; line-height: 18px; }
-.panel .ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; opacity: 0; transition: opacity 320ms var(--ease); }
-.panel .ring rect { fill: none; stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 5px var(--glow)); }
-.panel .content { padding: 14px 16px 2px; }
-.sec { opacity: 0; transform: translateY(3px); }
-/* Sections not yet written are out of flow, so the box starts compact and grows like the app's does;
-   the frame's min-height is measured once with every section laid out, so the page never shifts. */
-.mac:not(.measuring) #panelContent .sec:not(.in) { display: none; }
-.sec.in { opacity: 1; transform: none; transition: opacity 220ms var(--ease), transform 220ms var(--ease); }
-.sec + .sec { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--p-separator); }
-.sec-label { display: block; margin-bottom: 2px; color: var(--p-label-2); font-size: 11px; line-height: 14px; font-weight: 600; }
-.sec ol { padding-left: 18px; list-style: decimal; margin-top: 2px; }
-.sec li::marker { color: var(--p-label-3); }
-.assumed, .ph { display: inline-block; padding: 0 6px; border-radius: 9999px; font-size: 10px; line-height: 15px; font-weight: 600; vertical-align: 1px; white-space: nowrap; }
-.assumed { margin-left: 4px; background: var(--p-fill); color: var(--p-label-2); }
-.ph { background: var(--p-secondary-fill); color: var(--p-secondary); font-weight: 500; white-space: normal; }
-.caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -2px; background: var(--accent); animation: blink 0.9s steps(2) infinite; }
-@keyframes blink { 50% { opacity: 0; } }
-.composer-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px 8px 16px; }
-.field { flex: 1; min-width: 0; color: var(--p-label-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.field.typed { color: var(--p-label); }
-.field.listening { color: var(--p-secondary); }
-.controls { display: flex; align-items: center; gap: 2px; flex: none; }
-.icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9999px; color: var(--p-label-3); }
-.icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.icon.mic { color: var(--p-label-2); }
-.icon.mic.live { background: var(--p-secondary-fill); color: var(--p-secondary); box-shadow: 0 0 0 3px rgba(142, 216, 255, 0.22); }
-.go { width: 28px; height: 28px; margin-left: 6px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%); color: var(--on-accent); box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.45), 0 0 14px -4px var(--glow); }
-.go svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.opt { height: 28px; padding: 0 12px; border-radius: 9999px; background: var(--p-fill); color: var(--p-label); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; }
-.opt.pick { background: var(--p-secondary-fill); color: var(--p-secondary); }
-.heard { display: flex; align-items: center; gap: 8px; padding: 0 16px 6px; color: var(--p-label-2); font-size: 12px; }
-.heard svg { width: 13px; height: 13px; flex: none; stroke: var(--p-secondary); fill: none; stroke-width: 1.8; stroke-linecap: round; }
-.heard .text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.heard .undo { margin-left: auto; flex: none; color: var(--p-secondary); font-weight: 600; }
-.mac .pause { position: absolute; right: 14px; bottom: 14px; z-index: 2; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9999px; background: rgba(23, 18, 15, 0.8); color: var(--p-label-2); box-shadow: inset 0 0 0 1px var(--p-hairline); }
-.mac .pause:hover { color: var(--p-label); }
-.mac .pause svg { width: 14px; height: 14px; fill: currentColor; }
-.mac .pause .play { display: none; }
-.mac.paused .pause .play { display: block; }
-.mac.paused .pause .stop { display: none; }
-@media (max-width: 767px) {
-  .mac { padding: 22% 0 22%; border-radius: 16px 16px 0 0; }
-  .editor { grid-template-columns: 40px 1fr; }
-  .editor .files { display: none; }
-  .panel { width: calc(100% - 24px); font-size: 12px; line-height: 17px; }
-  .panel .content { padding: 12px 14px 2px; }
-  .press { top: 3%; }
-}
+/* Images blur up when loaded. */
+img.lazy { filter: blur(10px); transition: filter 600ms var(--ease); }
+img.lazy.in { filter: none; }
 
 /* ---------- Sections ---------- */
-.section { padding: clamp(96px, 11vw, 160px) 0; }
-.section-head { max-width: 60ch; }
+.section { padding: clamp(96px, 10vw, 160px) 0 0; }
+.section-head { max-width: 72ch; }
 .section-head.centre { margin-inline: auto; text-align: center; }
-.section-head .lead { margin-top: 18px; }
+.section-head .lead { margin-top: 14px; max-width: 60ch; }
+.section-head.centre .lead { margin-inline: auto; }
 
-/* Three steps: the first card in amber, like the tinted first card on the reference. */
-.steps { margin-top: 56px; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); counter-reset: step; }
-@media (min-width: 768px) { .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.step { position: relative; display: flex; flex-direction: column; min-height: 420px; padding: clamp(24px, 2.4vw, 32px); border-radius: var(--r-lg); background: #fff; box-shadow: inset 0 0 0 1px var(--line);
-  transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease); }
-.step:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--line), 0 20px 40px -24px rgba(23, 18, 15, 0.3); }
-.step::before { counter-increment: step; content: counter(step); display: inline-grid; place-items: center; width: 30px; height: 30px; margin-bottom: 20px; border-radius: 9px; background: var(--paper-2); color: var(--ink-2); font-size: 0.875rem; font-weight: 600; }
-.step .h3 { max-width: 14ch; }
-.step p { margin-top: 10px; color: var(--ink-2); max-width: 34ch; }
-.step .art { margin-top: auto; padding-top: 28px; }
-.step.accent { background: linear-gradient(170deg, var(--accent) 0%, var(--accent-deep) 100%); color: var(--on-accent); box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.55); }
-.step.accent p { color: #4a3216; }
-.step.accent::before { background: rgba(31, 20, 8, 0.12); color: var(--on-accent); }
-.mini { border-radius: 12px; background: var(--p-solid); box-shadow: inset 0 1px 0 var(--p-highlight), inset 0 0 0 0.5px var(--p-hairline); color: var(--p-label); font-size: 12px; line-height: 17px; padding: 12px 14px; }
-.step.accent .mini { box-shadow: inset 0 1px 0 var(--p-highlight), 0 24px 40px -24px rgba(31, 20, 8, 0.7); }
-.mini .row { color: var(--p-label-2); }
-.mini .q { color: var(--p-label); font-weight: 500; }
-.scan { position: relative; height: 6px; border-radius: 9999px; background: var(--p-fill); overflow: hidden; margin-top: 10px; }
-.scan::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 42%; border-radius: inherit; background: linear-gradient(90deg, transparent, var(--accent)); animation: scan 3s var(--ease) infinite; }
-@keyframes scan { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
-.lines i { display: block; height: 7px; border-radius: 4px; background: var(--p-fill); margin-top: 7px; }
-.lines i:nth-child(1) { width: 92%; } .lines i:nth-child(2) { width: 78%; } .lines i:nth-child(3) { width: 85%; }
+/* A cropped product shot: the capture scaled so the panel reads, inside a rounded frame. */
+.shot { position: relative; overflow: hidden; border-radius: 16px; aspect-ratio: 16 / 10; background: #1b191c; }
+.shot img { position: absolute; width: var(--z, 200%); height: auto; left: var(--x, -50%); top: var(--y, -2%); }
+.shot.full img { position: static; width: 100%; }
 
-/* Before and after: the draft on the left as a plain field, the result on the right in the panel. */
-.ba { margin-top: 56px; display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 900px) { .ba { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; } }
-.ba-col { display: grid; gap: 14px; }
-.ba-label { font-size: 0.875rem; font-weight: 600; color: var(--ink-3); }
-.ba-draft { min-height: 56px; display: flex; align-items: center; padding: 0 18px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); font-size: 1.0625rem; }
-.ba-panel { width: 100%; box-shadow: inset 0 1px 0 0 var(--p-highlight), inset 0 0 0 0.5px var(--p-hairline), 0 24px 60px -24px rgba(23, 18, 15, 0.5); }
-.ba-note { color: var(--ink-2); font-size: 0.9375rem; max-width: 44ch; }
+/* Two cards: the amber one and the light one, each holding a large piece of the real product. */
+.cards { margin-top: 44px; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.card { position: relative; overflow: hidden; border-radius: var(--r-xl); padding: 36px 36px 0; display: grid; grid-template-rows: auto auto 1fr; gap: 10px; min-height: 560px; }
+.card .h3 { font-size: 1.25rem; line-height: 1.3; font-weight: 500; letter-spacing: -0.02em; }
+.card p { font-size: 0.9375rem; line-height: 1.55; max-width: 44ch; }
+.card .art { align-self: end; margin: 26px -36px 0 36px; }
+.card .art .shot { border-radius: 14px 0 0 0; aspect-ratio: auto; height: 320px; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.card.amber { color: #fff; background: radial-gradient(90% 70% at 90% 100%, rgba(255, 228, 196, 0.35), rgba(255, 228, 196, 0) 60%), linear-gradient(170deg, #f0a040 0%, #d8731d 60%, #b85a12 100%); }
+.card.amber p { color: rgba(255, 248, 238, 0.92); }
+.card.light { color: var(--ink); background: radial-gradient(90% 70% at 10% 0%, rgba(255, 181, 71, 0.18), rgba(255, 181, 71, 0) 60%), linear-gradient(180deg, #faf7f1 0%, #efe9df 100%); box-shadow: inset 0 0 0 1px var(--line); }
+.card.light p { color: var(--ink-2); }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 9999px; font-size: 0.875rem; font-weight: 500; vertical-align: 2px; background: rgba(255, 255, 255, 0.22); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35); }
+.card.light .chip { background: #fff; color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--line); }
+.chip .k { font-family: var(--font); font-weight: 600; }
 
-/* Feature rows: words left, the product right, top-aligned, the same split every time. */
-.rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(64px, 8vw, 120px); margin-top: 72px; }
-.row { display: grid; gap: 32px; grid-template-columns: minmax(0, 1fr); align-items: start; }
-.row > * { min-width: 0; }
-@media (min-width: 900px) { .row { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; } }
-.row .words .h3 { max-width: 18ch; }
-.row .words p { margin-top: 14px; color: var(--ink-2); max-width: 42ch; }
-.row .words .fact { margin-top: 18px; font-size: 0.9375rem; color: var(--ink-3); }
-.frame { position: relative; padding: clamp(20px, 3vw, 40px); border-radius: var(--r-lg); background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: minmax(0, 1fr); }
-.frame > * { min-width: 0; }
-.frame.warm { background: radial-gradient(80% 90% at 80% 100%, rgba(255, 181, 71, 0.35), transparent 70%), var(--paper-2); }
-.frame.cool { background: radial-gradient(80% 90% at 20% 0%, rgba(142, 216, 255, 0.28), transparent 70%), var(--paper-2); }
-.frame .panel { width: 100%; max-width: 600px; margin-inline: auto; }
-.frame .spoken { margin: 18px auto 0; max-width: 600px; width: 100%; font-size: 0.9375rem; color: var(--ink-2); }
-.frame .spoken q { color: var(--ink); font-style: italic; }
-.frame .spoken q::before, .frame .spoken q::after { content: none; }
-/* An app field the panel wrote into, with Undo. */
-.wrote { width: 100%; max-width: 600px; margin: 14px auto 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 12px; background: #262325; color: #e9e3dc; font-size: 13px; }
-.wrote .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wrote .undo { flex: none; color: var(--p-secondary); font-weight: 600; font-size: 12px; }
+/* One large frame with the product in it, the reference's second section pattern. */
+.frame { margin-top: 48px; padding: clamp(20px, 4vw, 56px); border-radius: var(--r-xl); background: radial-gradient(70% 60% at 50% 0%, rgba(255, 181, 71, 0.22), rgba(255, 181, 71, 0) 70%), linear-gradient(180deg, #f3eee6 0%, #e9e2d7 100%); display: grid; gap: 16px; }
+.frame .before { justify-self: start; display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px 0 8px; border-radius: 10px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); font-size: 0.9375rem; }
+.frame .before b { font-weight: 600; color: var(--ink-3); font-size: 0.75rem; letter-spacing: 0.02em; padding: 2px 6px; border-radius: 6px; background: var(--paper-2); }
+.frame .shot { aspect-ratio: 2940 / 1912; border-radius: 16px; box-shadow: 0 40px 80px -40px rgba(23, 18, 15, 0.5), 0 0 0 1px rgba(23, 18, 15, 0.06); }
 
-/* Plain facts, no icons. */
-.facts { margin-top: 72px; display: grid; gap: 40px 32px; grid-template-columns: minmax(0, 1fr); padding-top: 48px; border-top: 1px solid var(--line); }
-@media (min-width: 768px) { .facts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.facts h3 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
-.facts p { margin-top: 8px; color: var(--ink-2); font-size: 1rem; max-width: 36ch; }
+/* Three trust cards: picture on top, one bold phrase and a sentence under it. */
+.trio { margin-top: 48px; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) { .trio { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tcard { display: grid; gap: 14px; }
+.tcard .pic { border-radius: var(--r-lg); overflow: hidden; background: linear-gradient(180deg, #f6f1e8, #ebe4d9); box-shadow: inset 0 0 0 1px var(--line); aspect-ratio: 4 / 3; display: grid; place-items: center; padding: 22px; }
+.tcard .pic .shot { width: 100%; aspect-ratio: 16 / 10; border-radius: 12px; box-shadow: 0 24px 50px -24px rgba(0, 0, 0, 0.5); }
+.tcard p { font-size: 1rem; color: var(--ink-2); max-width: 38ch; }
+.tcard p b { color: var(--ink); font-weight: 600; }
+.apps { margin-top: 56px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 28px; color: var(--ink-3); font-size: 0.875rem; }
+.apps .lbl { letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.75rem; font-weight: 600; width: 100%; text-align: center; margin-bottom: 6px; }
+.apps span:not(.lbl) { color: var(--ink-2); font-weight: 500; font-size: 0.9375rem; }
 
-/* FAQ */
-.faq { margin-top: 56px; border-top: 1px solid var(--line-2); }
-.faq details { border-bottom: 1px solid var(--line-2); }
-.faq summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 4px; font-size: 1.1875rem; font-weight: 500; }
+/* Stats beside a shot. */
+.stats { margin-top: 0; display: grid; gap: 40px; grid-template-columns: minmax(0, 1fr); align-items: center; }
+@media (min-width: 900px) { .stats { grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: 72px; } }
+.stats .pic { border-radius: var(--r-xl); background: linear-gradient(180deg, #f6f1e8, #e9e2d7); padding: clamp(20px, 3vw, 40px); box-shadow: inset 0 0 0 1px var(--line); }
+.stats .pic .shot { aspect-ratio: 4 / 3; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.55); }
+.statlist { margin-top: 40px; display: grid; gap: 34px; }
+.stat { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: start; }
+.stat .n { font-size: 2.25rem; line-height: 1; letter-spacing: -0.03em; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat .n small { font-size: 1.125rem; letter-spacing: 0; margin-left: 2px; }
+.stat h3 { font-size: 1.25rem; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; }
+.stat p { margin-top: 6px; color: var(--ink-3); font-size: 0.9375rem; max-width: 40ch; }
+@media (max-width: 479px) { .stat { grid-template-columns: 1fr; gap: 6px; } }
+
+/* FAQ, the reference's sizes. */
+.faq { margin-top: 40px; }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq details:last-child { border-bottom: 0; }
+.faq summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 69px; padding: 22px 0; font-size: 1rem; font-weight: 400; }
 .faq summary::-webkit-details-marker { display: none; }
-.faq summary:hover { color: var(--accent-ink); }
 .faq summary svg { width: 18px; height: 18px; flex: none; stroke: var(--ink-3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--t-fast) var(--ease); }
 .faq details[open] summary svg { transform: rotate(180deg); }
-.faq .a { padding: 0 4px 26px; color: var(--ink-2); max-width: 70ch; }
+.faq .a { padding: 0 0 24px; color: var(--ink-2); max-width: 70ch; font-size: 1rem; }
 
-/* Close and footer as one section: the close row, then the links. */
-.closing { position: relative; overflow: hidden; padding: clamp(96px, 11vw, 160px) 0 40px; background: linear-gradient(180deg, var(--paper) 0%, #fff1d9 100%); }
-.close { display: grid; gap: 40px; align-items: center; grid-template-columns: 1fr; }
-@media (min-width: 900px) { .close { grid-template-columns: 1.2fr 1fr; } }
-.close .h2 { max-width: 20ch; }
-.close .lead { margin-top: 12px; }
-.close .btn { margin-top: 32px; }
-.bigkeys { display: flex; gap: 14px; justify-content: center; transform: rotate(-6deg); }
-.bigkeys .cap { width: clamp(72px, 9vw, 112px); aspect-ratio: 1; border-radius: 22px; display: grid; place-items: center; background: linear-gradient(180deg, #fff, #f3ede4); color: var(--ink); font-size: clamp(1.4rem, 3vw, 2.2rem); font-weight: 600;
-  box-shadow: inset 0 1px 0 #fff, 0 10px 0 #d9d1c5, 0 30px 50px -20px rgba(23, 18, 15, 0.35); }
-.bigkeys .cap.amber { background: linear-gradient(180deg, var(--accent), var(--accent-deep)); color: var(--on-accent); box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.5), 0 10px 0 #9a5a19, 0 30px 60px -20px var(--glow); }
-.bigkeys .cap:nth-child(2) { translate: 0 18px; }
-.bigkeys .cap:nth-child(3) { translate: 0 -10px; }
-.foot { margin-top: clamp(80px, 10vw, 140px); padding-top: 48px; border-top: 1px solid var(--line-2); font-size: 0.9375rem; }
+/* Closing + footer as one tinted block. */
+.closing { position: relative; overflow: hidden; margin-top: clamp(96px, 10vw, 160px); padding: clamp(96px, 12vw, 220px) 0 0; background: linear-gradient(180deg, #fff 0%, #efe9df 100%); }
+.close { display: grid; gap: 40px; align-items: center; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .close { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); } }
+.close .l1 { font-size: 1.75rem; line-height: 1.25; letter-spacing: -0.04em; font-weight: 500; }
+.close .l2 { font-size: 1.75rem; line-height: 1.25; letter-spacing: -0.04em; font-weight: 500; background: linear-gradient(97deg, #9a6a3a 21%, #c69a62 100%); -webkit-background-clip: text; background-clip: text; color: transparent; display: inline-block; }
+.close .btn { margin-top: 28px; }
+.bigkeys { display: flex; gap: 18px; justify-content: center; transform: rotate(-6deg); }
+.bigkeys .cap { width: clamp(76px, 9vw, 118px); aspect-ratio: 1; border-radius: 26px; display: grid; place-items: center; font-size: clamp(1.5rem, 3vw, 2.4rem); font-weight: 500; color: rgba(23, 18, 15, 0.55);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.35)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 #fff, inset 0 0 0 1px rgba(255, 255, 255, 0.7), inset 0 -10px 18px -10px rgba(23, 18, 15, 0.18), 0 24px 40px -22px rgba(23, 18, 15, 0.35); }
+.bigkeys .cap.amber { color: #fff; background: linear-gradient(160deg, rgba(255, 207, 130, 0.95), rgba(232, 137, 42, 0.9)); box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.9), inset 0 0 0 1px rgba(255, 228, 196, 0.6), inset 0 -10px 18px -10px rgba(120, 60, 10, 0.4), 0 30px 50px -24px var(--glow); }
+.bigkeys .cap:nth-child(2) { translate: 0 22px; }
+.bigkeys .cap:nth-child(3) { translate: 0 -12px; }
+.foot { margin-top: clamp(80px, 10vw, 160px); padding: 48px 0 24px; background: var(--paper-3); font-size: 1rem; }
 .foot-grid { display: grid; gap: 36px; grid-template-columns: 1fr 1fr; }
 @media (min-width: 768px) { .foot-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (min-width: 1024px) { .foot-grid { grid-template-columns: 1.4fr repeat(4, 1fr); } }
+@media (min-width: 1024px) { .foot-grid { grid-template-columns: 1.6fr repeat(4, 1fr); } }
 .foot-brand { grid-column: 1 / -1; }
 @media (min-width: 1024px) { .foot-brand { grid-column: auto; } }
-.foot-brand p { margin-top: 12px; color: var(--ink-2); max-width: 26ch; }
-.foot h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 14px; }
+.foot .brand { color: var(--ink); }
+.foot h3 { font-size: 1rem; font-weight: 500; letter-spacing: -0.01em; margin-bottom: 14px; }
 .foot li + li { margin-top: 10px; }
 .foot li a { color: var(--ink-2); transition: color var(--t-fast) var(--ease); }
 .foot li a:hover { color: var(--ink); }
-.legal { margin-top: 40px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; color: var(--ink-3); font-size: 0.875rem; }
-.todo { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 9999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.75rem; font-weight: 600; vertical-align: 1px; }
+.status { display: inline-flex; align-items: center; gap: 8px; margin-top: 56px; height: 30px; padding: 0 12px 0 10px; border-radius: 8px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); font-size: 0.8125rem; color: var(--ink-2); }
+.status i { width: 7px; height: 7px; border-radius: 50%; background: #2fb36a; }
+.legal { margin-top: 28px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; color: var(--ink-3); font-size: 0.8125rem; }
+.todo { display: inline-block; padding: 0 7px; border-radius: 9999px; background: rgba(255, 181, 71, 0.18); color: var(--accent-ink); font-size: 0.75rem; font-weight: 600; }
+
+@media (max-width: 767px) {
+  .hero { padding-top: 120px; }
+  .hero .mac { margin-top: 44px; }
+  .card { min-height: 0; padding: 28px 24px 0; }
+  .card .art { margin: 22px -24px 0 24px; }
+  .card .art .shot { height: 220px; }
+  .close .l1, .close .l2 { font-size: 1.5rem; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
-  [data-enter] > *, .demo { opacity: 1; transform: none; }
-  .sec { opacity: 1; transform: none; }
-  .press, .mac .pause { display: none; }
+  .fade-up, .w > span { opacity: 1; transform: none; }
+  img.lazy { filter: none; }
 }
 </style>
 </head>
 <body>
 
-<header class="site-header" id="siteHeader">
+<header class="site-header">
   <nav class="wrap nav" aria-label="Main">
-    <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="28" height="28" />PromptButton</a>
+    <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="22" height="22" />PromptButton</a>
     <div class="nav-links">
       <a href="#how">How it works</a>
-      <a href="#demo">Before and after</a>
-      <a href="#features">Features</a>
-      <a href="#faq">Questions</a>
+      <a href="#prompt">The prompt</a>
+      <a href="#trust">Trust</a>
+      <a href="#faq">FAQ</a>
       <a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a>
     </div>
     <div class="nav-right">
-      <a class="btn btn-quiet" href="[DMG download URL]">Download for macOS</a>
+      <a class="btn btn-ghost" href="[DMG download URL]"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
       <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="mobileMenu" aria-label="Open menu">
         <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -388,198 +280,108 @@ body.menu-open .menu-btn .x { display: block; }
 </header>
 <div class="mobile-menu" id="mobileMenu">
   <a href="#how">How it works</a>
-  <a href="#demo">Before and after</a>
-  <a href="#features">Features</a>
-  <a href="#faq">Questions</a>
+  <a href="#prompt">The prompt</a>
+  <a href="#trust">Trust</a>
+  <a href="#faq">FAQ</a>
   <a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a>
   <a class="btn btn-primary" href="[DMG download URL]"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
 </div>
-
 <div class="float-cta" id="floatCta" aria-hidden="true">
   <a class="btn btn-primary" href="[DMG download URL]" tabindex="-1"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
 </div>
 
 <main id="top">
   <section class="hero">
-    <div class="wrap" data-enter>
-      <h1 class="h1">Press one key. Get the prompt an expert would write.</h1>
-      <p class="lead">PromptButton reads the conversation in front of you, asks only what is still missing, and rewrites your draft in any app on your Mac. You decide what to send.</p>
-      <div class="cta">
-        <a class="btn btn-primary btn-lg" href="[DMG download URL]" id="heroCta"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
-        <small>Works with your own Anthropic key. The shortcut is <span style="white-space:nowrap"><kbd class="key">⌥</kbd><kbd class="key">⇧</kbd><kbd class="key">P</kbd></span>, in every app.</small>
+    <div class="scene" aria-hidden="true"></div>
+    <div class="mask" aria-hidden="true"></div>
+    <div class="wrap">
+      <h1 class="h1" id="h1">One key. The prompt an expert would write.</h1>
+      <hr class="rule fade-up" />
+      <p class="sub fade-up">PromptButton reads the screen in front of you, asks only what is still missing, and rewrites your draft in any app on your Mac.</p>
+      <div class="cta fade-up">
+        <a class="btn btn-primary" href="[DMG download URL]" id="heroCta"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
+        <small>Press <span style="white-space:nowrap"><kbd class="key">⌥</kbd><kbd class="key">⇧</kbd><kbd class="key">P</kbd></span> in any app. Works with your own Anthropic key.</small>
       </div>
     </div>
-
-    <div class="wrap demo">
-      <div class="mac" id="mac" role="img" aria-label="A full-screen code editor on a Mac. The draft in its chat box reads: i want to build a landing page. The PromptButton panel floating above it shows the finished prompt with Role, Goal, Task, Quality bar and Output sections.">
-        <div class="menubar" aria-hidden="true"><img src="assets/logo.svg" alt="" width="14" height="14" /><span>Tue 9:41</span></div>
-        <div class="editor" aria-hidden="true">
-          <div class="rail"><i></i><i></i><i></i><i></i></div>
-          <div class="files"><b>SITE</b><span>assets</span><span class="on">index.html</span><span>styles.css</span><span>app.js</span><span>README.md</span></div>
-          <div class="main">
-            <div class="tabs"><span class="on">index.html</span><span>styles.css</span><span>Chat</span></div>
-            <div class="code"><i class="k" style="width:38%"></i><i style="width:62%"></i><i class="s" style="width:48%"></i><i style="width:30%"></i><i class="f" style="width:56%"></i><i style="width:70%"></i><i class="k" style="width:22%"></i><i style="width:64%"></i><i class="s" style="width:40%"></i><i style="width:52%"></i><i class="f" style="width:34%"></i><i style="width:58%"></i></div>
-            <div class="chatbox"><span>i want to build a landing page</span><span class="send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
-          </div>
-        </div>
-        <div class="press" id="press" aria-hidden="true"><span class="cap">⌥</span><span class="cap">⇧</span><span class="cap">P</span></div>
-        <div class="panel" id="panel" aria-hidden="true">
-          <svg class="ring" id="ring" aria-hidden="true"><rect x="1.5" y="1.5" rx="11" ry="11" pathLength="100" id="ringRect" /></svg>
-          <div class="content" id="panelContent"></div>
-          <div class="composer-row">
-            <span class="field" id="panelField">Your draft is read from the field above</span>
-            <span class="controls">
-              <span class="icon mic"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
-              <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
-              <span class="go"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
-            </span>
-          </div>
-        </div>
-        <button class="pause" id="pauseBtn" type="button" aria-pressed="false" aria-label="Pause the demo">
-          <svg class="stop" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
-          <svg class="play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l12 7-12 7z"/></svg>
-        </button>
-      </div>
+    <div class="mac fade-up">
+      <img src="assets/shot-done.jpg" width="2940" height="1912" alt="A full-screen code editor on a Mac with the PromptButton panel floating over it. The panel shows the finished prompt: Role, Goal, Context, Task and Quality bar sections, with a field that reads: Change something, or press return to insert into Code." fetchpriority="high" />
     </div>
   </section>
 
   <section class="section" id="how">
     <div class="wrap">
+      <div class="section-head">
+        <h2 class="h2">What happens when you press the key</h2>
+      </div>
+      <div class="cards">
+        <article class="card amber">
+          <h3 class="h3">Press <span class="chip"><span class="k">⌥⇧P</span></span> and it reads the screen in front of you</h3>
+          <p>Your draft comes from the field you are typing in. The conversation around it comes from one screenshot of the front window, so it works in VS Code, Cursor, Slack or a browser, in full screen too.</p>
+          <div class="art"><div class="shot" style="--z:170%;--x:-35%;--y:2%"><img class="lazy" src="assets/shot-reading.jpg" width="2400" height="1561" loading="lazy" alt="The PromptButton panel over a code editor, reading: Reading Safari, with the amber ring running around its edge." /></div></div>
+        </article>
+        <article class="card light">
+          <h3 class="h3">When something is missing, it <span class="chip">asks</span>, three questions at most</h3>
+          <p>A gap check works out what the model still needs and has not already learnt from the chat. Each question comes with answers you can tap, type or say.</p>
+          <div class="art"><div class="shot" style="--z:170%;--x:-35%;--y:2%"><img class="lazy" src="assets/shot-questions.jpg" width="2400" height="1561" loading="lazy" alt="The panel asking: What is the page for, and what should a visitor do on it? With four tappable answers: Sign up for a waitlist, Buy a product, Book a demo or call, Download an app." /></div></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="prompt">
+    <div class="wrap">
       <div class="section-head centre">
-        <h2 class="h2">What happens when you press</h2>
-        <p class="lead">Three steps, about ten seconds. Nothing is sent until you send it.</p>
+        <h2 class="h2">You get the prompt an expert would write</h2>
+        <p class="lead">Role, goal, context, task, quality bar, output. Nine words in, a brief out.</p>
       </div>
-      <ol class="steps">
-        <li class="step accent">
-          <h3 class="h3">Press ⌥⇧P in any app</h3>
-          <p>Type a rough draft where you would normally type it: VS Code's chat, Cursor, Slack, a browser, even in full screen. Then press the shortcut.</p>
-          <div class="art" aria-hidden="true"><div class="mini"><div class="row">Where you are typing</div><div class="opts"><span class="opt pick">VS Code</span><span class="opt">Cursor</span><span class="opt">Claude</span><span class="opt">ChatGPT</span><span class="opt">Slack</span></div></div></div>
-        </li>
-        <li class="step">
-          <h3 class="h3">It reads your screen</h3>
-          <p>Your draft comes from the field itself. The conversation around it comes from a screenshot of the front window, so no app needs an integration. If something is still missing, it asks, three questions at most.</p>
-          <div class="art" aria-hidden="true"><div class="mini"><div class="row">Reading the window…</div><div class="scan"></div><div class="q" style="margin-top:12px">Who is the page for?</div><div class="opts"><span class="opt pick">Developers</span><span class="opt">Founders</span><span class="opt">Shoppers</span></div></div></div>
-        </li>
-        <li class="step">
-          <h3 class="h3">You get a better prompt</h3>
-          <p>Role, goal, task, quality bar and the format you want back, streamed in. Facts come from the chat. Anything unknown is a marked placeholder, never a guess. Insert it, edit it, or undo.</p>
-          <div class="art" aria-hidden="true"><div class="mini"><span class="sec-label">Role</span><div>You are a senior product designer who ships front-end code<span class="caret"></span></div><div class="opts"><span class="opt">Insert</span><span class="opt">Edit</span><span class="opt">Undo</span></div></div></div>
-        </li>
-      </ol>
+      <div class="frame">
+        <div class="before"><b>BEFORE</b><span>i want to build a landing page</span></div>
+        <div class="shot full"><img class="lazy" src="assets/shot-writing.jpg" width="2400" height="1561" loading="lazy" alt="The panel streaming the rewritten prompt into place over the editor, section by section, with a cursor at the end of the text." /></div>
+      </div>
     </div>
   </section>
 
-  <section class="section" id="demo" style="padding-top:0">
+  <section class="section" id="trust">
     <div class="wrap">
-      <div class="section-head">
-        <h2 class="h2">Before and after</h2>
-        <p class="lead">The same request, as it was typed and as it was sent. The answer to the second one is the one you wanted.</p>
+      <div class="section-head centre">
+        <h2 class="h2">Built to be trusted with your words</h2>
+        <p class="lead">It changes your text only when you say so, and it never makes things up.</p>
       </div>
-      <div class="ba">
-        <div class="ba-col">
-          <h3 class="ba-label">Before</h3>
-          <div class="ba-draft"><span>i want to build a landing page</span></div>
-          <p class="ba-note">Nine words. The model has to guess who it is for, what it should do and what good looks like.</p>
+      <div class="trio">
+        <div class="tcard">
+          <div class="pic"><div class="shot" style="--x:-121%;--y:-56%"><img class="lazy" src="assets/shot-inserted.jpg" width="2400" height="1561" loading="lazy" alt="The editor's chat box now holds the full rewritten prompt, ready to send." /></div></div>
+          <p><b>Insert and undo.</b> Press return and the prompt replaces your draft in the field you were typing in. Undo puts the old text back. It never sends for you.</p>
         </div>
-        <div class="ba-col">
-          <h3 class="ba-label">After</h3>
-          <div class="panel ba-panel" role="img" aria-label="The rewritten prompt: a Role, a Goal with two placeholders for product name and primary action, a three-item Task, a Quality bar and an Output line marked assumed.">
-            <div class="content">
-              <div class="sec in"><span class="sec-label">Role</span><div>You are a senior product designer who also ships production front-end code<span class="assumed">assumed</span>. You judge a page by whether a stranger gets it in five seconds.</div></div>
-              <div class="sec in"><span class="sec-label">Goal</span><div>A landing page for <span class="ph">[product name]</span> whose one job is getting visitors to <span class="ph">[primary action]</span>.</div></div>
-              <div class="sec in"><span class="sec-label">Task</span><div><ol><li>Hero: one headline, one subline, one button.</li><li>Three benefit sections with short copy.</li><li>Pricing, FAQ, footer with the call to action again.</li></ol></div></div>
-              <div class="sec in"><span class="sec-label">Quality bar</span><div>Correct at 375, 768 and 1280 px. Visible focus states, contrast of at least 4.5:1, alt text. Placeholder copy in our voice, marked.</div></div>
-              <div class="sec in"><span class="sec-label">Output</span><div>One index.html with embedded CSS and JS<span class="assumed">assumed</span>, plus the command to serve it.</div></div>
-            </div>
-          </div>
-          <p class="ba-note">Every line came from the screen or a default labelled as assumed. The two placeholders are the only things it could not know.</p>
+        <div class="tcard">
+          <div class="pic"><div class="shot" style="--y:-18%"><img class="lazy" src="assets/shot-done.jpg" width="2400" height="1561" loading="lazy" alt="The finished prompt with one default labelled assumed and two bracketed placeholders for what could not be known." /></div></div>
+          <p><b>Nothing invented.</b> Facts come from the screen and your answers. Anything unknown is a visible placeholder, or a default labelled as assumed.</p>
+        </div>
+        <div class="tcard">
+          <div class="pic"><div class="shot" style="--y:-6%"><img class="lazy" src="assets/shot-questions.jpg" width="2400" height="1561" loading="lazy" alt="The panel floating over a full-screen editor with a question and tappable answers." /></div></div>
+          <p><b>Say it instead.</b> The mic understands you in context: <q>also make it TypeScript</q> revises the prompt, <q>for developers</q> answers the question. One click undoes it.</p>
+        </div>
+      </div>
+      <p class="apps"><span class="lbl">Works wherever you type</span><span>VS Code</span><span>Cursor</span><span>Claude</span><span>ChatGPT</span><span>Slack</span><span>Notes</span><span>Mail</span></p>
+    </div>
+  </section>
+
+  <section class="section" id="measured">
+    <div class="wrap stats">
+      <div class="pic"><div class="shot" style="--y:-12%"><img class="lazy" src="assets/shot-done.jpg" width="2400" height="1561" loading="lazy" alt="The finished prompt in the panel." /></div></div>
+      <div>
+        <h2 class="h2-sm">Measured, not promised</h2>
+        <div class="statlist">
+          <div class="stat"><div class="n">59<small>%</small></div><div><h3>Preferred answers</h3><p>On 37 test conversations, the answer to the rewritten prompt beat the answer to the raw draft 59% of the time, tied 24%.</p></div></div>
+          <div class="stat"><div class="n">75<small>%</small></div><div><h3>On first messages</h3><p>Cold starts gain the most. A one-line request becomes a full brief with a role, a quality bar and a done-when.</p></div></div>
+          <div class="stat"><div class="n">&lt;1<small>¢</small></div><div><h3>Per spoken edit</h3><p>A full press costs a few cents of API usage on your own key. A spoken change costs well under a cent and lands in about a second.</p></div></div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="section" id="features" style="padding-top:0">
+  <section class="section" id="faq">
     <div class="wrap">
-      <div class="section-head">
-        <h2 class="h2">Say the change. The prompt changes.</h2>
-        <p class="lead">The mic does not take dictation. It works out what you mean in the box in front of you and does it, with Undo one click away.</p>
-      </div>
-      <div class="rows">
-        <div class="row">
-          <div class="words">
-            <h3 class="h3">A spoken edit revises the prompt</h3>
-            <p>With a finished prompt on screen, say what should be different. The rest stays word for word. Filler and corrections are cleaned up on the way, so <q>Python, no wait, Go</q> becomes Go.</p>
-            <p class="fact">Listening stops by itself after a pause. One spoken change costs under a cent of API usage.</p>
-          </div>
-          <div class="frame cool">
-            <div class="panel" role="img" aria-label="The panel after a spoken edit. A line reads: Add TypeScript, no role section, with an Undo link. The text field shows the words that were said.">
-              <div class="content">
-                <div class="sec in"><span class="sec-label">Role</span><div>You are a staff front-end engineer who ships TypeScript for a living<span class="assumed">assumed</span>.</div></div>
-                <div class="sec in"><span class="sec-label">Constraints</span><div>TypeScript only, strict mode on. No framework beyond what the repo already uses.</div></div>
-              </div>
-              <div class="heard"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="text">Add: TypeScript, no role section</span><span class="undo">Undo</span></div>
-              <div class="composer-row">
-                <span class="field listening">also make it TypeScript and, um, drop the role part</span>
-                <span class="controls"><span class="icon mic live"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span><span class="go"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="words">
-            <h3 class="h3">One sentence answers several questions</h3>
-            <p>At a question, speak the answer in your own words. <q>For developers, single HTML file</q> fills in two questions at once and starts the rewrite. <q>The first one</q> picks that suggestion.</p>
-            <p class="fact">Over a chat with nothing typed, a spoken brain dump becomes the draft and runs the whole flow.</p>
-          </div>
-          <div class="frame warm">
-            <div class="panel" role="img" aria-label="The panel at two questions. Who is the page for, with the answer Developers chosen, and What should it be built with, with the answer Single HTML file chosen.">
-              <div class="content">
-                <div class="sec in"><div class="q">Who is the page for?</div><div class="opts"><span class="opt pick">Developers</span><span class="opt">Founders</span><span class="opt">Shoppers</span></div></div>
-                <div class="sec in"><div class="q">What should it be built with?</div><div class="opts"><span class="opt">Our framework</span><span class="opt pick">Single HTML file</span><span class="opt">Not sure</span></div></div>
-              </div>
-              <div class="heard"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="text">Answered 1 and 2, writing the prompt</span><span class="undo">Undo</span></div>
-              <div class="composer-row">
-                <span class="field listening">it's for developers and just make it a single HTML file</span>
-                <span class="controls"><span class="icon mic live"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span><span class="go"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="words">
-            <h3 class="h3">Nothing invented, everything undoable</h3>
-            <p>Facts come from the chat and your answers. What it does not know becomes a placeholder you can see, or a default labelled as assumed. Insert writes the prompt into the field you were typing in, and Undo puts the old text back.</p>
-            <p class="fact">On 37 test conversations, the answer to the rewritten prompt was preferred over the answer to the raw draft 59% of the time, and 75% on first messages.</p>
-          </div>
-          <div class="frame">
-            <div class="panel" role="img" aria-label="A finished prompt with a Goal line that holds two placeholders, product name and primary action, and an Output line with an assumed default. Below it, the app's text field now holds the prompt, with an Undo link.">
-              <div class="content">
-                <div class="sec in"><span class="sec-label">Goal</span><div>A landing page for <span class="ph">[product name]</span> whose one job is getting visitors to <span class="ph">[primary action]</span>.</div></div>
-                <div class="sec in"><span class="sec-label">Output</span><div>One index.html with embedded CSS and JS<span class="assumed">assumed</span>, plus the command to serve it.</div></div>
-              </div>
-              <div class="composer-row">
-                <span class="field">Inserted into Chat</span>
-                <span class="controls"><span class="icon mic"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span><span class="go"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span></span>
-              </div>
-            </div>
-            <div class="wrote" aria-hidden="true"><span class="what">Role: You are a senior product designer who also ships production front-end code…</span><span class="undo">Undo</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="facts">
-        <div><h3>Any app, one shortcut</h3><p>A menu-bar app, not a browser extension. The same key works in VS Code, Cursor, Slack, Claude, ChatGPT and whatever is in front.</p></div>
-        <div><h3>Your key stays on your Mac</h3><p>Calls go from your machine to Anthropic with your own API key. There is no server of ours in between. It can hide itself from screen sharing.</p></div>
-        <div><h3>It never sends for you</h3><p>The prompt lands in your text field and stops there. Sending, editing or undoing is always your move.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="faq" style="padding-top:0">
-    <div class="wrap">
-      <div class="section-head"><h2 class="h2">Questions</h2></div>
+      <h2 class="h2-sm">Frequently asked questions</h2>
       <div class="faq">
         <details>
           <summary>What happens to my screen and my text?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -611,27 +413,27 @@ body.menu-open .menu-btn .x { display: block; }
 </main>
 
 <footer class="closing">
-  <div class="wrap">
-    <div class="close">
-      <div>
-        <h2 class="h2">Better prompts, without studying prompting.</h2>
-        <p class="lead">Try it on the next thing you ask an AI.</p>
-        <a class="btn btn-primary btn-lg" href="[DMG download URL]"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
-      </div>
-      <div class="bigkeys" aria-hidden="true"><span class="cap">⌥</span><span class="cap">⇧</span><span class="cap amber">P</span></div>
+  <div class="wrap close">
+    <div>
+      <p class="l1">A better prompt, before you send it.</p>
+      <p class="l2">Try it on the next thing you ask an AI.</p>
+      <div><a class="btn btn-primary" href="[DMG download URL]"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a></div>
     </div>
-    <div class="foot">
+    <div class="bigkeys" aria-hidden="true"><span class="cap">⌥</span><span class="cap">⇧</span><span class="cap amber">P</span></div>
+  </div>
+  <div class="foot">
+    <div class="wrap">
       <div class="foot-grid">
         <div class="foot-brand">
-          <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="28" height="28" />PromptButton</a>
-          <p>One key on your Mac. The prompt an expert would write.</p>
+          <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="22" height="22" />PromptButton</a>
+          <div class="status"><i aria-hidden="true"></i>Runs on your Mac, with your key</div>
         </div>
-        <div><h3>Product</h3><ul><li><a href="[DMG download URL]">Download</a></li><li><a href="#how">How it works</a></li><li><a href="#features">Features</a></li><li><a href="#faq">Questions</a></li></ul></div>
+        <div><h3>Product</h3><ul><li><a href="[DMG download URL]">Download</a></li><li><a href="#how">How it works</a></li><li><a href="#prompt">The prompt</a></li><li><a href="#trust">Trust</a></li></ul></div>
         <div><h3>Resources</h3><ul><li><a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a></li><li><a href="https://github.com/Hade6556/promptbutton/blob/main/docs/master-prompt-playbook.md" rel="noopener">Master prompt playbook</a></li><li><a href="https://github.com/Hade6556/promptbutton/tree/main/eval" rel="noopener">Eval results</a></li><li><a href="https://github.com/Hade6556/promptbutton/tree/main/hardware" rel="noopener">Hardware button</a></li></ul></div>
-        <div><h3>Compare</h3><ul><li><a href="#faq">Versus prompt enhancers</a></li><li><a href="#how">Versus a prompting course</a></li><li><a href="#features">Versus writing it yourself</a></li></ul></div>
+        <div><h3>Compare</h3><ul><li><a href="#faq">Versus prompt enhancers</a></li><li><a href="#how">Versus a prompting course</a></li><li><a href="#prompt">Versus writing it yourself</a></li></ul></div>
         <div><h3>Support</h3><ul><li><a href="https://github.com/Hade6556/promptbutton/issues" rel="noopener">Report a problem</a></li><li><a href="https://github.com/Hade6556/promptbutton#readme" rel="noopener">Set-up guide</a></li></ul></div>
       </div>
-      <div class="legal"><span>© 2026 PromptButton.</span><span class="todo">[REPLACE: privacy policy and terms links]</span></div>
+      <div class="legal"><span>© 2026 PromptButton. All rights reserved.</span><span class="todo">[REPLACE: privacy policy and terms links]</span></div>
     </div>
   </div>
 </footer>
@@ -645,91 +447,35 @@ body.menu-open .menu-btn .x { display: block; }
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = (id) => document.getElementById(id);
 
-  /* Header line and mobile menu */
-  const header = $('siteHeader'), menuBtn = $('menuBtn');
-  addEventListener('scroll', () => header.classList.toggle('scrolled', scrollY > 8), { passive: true });
+  /* Headline: each word rises out of a clipped box, 60 ms apart. */
+  const h1 = $('h1');
+  if (!reduce) {
+    const words = h1.textContent.trim().split(/\s+/);
+    h1.textContent = '';
+    words.forEach((word, i) => {
+      const clip = document.createElement('span'); clip.className = 'w';
+      const inner = document.createElement('span'); inner.textContent = word; inner.style.setProperty('--i', i);
+      clip.appendChild(inner); h1.appendChild(clip);
+      if (i < words.length - 1) h1.appendChild(document.createTextNode(' '));
+    });
+  }
+
+  /* Mobile menu */
+  const menuBtn = $('menuBtn');
   const setMenu = (open) => { document.body.classList.toggle('menu-open', open); menuBtn.setAttribute('aria-expanded', String(open)); menuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu'); };
   menuBtn.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
   $('mobileMenu').addEventListener('click', (e) => { if (e.target.closest('a')) setMenu(false); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('menu-open')) { setMenu(false); menuBtn.focus(); } });
 
-  /* Floating download button once the hero button is out of view */
+  /* Floating download button once the hero button has scrolled away */
   const floatCta = $('floatCta'), floatLink = floatCta.querySelector('a');
   new IntersectionObserver(([entry]) => {
     const show = !entry.isIntersecting && entry.boundingClientRect.top < 0;
     floatCta.classList.toggle('show', show); floatCta.setAttribute('aria-hidden', String(!show)); floatLink.tabIndex = show ? 0 : -1;
   }).observe($('heroCta'));
 
-  /* The demo: the keys press, the panel reads, the prompt arrives section by section. Loops while
-     on screen; the pause button stops it; reduced motion shows the finished prompt. */
-  const SECTIONS = [
-    ['Role', 'You are a senior product designer who also ships production front-end code<span class="assumed">assumed</span>. You judge a page by whether a stranger gets it in five seconds.'],
-    ['Goal', 'A landing page for <span class="ph">[product name]</span> whose one job is getting visitors to <span class="ph">[primary action]</span>.'],
-    ['Task', '<ol><li>Hero: one headline, one subline, one button.</li><li>Three benefit sections with short copy.</li><li>Pricing, FAQ, footer with the call to action again.</li></ol>'],
-    ['Quality bar', 'Correct at 375, 768 and 1280 px. Visible focus states, contrast of at least 4.5:1, alt text. Placeholder copy in our voice, marked.'],
-    ['Output', 'One index.html with embedded CSS and JS<span class="assumed">assumed</span>, plus the command to serve it.'],
-  ];
-  const mac = $('mac'), panel = $('panel'), content = $('panelContent'), field = $('panelField'), ring = $('ring'), ringRect = $('ringRect'), press = $('press'), pauseBtn = $('pauseBtn');
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  let run = 0, paused = false, visible = false, timer = null;
-
-  function renderAll() {
-    content.innerHTML = SECTIONS.map(([l, b]) => `<div class="sec in"><span class="sec-label">${l}</span><div>${b}</div></div>`).join('');
-    field.textContent = 'Insert, edit, or undo';
-    field.className = 'field';
-  }
-
-  async function play() {
-    const id = ++run; const alive = () => id === run && !paused && visible;
-    // All sections are laid out from the start (invisible), so the box never changes size and the page never shifts.
-    content.innerHTML = SECTIONS.map(([l, b]) => `<div class="sec"><span class="sec-label">${l}</span><div>${b}</div></div>`).join('');
-    field.textContent = 'Your draft is read from the field above'; field.className = 'field'; ring.style.opacity = '0';
-
-    press.classList.add('show'); await sleep(600); if (!alive()) return;
-    press.classList.add('down'); await sleep(140); if (!alive()) return;
-    press.classList.remove('down'); await sleep(260); if (!alive()) return;
-    press.classList.remove('show');
-
-    field.textContent = 'i want to build a landing page'; field.className = 'field typed';
-    await sleep(500); if (!alive()) return;
-
-    field.textContent = 'Reading the conversation…'; field.className = 'field';
-    ringRect.style.strokeDasharray = '18 82'; ring.style.opacity = '1';
-    const anim = ringRect.animate([{ strokeDashoffset: 100 }, { strokeDashoffset: -140 }], { duration: 2600, easing: 'linear' });
-    await sleep(1800); if (!alive()) { anim.cancel(); return; }
-    field.textContent = 'Writing the prompt…';
-
-    const secs = [...content.children];
-    for (let i = 0; i < secs.length; i++) {
-      content.querySelector('.caret')?.remove();
-      secs[i].classList.add('in');
-      if (i < secs.length - 1) { const c = document.createElement('span'); c.className = 'caret'; secs[i].lastElementChild.appendChild(c); }
-      await sleep(i === 0 ? 480 : 340); if (!alive()) { anim.cancel(); return; }
-    }
-    anim.cancel(); ring.style.opacity = '0'; field.textContent = 'Insert, edit, or undo';
-    timer = setTimeout(() => { if (!paused && visible) play(); }, 5200);
-  }
-
-  if (reduce) {
-    renderAll();
-  } else {
-    // Lay the sections out invisibly from the first paint, so the frame has its final size before the demo starts.
-    content.innerHTML = SECTIONS.map(([l, b]) => `<div class="sec"><span class="sec-label">${l}</span><div>${b}</div></div>`).join('');
-    const fit = () => { mac.classList.add('measuring'); mac.style.minHeight = ''; mac.style.minHeight = mac.offsetHeight + 'px'; mac.classList.remove('measuring'); };
-    fit(); document.fonts?.ready.then(fit);
-    let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fit, 120); });
-    new IntersectionObserver((entries) => {
-      const now = entries.some((e) => e.isIntersecting);
-      if (now && !visible) { visible = true; if (!paused) { clearTimeout(timer); timer = setTimeout(play, 400); } }
-      else if (!now && visible) { visible = false; clearTimeout(timer); run++; }
-    }, { threshold: 0.3 }).observe(panel);
-    pauseBtn.addEventListener('click', () => {
-      paused = !paused; mac.classList.toggle('paused', paused);
-      pauseBtn.setAttribute('aria-pressed', String(paused)); pauseBtn.setAttribute('aria-label', paused ? 'Play the demo' : 'Pause the demo');
-      clearTimeout(timer);
-      if (paused) { run++; renderAll(); } else if (visible) play();
-    });
-  }
+  /* Images blur up as they arrive */
+  document.querySelectorAll('img.lazy').forEach((img) => { const done = () => img.classList.add('in'); if (img.complete) done(); else img.addEventListener('load', done, { once: true }); });
 })();
 </script>
 </body>

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice" role="img" aria-label="Dawn over mountains in amber">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b1016"/>
+      <stop offset="0.28" stop-color="#4a2318"/>
+      <stop offset="0.52" stop-color="#b55a1c"/>
+      <stop offset="0.7" stop-color="#ef8f2c"/>
+      <stop offset="0.84" stop-color="#ffbf5f"/>
+      <stop offset="1" stop-color="#ffe8c2"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff6e3"/>
+      <stop offset="0.35" stop-color="#ffe6b8"/>
+      <stop offset="0.6" stop-color="#ffc766" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffb547" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="haze" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd9a0" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8a05a"/>
+      <stop offset="1" stop-color="#a45a26"/>
+    </linearGradient>
+    <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9a4f20"/>
+      <stop offset="1" stop-color="#5a2d16"/>
+    </linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a1d10"/>
+      <stop offset="1" stop-color="#1e110a"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd9a0" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <!-- a few stars high up -->
+  <g fill="#ffe9c9" opacity="0.5">
+    <circle cx="180" cy="90" r="1.2"/><circle cx="420" cy="140" r="1"/><circle cx="760" cy="60" r="1.4"/><circle cx="1010" cy="120" r="1"/><circle cx="1320" cy="70" r="1.2"/><circle cx="1480" cy="180" r="0.9"/><circle cx="600" cy="210" r="0.9"/><circle cx="1180" cy="30" r="1"/>
+  </g>
+  <!-- horizon haze and the sun -->
+  <ellipse cx="800" cy="760" rx="1000" ry="230" fill="url(#haze)"/>
+  <circle cx="1130" cy="716" r="300" fill="url(#sun)"/>
+  <circle cx="1130" cy="716" r="70" fill="#fff8ea"/>
+  <!-- far range, lit by the sun -->
+  <path d="M0 760 L120 700 L210 735 L330 650 L420 700 L520 640 L610 690 L700 660 L790 705 L880 670 L960 700 L1040 680 L1120 712 L1200 690 L1290 720 L1380 690 L1470 725 L1600 700 L1600 1000 L0 1000 Z" fill="url(#far)" opacity="0.9"/>
+  <path d="M330 650 L420 700 L520 640 L610 690 L700 660 L790 705 L880 670 L960 700 L1040 680 L1120 712 L1200 690 L1290 720 L1380 690 L1470 725 L1600 700 L1600 712 L1470 737 L1380 702 L1290 732 L1200 702 L1120 724 L1040 692 L960 712 L880 682 L790 717 L700 672 L610 702 L520 652 L420 712 L330 662 Z" fill="url(#rim)" opacity="0.6"/>
+  <!-- middle range -->
+  <path d="M0 830 L110 780 L220 810 L340 740 L450 790 L560 750 L680 800 L790 760 L900 805 L1010 770 L1130 815 L1250 775 L1370 815 L1490 790 L1600 820 L1600 1000 L0 1000 Z" fill="url(#mid)"/>
+  <!-- near ridge, dark -->
+  <path d="M0 900 L140 870 L260 895 L400 850 L540 890 L690 860 L840 900 L990 870 L1140 905 L1290 875 L1440 905 L1600 885 L1600 1000 L0 1000 Z" fill="url(#near)"/>
+</svg>

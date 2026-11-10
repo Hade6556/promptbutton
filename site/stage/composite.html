@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>composite</title>
+<style>
+/* Staging only: the real panel renderer (iframe) over a capture of the staged editor, photographed at 2x. */
+html, body { margin: 0; background: #000; }
+.screen { position: relative; width: 1470px; height: 956px; overflow: hidden; background: url(bg-editor.jpg) center / 1470px 956px no-repeat; }
+.panel-wrap { position: absolute; left: 435px; top: 136px; width: 600px; border-radius: 12px; overflow: hidden;
+  backdrop-filter: blur(28px) saturate(1.4); -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.75), 0 0 0 0.5px rgba(255,228,196,.08); }
+iframe { display: block; width: 600px; height: 56px; border: 0; background: transparent; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="panel-wrap"><iframe id="f" allowtransparency="true"></iframe></div>
+</div>
+<script src="master.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const kind = params.get('kind') || 'done';
+  const draft = window.STAGE_DRAFT;
+  const master = window.STAGE_MASTER;
+  const states = {
+    done: { phase: 'done', appName: 'Code', source: 'field', draft, text: master, asked: true, hotkey: '⌥⇧P' },
+    rewriting: { phase: 'rewriting', appName: 'Code', source: 'field', draft, text: master.slice(0, 520), asked: true, hotkey: '⌥⇧P' },
+    analyzing: { phase: 'analyzing', appName: 'Code', source: 'field', draft, hotkey: '⌥⇧P' },
+  };
+  const state = states[kind] || states.done;
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+  const f = document.getElementById('f');
+  f.src = 'panel/index.html?state=' + encodeURIComponent(b64);
+  addEventListener('message', (e) => { if (e.data && e.data.type === 'pb-height') f.style.height = Math.min(760, e.data.height) + 'px'; });
+</script>
+</body>
+</html>

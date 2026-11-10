@@ -9,3 +9,4 @@ eval/results/*
 !eval/results/summary.md
 *.local
 .DS_Store
+site/stage/panel/assets/

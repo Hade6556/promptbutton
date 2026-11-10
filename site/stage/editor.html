@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>editor</title>
+<style>
+/* A staged code editor used only to photograph the real PromptButton panel for the landing page.
+   Nothing here is a real product's chrome, code or text. */
+:root { --bg: #1b191c; --bg2: #161417; --bg3: #211f23; --line: rgba(255,255,255,.07); --fg: #d6d0ca; --dim: #8e8782; --acc: #ffb547; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.5 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; overflow: hidden; }
+.app { position: fixed; inset: 0; display: grid; grid-template-columns: 52px 220px minmax(0, 1fr) 420px; grid-template-rows: 38px minmax(0, 1fr) 24px; }
+.app > * { min-height: 0; min-width: 0; overflow: hidden; }
+.title { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; background: var(--bg2); border-bottom: 1px solid var(--line); color: var(--dim); font-size: 12px; position: relative; }
+.title .dots { position: absolute; left: 14px; display: flex; gap: 8px; }
+.title .dots i { width: 12px; height: 12px; border-radius: 50%; background: #5a5553; }
+.title .crumb { padding: 4px 14px; border-radius: 6px; background: var(--bg3); min-width: 420px; text-align: center; }
+.rail { background: var(--bg2); border-right: 1px solid var(--line); display: grid; align-content: start; gap: 22px; padding: 18px 0; justify-items: center; }
+.rail i { width: 22px; height: 22px; border-radius: 6px; background: #3a3537; }
+.rail i:first-child { background: #a39b95; }
+.files { background: var(--bg2); border-right: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--dim); }
+.files b { display: block; padding: 0 14px 10px; font-size: 11px; letter-spacing: .04em; color: #cfc8c1; }
+.files span { display: block; padding: 5px 14px 5px 28px; }
+.files span.on { background: var(--bg3); color: #f1ebe4; }
+.editor { display: grid; grid-template-rows: 36px 1fr; min-width: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+.tabs span { padding: 0 16px; display: inline-flex; align-items: center; border-right: 1px solid var(--line); }
+.tabs span.on { color: #f1ebe4; background: var(--bg); box-shadow: inset 0 -1px 0 var(--acc); }
+pre { margin: 0; padding: 18px 24px; font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; color: #cdc6bf; overflow: hidden; counter-reset: ln; }
+pre span.l { display: block; }
+pre span.l::before { counter-increment: ln; content: counter(ln); display: inline-block; width: 36px; color: #5f5955; }
+.k { color: #c9a0ff; } .s { color: #ffd38f; } .f { color: #8ed8ff; } .c { color: #6f6862; }
+.chat { background: var(--bg2); border-left: 1px solid var(--line); display: grid; grid-template-rows: 36px minmax(0, 1fr) auto; min-width: 0; }
+.chat .head { display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+.chat .head b { color: #f1ebe4; font-weight: 600; }
+.msgs { padding: 16px 14px; display: grid; gap: 12px; align-content: start; overflow: hidden; }
+.msg { padding: 10px 12px; border-radius: 12px; line-height: 1.45; font-size: 13px; }
+.msg.me { background: #2b2529; color: #f1ebe4; justify-self: end; max-width: 88%; }
+.msg.ai { color: #d6d0ca; }
+.compose { margin: 0 14px 14px; border-radius: 12px; background: #262325; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); padding: 10px 12px; display: grid; gap: 8px; }
+textarea { width: 100%; min-height: 52px; resize: none; border: 0; background: transparent; color: #f1ebe4; font: inherit; outline: none; }
+.compose .row { display: flex; justify-content: space-between; align-items: center; color: var(--dim); font-size: 12px; }
+.compose .send { width: 28px; height: 28px; border-radius: 50%; background: #4a443f; display: grid; place-items: center; }
+.compose .send::after { content: ''; width: 8px; height: 8px; border-right: 2px solid #e9e3dc; border-top: 2px solid #e9e3dc; transform: rotate(-45deg) translate(-1px, 1px); }
+.status { grid-column: 1 / -1; background: var(--bg2); border-top: 1px solid var(--line); display: flex; align-items: center; gap: 16px; padding: 0 12px; color: var(--dim); font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="title"><span class="dots"><i></i><i></i><i></i></span><span class="crumb">site — index.html</span></div>
+  <div class="rail"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="files"><b>SITE</b><span>assets</span><span class="on">index.html</span><span>styles.css</span><span>app.js</span><span>README.md</span><span>package.json</span></div>
+  <div class="editor">
+    <div class="tabs"><span class="on">index.html</span><span>styles.css</span><span>app.js</span></div>
+<pre><span class="l"><span class="c">&lt;!doctype html&gt;</span></span>
+<span class="l">&lt;<span class="k">html</span> <span class="f">lang</span>=<span class="s">"en"</span>&gt;</span>
+<span class="l">&lt;<span class="k">head</span>&gt;</span>
+<span class="l">  &lt;<span class="k">meta</span> <span class="f">charset</span>=<span class="s">"utf-8"</span> /&gt;</span>
+<span class="l">  &lt;<span class="k">title</span>&gt;Landing page&lt;/<span class="k">title</span>&gt;</span>
+<span class="l">  &lt;<span class="k">link</span> <span class="f">rel</span>=<span class="s">"stylesheet"</span> <span class="f">href</span>=<span class="s">"styles.css"</span> /&gt;</span>
+<span class="l">&lt;/<span class="k">head</span>&gt;</span>
+<span class="l">&lt;<span class="k">body</span>&gt;</span>
+<span class="l">  &lt;<span class="k">header</span> <span class="f">class</span>=<span class="s">"nav"</span>&gt;</span>
+<span class="l">    &lt;<span class="k">a</span> <span class="f">class</span>=<span class="s">"brand"</span> <span class="f">href</span>=<span class="s">"/"</span>&gt;Brand&lt;/<span class="k">a</span>&gt;</span>
+<span class="l">  &lt;/<span class="k">header</span>&gt;</span>
+<span class="l"></span>
+<span class="l">  &lt;<span class="k">main</span>&gt;</span>
+<span class="l">    &lt;<span class="k">section</span> <span class="f">class</span>=<span class="s">"hero"</span>&gt;</span>
+<span class="l">      &lt;<span class="k">h1</span>&gt;<span class="c">&lt;!-- TODO: headline --&gt;</span>&lt;/<span class="k">h1</span>&gt;</span>
+<span class="l">      &lt;<span class="k">p</span>&gt;<span class="c">&lt;!-- TODO: subline --&gt;</span>&lt;/<span class="k">p</span>&gt;</span>
+<span class="l">      &lt;<span class="k">a</span> <span class="f">class</span>=<span class="s">"btn"</span> <span class="f">href</span>=<span class="s">"#"</span>&gt;Get started&lt;/<span class="k">a</span>&gt;</span>
+<span class="l">    &lt;/<span class="k">section</span>&gt;</span>
+<span class="l"></span>
+<span class="l">    &lt;<span class="k">section</span> <span class="f">class</span>=<span class="s">"features"</span>&gt;</span>
+<span class="l">      <span class="c">&lt;!-- three benefits --&gt;</span></span>
+<span class="l">    &lt;/<span class="k">section</span>&gt;</span>
+<span class="l"></span>
+<span class="l">    &lt;<span class="k">section</span> <span class="f">class</span>=<span class="s">"pricing"</span>&gt;&lt;/<span class="k">section</span>&gt;</span>
+<span class="l">    &lt;<span class="k">section</span> <span class="f">class</span>=<span class="s">"faq"</span>&gt;&lt;/<span class="k">section</span>&gt;</span>
+<span class="l">  &lt;/<span class="k">main</span>&gt;</span>
+<span class="l"></span>
+<span class="l">  &lt;<span class="k">footer</span>&gt;&lt;/<span class="k">footer</span>&gt;</span>
+<span class="l">  &lt;<span class="k">script</span> <span class="f">src</span>=<span class="s">"app.js"</span>&gt;&lt;/<span class="k">script</span>&gt;</span>
+<span class="l">&lt;/<span class="k">body</span>&gt;</span>
+<span class="l">&lt;/<span class="k">html</span>&gt;</span></pre>
+  </div>
+  <div class="chat">
+    <div class="head"><b>Chat</b><span>New chat</span></div>
+    <div class="msgs">
+      <div class="msg ai">Hi. What are we building today?</div>
+    </div>
+    <div class="compose">
+      <textarea id="draft" aria-label="Message" autofocus data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false">i want to build a landing page</textarea>
+      <div class="row"><span>Agent · Auto</span><span class="send"></span></div>
+    </div>
+  </div>
+  <div class="status"><span>main</span><span>0 problems</span><span>Ln 15, Col 12</span><span>UTF-8</span><span>HTML</span></div>
+</div>
+<script src="master.js"></script>
+<script>
+  const t = document.getElementById('draft');
+  const params = new URLSearchParams(location.search);
+  if (params.get('draft') !== null) t.value = params.get('draft');
+  if (params.get('inserted') !== null) t.value = window.STAGE_MASTER;
+  t.style.height = 'auto'; t.style.height = Math.min(400, t.scrollHeight) + 'px';
+  t.focus();
+  if (params.get('inserted') !== null) { t.setSelectionRange(0, 0); t.scrollTop = 0; } else { t.setSelectionRange(t.value.length, t.value.length); }
+  window.scrollTo(0, 0);
+</script>
+</body>
+</html>
