@@ -306,7 +306,7 @@ img.lazy.in { filter: none; }
       <p class="sub fade-up">Pimp My Prompt reads the screen in front of you, asks only what is still missing, and rewrites your draft in any app on your Mac.</p>
       <div class="cta fade-up">
         <a class="btn btn-primary" href="/download/PimpMyPrompt.dmg" id="heroCta"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
-        <small>Press <span style="white-space:nowrap"><kbd class="key">⌥</kbd><kbd class="key">⇧</kbd><kbd class="key">P</kbd></span> in any app. Works with your own Anthropic key.</small>
+        <small>Press <span style="white-space:nowrap"><kbd class="key">⌥</kbd><kbd class="key">⇧</kbd><kbd class="key">P</kbd></span> in any app. Start free, no card needed.</small>
         <small class="dl-info" id="dlInfo" aria-live="polite"></small>
       </div>
     </div>
@@ -380,7 +380,7 @@ img.lazy.in { filter: none; }
         <div class="statlist">
           <div class="stat"><div class="n">59<small>%</small></div><div><h3>Preferred answers</h3><p>On 37 test conversations, the answer to the rewritten prompt beat the answer to the raw draft 59% of the time, tied 24%.</p></div></div>
           <div class="stat"><div class="n">75<small>%</small></div><div><h3>On first messages</h3><p>Cold starts gain the most. A one-line request becomes a full brief with a role, a quality bar and a done-when.</p></div></div>
-          <div class="stat"><div class="n">&lt;1<small>¢</small></div><div><h3>Per spoken edit</h3><p>A full press costs a few cents of API usage on your own key. A spoken change costs well under a cent and lands in about a second.</p></div></div>
+          <div class="stat"><div class="n">&lt;1<small>¢</small></div><div><h3>Per spoken edit</h3><p>A full press uses a few cents of model time. A spoken change uses well under a cent and lands in about a second.</p></div></div>
         </div>
       </div>
     </div>
@@ -396,7 +396,7 @@ img.lazy.in { filter: none; }
         </details>
         <details>
           <summary>What happens to my screen and my text?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-          <div class="a">On each press, the draft and one screenshot of the front window go from your Mac straight to Anthropic's API with your own key, and the rewritten prompt comes back. Nothing is stored or routed through a server of ours, because there is none. You can also hide the panel itself from screen sharing.</div>
+          <div class="a">Only when you press the key, the draft and one screenshot of the front window go to our server, which passes them straight to Anthropic's Claude API and returns the rewrite. We do not store or log what you write or your screenshots, only how much each press cost. With your own API key, requests skip our server entirely. You can also hide the panel itself from screen sharing. The <a href="/privacy.html">privacy policy</a> has the details.</div>
         </details>
         <details>
           <summary>Which permissions does it ask for?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -404,7 +404,7 @@ img.lazy.in { filter: none; }
         </details>
         <details>
           <summary>What does it cost?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-          <div class="a">It runs on your own Anthropic API key. A full press costs a few cents of API usage, and a spoken edit costs under one cent. The price of the app itself is <span class="todo">[REPLACE: app price or free]</span>.</div>
+          <div class="a">Start with a free trial of about 25 presses, no card needed. Pro is <span class="todo">[REPLACE: price, e.g. $12]</span> a month and covers about 200 presses, resetting on your billing date. You can cancel from the app at any time. Prefer to pay Anthropic directly? Add your own API key in the app and presses do not count against any plan.</div>
         </details>
         <details>
           <summary>How is this different from a prompt enhancer in a browser?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -437,14 +437,14 @@ img.lazy.in { filter: none; }
       <div class="foot-grid">
         <div class="foot-brand">
           <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="22" height="22" />Pimp My Prompt</a>
-          <div class="status"><i aria-hidden="true"></i>Runs on your Mac, with your key</div>
+          <div class="status"><i aria-hidden="true"></i>Runs on your Mac. Start free.</div>
         </div>
         <div><h3>Product</h3><ul><li><a href="/download/PimpMyPrompt.dmg">Download</a></li><li><a href="#how">How it works</a></li><li><a href="#prompt">The prompt</a></li><li><a href="#trust">Trust</a></li></ul></div>
         <div><h3>Resources</h3><ul><li><a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a></li><li><a href="https://github.com/Hade6556/promptbutton/blob/main/docs/master-prompt-playbook.md" rel="noopener">Master prompt playbook</a></li><li><a href="https://github.com/Hade6556/promptbutton/tree/main/eval" rel="noopener">Eval results</a></li><li><a href="https://github.com/Hade6556/promptbutton/tree/main/hardware" rel="noopener">Hardware button</a></li></ul></div>
         <div><h3>Compare</h3><ul><li><a href="#faq">Versus prompt enhancers</a></li><li><a href="#how">Versus a prompting course</a></li><li><a href="#prompt">Versus writing it yourself</a></li></ul></div>
         <div><h3>Support</h3><ul><li><a href="https://github.com/Hade6556/promptbutton/issues" rel="noopener">Report a problem</a></li><li><a href="https://github.com/Hade6556/promptbutton#readme" rel="noopener">Set-up guide</a></li></ul></div>
       </div>
-      <div class="legal"><span>© 2026 Pimp My Prompt. All rights reserved.</span><span class="todo">[REPLACE: privacy policy and terms links]</span></div>
+      <div class="legal"><span>© 2026 Pimp My Prompt. All rights reserved.</span><span><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span></div>
     </div>
   </div>
 </footer>

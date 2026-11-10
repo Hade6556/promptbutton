@@ -542,3 +542,92 @@ kbd {
     animation: none;
   }
 }
+
+/* Account: sign-in, plan and usage. */
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.acct-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.acct-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--label);
+}
+.plan {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--fill);
+  color: var(--label-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+.plan.pro {
+  background: rgba(255, 181, 71, 0.16);
+  color: var(--accent);
+}
+.meter {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 300ms var(--ease-out);
+}
+.meter > span.high {
+  background: var(--danger);
+}
+.line.meta {
+  color: var(--label-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+.acct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 2px;
+}
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--secondary);
+  font-size: 12px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.link:hover {
+  text-decoration: underline;
+}
+.opt.primary {
+  background: linear-gradient(var(--accent), var(--accent-deep));
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.opt:disabled,
+.link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .meter > span {
+    transition: none;
+  }
+}

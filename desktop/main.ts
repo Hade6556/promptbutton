@@ -16,7 +16,7 @@ import { cancelDictation, startDictation, stopDictation } from './dictation';
 import { dotEnvPaths, resolveApiKey } from './env';
 import { forcePaste, insertText } from './insert';
 import { loadSettings, saveSettings } from './settings';
-import type { PanelState, RendererAction, Settings } from './shared';
+import type { AccountScreen, AccountView, PanelState, RendererAction, Settings } from './shared';
 
 // Both chords trigger: ⌥⇧P is the documented one; ⌥⌘P is what people press when they read ⇧ as ⌘.
 const HOTKEYS = ['Alt+Shift+P', 'Alt+Command+P'];
@@ -27,7 +27,7 @@ const PANEL_MAX_HEIGHT = 760;
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let settings: Settings = { apiKey: null, askMode: 'auto', depth: 'full', hideFromCapture: false };
+let settings: Settings = { apiKey: null, account: null, askMode: 'auto', depth: 'full', hideFromCapture: false };
 let state: PanelState = { phase: 'hidden', hotkey: HOTKEY };
 let busy = false;
 /** Incremented on every trigger/close so results from a cancelled run are ignored. */
@@ -103,18 +103,178 @@ function setState(patch: Partial<PanelState>) {
 
 let resumeAfterSettings = false;
 
+/** The account server. PMP_API_BASE points a development build at a local one. */
+const API_BASE = (process.env.PMP_API_BASE ?? 'https://pimpmypromt.ai/api').replace(/\/$/, '');
+
 function client(): Anthropic {
-  // Node process: no CORS, so organisations that block browser calls work without a proxy.
-  // Key: saved in the app, or ANTHROPIC_API_KEY in the environment, or .env in the project / ~/.promptbutton.env.
-  const { key, source } = resolveApiKey(settings.apiKey);
-  if (!key) {
-    throw new PromptButtonError(
-      'no_api_key',
-      `No API key found. Paste one here, or put ANTHROPIC_API_KEY=sk-ant-… in ${dotEnvPaths()[0]} (no restart needed).`,
-    );
+  // In order: an own key saved in the app, the signed-in account, then a developer's env or .env key.
+  if (settings.apiKey) {
+    console.log('[PromptButton] using the saved own API key');
+    return new Anthropic({ apiKey: settings.apiKey, maxRetries: 1, timeout: 60_000 });
   }
-  console.log(`[PromptButton] using API key from ${source}`);
-  return new Anthropic({ apiKey: key, maxRetries: 1, timeout: 60_000 });
+  if (settings.account) {
+    console.log('[PromptButton] using the account server');
+    return new Anthropic({ apiKey: null, authToken: settings.account.token, baseURL: API_BASE, maxRetries: 1, timeout: 60_000 });
+  }
+  const { key, source } = resolveApiKey(null);
+  if (key) {
+    console.log(`[PromptButton] using API key from ${source}`);
+    return new Anthropic({ apiKey: key, maxRetries: 1, timeout: 60_000 });
+  }
+  throw new PromptButtonError('no_api_key', 'Sign in to start.');
+}
+
+// ---- Account: sign-in with an emailed code, plan and usage, Stripe checkout and portal ----
+
+let accountScreen: AccountScreen = { mode: 'signin' };
+let accountView: AccountView | null = null;
+let checkoutPoll: ReturnType<typeof setInterval> | undefined;
+
+class SessionEnded extends Error {}
+const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+/** The panel learns whether a key or session exists, never the key or the token. */
+function publicSettings(): Settings {
+  return { ...settings, apiKey: settings.apiKey ? 'saved' : null, account: settings.account ? { email: settings.account.email, token: '' } : null };
+}
+
+/** The screen as it should look now: signed-in users always land on their account. */
+function currentScreen(): AccountScreen {
+  if (accountScreen.mode !== 'ownKey') {
+    if (settings.account) accountScreen = { ...accountScreen, mode: 'account', email: settings.account.email };
+    else if (accountScreen.mode === 'account') accountScreen = { mode: 'signin' };
+  }
+  return { ...accountScreen, account: accountView, hasOwnKey: Boolean(settings.apiKey) };
+}
+
+function showAccount(error?: string, patch: Partial<AccountScreen> = {}) {
+  accountScreen = { ...accountScreen, ...patch };
+  setState({ phase: 'settings', settings: publicSettings(), accountScreen: currentScreen(), error });
+  showPanel(true);
+}
+
+async function accountApi<T>(path: string, options: { method?: 'GET' | 'POST'; body?: unknown; auth?: boolean } = {}): Promise<T> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (options.auth && settings.account) headers.authorization = `Bearer ${settings.account.token}`;
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: options.method ?? 'POST',
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch {
+    throw new Error('Could not reach Pimp My Prompt. Check your connection and try again.');
+  }
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (res.status === 401 && options.auth) throw new SessionEnded('Your session ended. Sign in again.');
+  if (!res.ok) throw new Error(data.error ?? `The server answered ${res.status}.`);
+  return data as T;
+}
+
+function forgetAccount() {
+  settings = { ...settings, account: null };
+  saveSettings(settings);
+  accountView = null;
+  clearInterval(checkoutPoll);
+}
+
+async function refreshAccount(): Promise<AccountView | null> {
+  if (!settings.account) return null;
+  try {
+    accountView = (await accountApi<{ account: AccountView }>('/account', { method: 'GET', auth: true })).account;
+  } catch (error) {
+    if (error instanceof SessionEnded) forgetAccount();
+    else console.warn('[PromptButton] account refresh failed:', message(error));
+  }
+  if (state.phase === 'settings') setState({ settings: publicSettings(), accountScreen: currentScreen() });
+  return accountView;
+}
+
+/** After Checkout opens in the browser, the webhook upgrades the account; notice it within seconds. */
+function watchForUpgrade() {
+  clearInterval(checkoutPoll);
+  const until = Date.now() + 15 * 60_000;
+  checkoutPoll = setInterval(async () => {
+    const view = await refreshAccount();
+    if (view?.plan === 'pro') {
+      clearInterval(checkoutPoll);
+      if (state.phase === 'settings') showAccount(undefined, { note: 'You are on Pro now. Thank you!' });
+    } else if (Date.now() > until || !settings.account) clearInterval(checkoutPoll);
+  }, 4000);
+}
+
+type AccountAction = Extract<RendererAction, { type: 'requestCode' | 'verifyCode' | 'changeEmail' | 'signOut' | 'upgrade' | 'manageBilling' | 'ownKeyMode' | 'saveOwnKey' }>;
+
+async function accountAction(action: AccountAction) {
+  switch (action.type) {
+    case 'requestCode': {
+      const email = action.email.trim();
+      showAccount(undefined, { working: true, note: undefined });
+      try {
+        await accountApi('/auth/code', { body: { email } });
+        showAccount(undefined, { mode: 'code', email, working: false });
+      } catch (error) {
+        showAccount(message(error), { working: false });
+      }
+      return;
+    }
+    case 'verifyCode': {
+      const email = accountScreen.email ?? '';
+      showAccount(undefined, { working: true });
+      try {
+        const data = await accountApi<{ token: string; account: AccountView }>('/auth/verify', { body: { email, code: action.code } });
+        settings = { ...settings, account: { email, token: data.token } };
+        saveSettings(settings);
+        accountView = data.account;
+        accountScreen = { mode: 'account', email };
+        console.log('[PromptButton] signed in');
+        if (resumeAfterSettings && current) {
+          resumeAfterSettings = false;
+          return analyzeAndContinue();
+        }
+        showAccount();
+      } catch (error) {
+        showAccount(message(error), { working: false });
+      }
+      return;
+    }
+    case 'changeEmail':
+      return showAccount(undefined, { mode: 'signin', email: undefined, working: false });
+    case 'signOut':
+      await accountApi('/auth/signout', { auth: true }).catch(() => {});
+      forgetAccount();
+      accountScreen = { mode: 'signin' };
+      return showAccount();
+    case 'upgrade':
+    case 'manageBilling': {
+      showAccount(undefined, { working: true, note: undefined });
+      try {
+        const { url } = await accountApi<{ url: string }>(action.type === 'upgrade' ? '/billing/checkout' : '/billing/portal', { auth: true });
+        await shell.openExternal(url);
+        showAccount(undefined, {
+          working: false,
+          note: action.type === 'upgrade' ? 'Finish checkout in your browser. This updates by itself when it is done.' : 'Your subscription opened in the browser.',
+        });
+        if (action.type === 'upgrade') watchForUpgrade();
+      } catch (error) {
+        if (error instanceof SessionEnded) forgetAccount();
+        showAccount(message(error), { working: false });
+      }
+      return;
+    }
+    case 'ownKeyMode':
+      return showAccount(undefined, { mode: action.on ? 'ownKey' : settings.account ? 'account' : 'signin', note: undefined });
+    case 'saveOwnKey':
+      settings = { ...settings, apiKey: action.key };
+      saveSettings(settings);
+      if (action.key && resumeAfterSettings && current) {
+        resumeAfterSettings = false;
+        return analyzeAndContinue();
+      }
+      return action.key ? hidePanel() : showAccount(undefined, { mode: settings.account ? 'account' : 'signin' });
+  }
 }
 
 function createWindow() {
@@ -269,10 +429,15 @@ function fail(error: unknown) {
   busy = false;
   if (!result.ok) {
     if (result.code === 'no_api_key' || result.code === 'auth') {
-      resumeAfterSettings = current !== null; // continue the run once a key is saved
-      setState({ phase: 'settings', settings, error: result.error });
-      showPanel(true);
-      return;
+      resumeAfterSettings = current !== null; // continue the run once signed in or a key is saved
+      if (result.code === 'no_api_key') return showAccount(undefined, { working: false });
+      if (settings.apiKey) return showAccount(result.error, { mode: 'ownKey', working: false });
+      forgetAccount();
+      return showAccount('Your session ended. Sign in again.', { mode: 'signin', working: false });
+    }
+    if (result.code === 'limit') {
+      void refreshAccount();
+      return showAccount(result.error, { working: false, note: undefined });
     }
     setState({ phase: 'error', error: result.error });
   }
@@ -576,11 +741,21 @@ async function handleAction(action: RendererAction) {
       return voiceDraft(action.text);
     case 'refresh':
       return trigger({ fresh: true });
+    case 'requestCode':
+    case 'verifyCode':
+    case 'changeEmail':
+    case 'signOut':
+    case 'upgrade':
+    case 'manageBilling':
+    case 'ownKeyMode':
+    case 'saveOwnKey':
+      return accountAction(action);
     case 'openSettings':
-      setState({ phase: 'settings', settings, error: undefined });
-      return showPanel(true);
+      showAccount(undefined, { working: false, note: undefined });
+      return void refreshAccount();
     case 'saveSettings':
-      settings = action.settings;
+      // Preferences only: the key and the session are changed through the account actions.
+      settings = { ...action.settings, apiKey: settings.apiKey, account: settings.account };
       saveSettings(settings);
       win?.setContentProtection(settings.hideFromCapture);
       buildTray();
@@ -643,9 +818,9 @@ function buildTray() {
           win?.setContentProtection(settings.hideFromCapture);
         },
       },
-      { label: 'API key…', click: () => void handleAction({ type: 'openSettings' }) },
+      { label: 'Account…', click: () => void handleAction({ type: 'openSettings' }) },
       { type: 'separator' },
-      { label: 'Quit PromptButton', role: 'quit' },
+      { label: `Quit ${app.getName()}`, role: 'quit' },
     ]),
   );
 }
@@ -696,7 +871,8 @@ app.whenReady().then(() => {
   // Transparent areas of the window must not swallow clicks meant for the app underneath.
   ipcMain.on('pb:mouse', (_event, ignore: boolean) => win?.setIgnoreMouseEvents(Boolean(ignore), { forward: true }));
 
-  console.log(`[PromptButton] key source at startup: ${resolveApiKey(settings.apiKey).source} (checked settings, env, ${dotEnvPaths().join(', ')})`);
+  const mode = settings.apiKey ? 'own key' : settings.account ? `account ${settings.account.email} via ${API_BASE}` : `developer key from ${resolveApiKey(null).source}`;
+  console.log(`[PromptButton] Claude calls use: ${mode} (developer keys checked in env, ${dotEnvPaths().join(', ')})`);
   console.log(`[PromptButton] ready — ${HOTKEY} (pid ${process.pid})`);
 });
 

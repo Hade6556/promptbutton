@@ -37,6 +37,31 @@ The product shots in `site/assets/shot-*.jpg` are real captures of the panel ove
 need a finished prompt. Rebuild the renderer, copy `desktop/dist/renderer/assets` into `site/stage/panel/`, and
 re-shoot when the panel's look changes.
 
+## Accounts, limits and billing (server/)
+
+Consumers sign in instead of bringing a key. `server/` is a small Node 24 service on the VPS (systemd unit
+`pimpmyprompt`, behind Caddy at `https://pimpmypromt.ai/api/`). It:
+
+- **signs people in** with a 6-digit code emailed through Resend, and keeps only hashes of codes and tokens;
+- **relays the app's Claude calls** with the server's Anthropic key. Only the app's model, its one beta and a capped
+  `max_tokens` are accepted, so a token is not a general Claude key. Content is never stored or logged;
+- **meters usage** from each response's token counts (streamed or not) against the plan: a one-time trial
+  (`TRIAL_MICROS`, $1 of usage, about 25 presses) or Pro (`PRO_MICROS`, $8 a period, about 200 presses);
+- **bills through Stripe**: Checkout for the subscription, the Customer Portal to change or cancel, and signed,
+  de-duplicated webhooks for renewals, failed payments, cancellations, refunds, disputes and fraud warnings.
+
+The app tries, in order: an own key saved under Account, the signed-in account, then a developer `.env` key.
+
+```bash
+npm run server:test                       # end to end against local stand-ins for Anthropic and Stripe
+npm run server:deploy                     # rsync + npm ci + restart (first time: npm run server:deploy -- --setup)
+STRIPE_SECRET_KEY=sk_... node server/scripts/stripe-setup.mts   # one-time: product, price, webhook
+```
+
+Secrets live only in `/etc/pimpmyprompt/env` on the server (root:pmp, 0640): `ANTHROPIC_API_KEY`, `CODE_SECRET`,
+`RESEND_API_KEY`, `MAIL_FROM`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`. The legal pages are
+`site/privacy.html` and `site/terms.html`; Stripe returns people to `site/billing/`.
+
 ## Desktop app (works in any app, like VS Code)
 
 `desktop/` is an Electron menu-bar app for macOS. Press `⌥⇧P` in **any** app and a panel appears over it:

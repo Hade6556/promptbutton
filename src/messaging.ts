@@ -181,7 +181,7 @@ export interface RewriteRequest {
 export type BackgroundRequest = AnalyzeRequest | RewriteRequest | SuggestRequest;
 export type ContentMessage = TriggerMessage;
 
-export type ErrorCode = 'no_api_key' | 'auth' | 'rate_limit' | 'refusal' | 'network' | 'unknown';
+export type ErrorCode = 'no_api_key' | 'auth' | 'limit' | 'rate_limit' | 'refusal' | 'network' | 'unknown';
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string; code?: ErrorCode };
 

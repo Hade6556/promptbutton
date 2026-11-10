@@ -3,7 +3,10 @@ import type { Depth, GapReport, ReplyAssist, Result, UserAnswer, VoiceIntent } f
 import type { AskMode } from '../src/llm/config';
 
 export interface Settings {
+  /** Advanced: the user's own Anthropic key, used directly instead of their account. */
   apiKey: string | null;
+  /** Signed-in account: Claude calls go through our server and count against the plan. */
+  account: { email: string; token: string } | null;
   askMode: AskMode;
   /** full: task-like drafts become a full master prompt. concise: tighten only. */
   depth: Depth;
@@ -26,6 +29,31 @@ export type Phase =
 
 export type DraftSource = 'field' | 'selection' | 'none';
 
+/** The signed-in account as the server reports it. */
+export interface AccountView {
+  email: string;
+  plan: 'trial' | 'pro';
+  status: string | null;
+  percentUsed: number;
+  /** Unix seconds when a Pro allowance resets. */
+  resetsAt: number | null;
+  held: boolean;
+  canUpgrade: boolean;
+  canManage: boolean;
+}
+
+/** What the account screen shows. */
+export interface AccountScreen {
+  mode: 'signin' | 'code' | 'account' | 'ownKey';
+  email?: string;
+  account?: AccountView | null;
+  /** A saved own key exists (the key itself never reaches the panel). */
+  hasOwnKey?: boolean;
+  /** One line under the account, e.g. "Finish checkout in your browser". */
+  note?: string;
+  working?: boolean;
+}
+
 export interface PanelState {
   phase: Phase;
   appName?: string;
@@ -40,6 +68,7 @@ export interface PanelState {
   /** Offer "select all and paste" after a copy-only insert. */
   offerForcePaste?: boolean;
   settings?: Settings;
+  accountScreen?: AccountScreen;
   hotkey?: string;
 }
 
@@ -58,6 +87,15 @@ export type RendererAction =
   | { type: 'refresh' }
   | { type: 'openSettings' }
   | { type: 'saveSettings'; settings: Settings }
+  /** Account screen. */
+  | { type: 'requestCode'; email: string }
+  | { type: 'verifyCode'; code: string }
+  | { type: 'changeEmail' }
+  | { type: 'signOut' }
+  | { type: 'upgrade' }
+  | { type: 'manageBilling' }
+  | { type: 'ownKeyMode'; on: boolean }
+  | { type: 'saveOwnKey'; key: string | null }
   /** Voice input: start or stop transcribing the microphone into the field. */
   | { type: 'dictate'; on: boolean }
   /** Voice: remember the box as it is, so the change about to be applied can be undone. */

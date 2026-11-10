@@ -1,0 +1,15 @@
+{
+  "name": "pimpmyprompt-server",
+  "private": true,
+  "type": "module",
+  "description": "Account, usage-limit and billing server for the Pimp My Prompt Mac app. Proxies Claude calls with the server's key.",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node src/server.mts",
+    "test": "node --test test/*.test.mts",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "stripe": "23.0.0"
+  }
+}

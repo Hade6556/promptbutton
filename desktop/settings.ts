@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Settings } from './shared';
 
-const DEFAULTS: Settings = { apiKey: null, askMode: 'auto', depth: 'full', hideFromCapture: false };
+const DEFAULTS: Settings = { apiKey: null, account: null, askMode: 'auto', depth: 'full', hideFromCapture: false };
 
 function file(): string {
   return path.join(app.getPath('userData'), 'settings.json');

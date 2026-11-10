@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { DictationEvent, PanelState } from '../shared';
+import type { AccountScreen, AccountView, DictationEvent, PanelState, RendererAction } from '../shared';
 import { blocks, inlineRuns, parseSections, type Block } from './format';
 
 const send = (action: Parameters<Window['pb']['send']>[0]) => window.pb.send(action);
@@ -98,6 +98,100 @@ function BlockView({ block }: { block: Block }) {
  * The rewrite, as sections when it is a master prompt (XML tags or "Role:" labels), otherwise as
  * plain text. While streaming, the box follows the text; when done it scrolls back to the top.
  */
+function usageLine(a: AccountView): string {
+  if (a.held) return 'Paused while a payment question is open. Reply to our email to sort it out.';
+  if (a.plan === 'pro') {
+    const resets = new Date((a.resetsAt ?? 0) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+    return `${a.percentUsed}% of this month's allowance used. Resets ${resets}.`;
+  }
+  return `${a.percentUsed}% of the free trial used.`;
+}
+
+/** Sign-in, plan and usage, or the own-key fallback. The text field below the card does the typing. */
+function AccountCard({ screen, error }: { screen: AccountScreen; error?: string }) {
+  const send = (action: RendererAction) => window.pb.send(action);
+  const a = screen.account;
+  const off = Boolean(screen.working);
+  return (
+    <div class="account">
+      {error && <p class="line error">{error}</p>}
+      {screen.mode === 'signin' && (
+        <>
+          <p class="line">Sign in to start. We email you a 6-digit code, no password needed.</p>
+          <div class="acct-actions">
+            <button type="button" class="link" disabled={off} onClick={() => send({ type: 'ownKeyMode', on: true })}>
+              Use my own Anthropic key instead
+            </button>
+          </div>
+        </>
+      )}
+      {screen.mode === 'code' && (
+        <>
+          <p class="line">
+            We sent a code to <strong>{screen.email}</strong>. It expires in 10 minutes.
+          </p>
+          <div class="acct-actions">
+            <button type="button" class="link" disabled={off} onClick={() => send({ type: 'requestCode', email: screen.email ?? '' })}>
+              Send a new code
+            </button>
+            <button type="button" class="link" disabled={off} onClick={() => send({ type: 'changeEmail' })}>
+              Use a different email
+            </button>
+          </div>
+        </>
+      )}
+      {screen.mode === 'ownKey' && (
+        <>
+          <p class="line">Your own Anthropic key is used directly, and Anthropic bills you for the usage.{screen.hasOwnKey ? ' A key is saved.' : ''}</p>
+          <div class="acct-actions">
+            {screen.hasOwnKey && (
+              <button type="button" class="link" onClick={() => send({ type: 'saveOwnKey', key: null })}>
+                Remove the saved key
+              </button>
+            )}
+            <button type="button" class="link" onClick={() => send({ type: 'ownKeyMode', on: false })}>
+              {a ? 'Back to my account' : 'Sign in instead'}
+            </button>
+          </div>
+        </>
+      )}
+      {screen.mode === 'account' && (
+        <>
+          <div class="acct-head">
+            <span class="acct-email">{screen.email}</span>
+            {a && <span class={`plan ${a.plan}`}>{a.plan === 'pro' ? 'Pro' : 'Free trial'}</span>}
+          </div>
+          {a && (
+            <>
+              <div class="meter" role="progressbar" aria-label="Allowance used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={a.percentUsed}>
+                <span class={a.percentUsed >= 90 ? 'high' : ''} style={{ width: `${a.percentUsed}%` }} />
+              </div>
+              <p class="line meta">{usageLine(a)}</p>
+            </>
+          )}
+          {screen.hasOwnKey && <p class="line meta">Your own Anthropic key is saved and used first, so presses do not count against this plan.</p>}
+          {screen.note && <p class="line meta">{screen.note}</p>}
+          <div class="acct-actions">
+            {a?.canUpgrade && (
+              <button type="button" class="opt primary" disabled={off} onClick={() => send({ type: 'upgrade' })}>
+                Upgrade to Pro
+              </button>
+            )}
+            {a?.canManage && (
+              <button type="button" class="opt" disabled={off} onClick={() => send({ type: 'manageBilling' })}>
+                Manage subscription
+              </button>
+            )}
+            <button type="button" class="opt" disabled={off} onClick={() => send({ type: 'signOut' })}>
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ResultView({ text, streaming }: { text: string; streaming: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [edge, setEdge] = useState<'none' | 'top' | 'middle' | 'bottom'>('none');
@@ -168,6 +262,8 @@ function ResultView({ text, streaming }: { text: string; streaming: boolean }) {
  */
 export function Panel() {
   const [state, setState] = useState<PanelState>({ phase: 'hidden' });
+  /** The last state seen, for comparisons inside the long-lived state listener. */
+  const stateRef = useRef<PanelState>({ phase: 'hidden' });
   const [text, setText] = useState('');
   const [qIndex, setQIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -240,7 +336,9 @@ export function Panel() {
         setQIndex(0);
         setAnswers({});
       }
-      if (next.phase !== 'settings') setText('');
+      // Leaving the account screen, or moving between its steps, starts with an empty field.
+      if (next.phase !== 'settings' || next.accountScreen?.mode !== stateRef.current.accountScreen?.mode) setText('');
+      stateRef.current = next;
       if (next.phase === 'hidden') {
         // Main stops the helper when the panel closes; reset the button with it.
         setMic('off');
@@ -292,7 +390,8 @@ export function Panel() {
 
   if (state.phase === 'hidden') return null;
 
-  const busy = state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting' || understanding;
+  const busy =
+    state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting' || understanding || (state.phase === 'settings' && Boolean(state.accountScreen?.working));
   const questions = state.report?.questions ?? [];
   const question = state.phase === 'asking' ? questions[qIndex] : undefined;
   const replies = state.phase === 'replies' ? (state.assist?.replies ?? []) : [];
@@ -432,10 +531,14 @@ export function Panel() {
         return state.offerForcePaste ? send({ type: 'forcePaste' }) : send({ type: 'cancel' });
       case 'error':
         return send({ type: 'openSettings' });
-      case 'settings':
-        if (!state.settings) return;
-        if (typed && !typed.startsWith('sk-ant-')) return;
-        return send({ type: 'saveSettings', settings: { ...state.settings, apiKey: typed || state.settings.apiKey } });
+      case 'settings': {
+        const screen = state.accountScreen;
+        if (!screen || screen.working || !typed) return;
+        if (screen.mode === 'ownKey') return typed.startsWith('sk-ant-') ? send({ type: 'saveOwnKey', key: typed }) : undefined;
+        if (screen.mode === 'signin') return send({ type: 'requestCode', email: typed });
+        if (screen.mode === 'code') return typed.replace(/\D/g, '').length === 6 ? send({ type: 'verifyCode', code: typed }) : undefined;
+        return;
+      }
     }
   }
 
@@ -457,8 +560,13 @@ export function Panel() {
         return `Change something, or ↵ to insert into ${app}`;
       case 'replies':
         return 'Pick a reply above or type your own, ↵ to put it in the box';
-      case 'settings':
-        return state.settings?.apiKey ? 'Paste a new key to replace the saved one' : 'Paste your Anthropic API key (sk-ant-…)';
+      case 'settings': {
+        const screen = state.accountScreen;
+        if (screen?.working) return 'One moment…';
+        if (screen?.mode === 'ownKey') return screen.hasOwnKey ? 'Paste a new key to replace the saved one' : 'Paste your Anthropic API key (sk-ant-…)';
+        if (screen?.mode === 'code') return 'Enter the 6-digit code, then ↵';
+        return 'Your email address, then ↵';
+      }
       default:
         return '';
     }
@@ -495,13 +603,13 @@ export function Panel() {
       case 'notice':
         return <p class="line">{state.notice}</p>;
       case 'settings':
-        return state.error ? <p class="line error">{state.error}</p> : null;
+        return state.accountScreen ? <AccountCard screen={state.accountScreen} error={state.error} /> : state.error ? <p class="line error">{state.error}</p> : null;
       default:
         return null;
     }
   })();
 
-  const showField = state.phase !== 'notice' && state.phase !== 'error';
+  const showField = state.phase !== 'notice' && state.phase !== 'error' && !(state.phase === 'settings' && state.accountScreen?.mode === 'account');
   // Voice is an input like the keyboard: available wherever the field takes text, except the API-key field.
   const showMic = showField && state.phase !== 'settings' && (!busy || mic !== 'off');
   const options = [
@@ -572,7 +680,8 @@ export function Panel() {
             <input
               ref={inputRef}
               // Preact's input typing is a discriminated union per `type`; the runtime value is what matters here.
-              type={(state.phase === 'settings' ? 'password' : 'text') as 'text'}
+              type={(state.phase === 'settings' && state.accountScreen?.mode === 'ownKey' ? 'password' : 'text') as 'text'}
+              inputMode={state.phase === 'settings' && state.accountScreen?.mode === 'code' ? 'numeric' : undefined}
               value={text}
               disabled={busy}
               placeholder={placeholder}
@@ -619,9 +728,11 @@ export function Panel() {
             <button type="button" class="icon" aria-label="Close" title="Close (esc)" onClick={() => send({ type: 'cancel' })}>
               <Icon d={CLOSE} size={13} />
             </button>
-            <button type="button" class="go" aria-label={state.phase === 'done' && !text.trim() ? `Insert into ${app}` : 'Continue'} title={state.phase === 'done' && !text.trim() ? `Insert into ${app} (↵)` : 'Continue (↵)'} disabled={busy} onClick={finish}>
+            {!(state.phase === 'settings' && state.accountScreen?.mode === 'account') && (
+              <button type="button" class="go" aria-label={state.phase === 'done' && !text.trim() ? `Insert into ${app}` : 'Continue'} title={state.phase === 'done' && !text.trim() ? `Insert into ${app} (↵)` : 'Continue (↵)'} disabled={busy} onClick={finish}>
               <Icon d={ARROW} size={14} />
             </button>
+            )}
           </div>
         </div>
       </div>

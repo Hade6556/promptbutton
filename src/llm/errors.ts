@@ -29,6 +29,10 @@ export function toResult<T>(error: unknown): Result<T> {
   if (error instanceof Anthropic.APIConnectionError) {
     return { ok: false, error: 'Could not reach the API. Check your connection (and that the proxy is running, if you use one).', code: 'network' };
   }
+  if (error instanceof Anthropic.APIError && error.status === 402) {
+    // Our account server: the plan's allowance is used up. Its message says what to do next.
+    return { ok: false, error: apiMessage(error) ?? 'Your plan has run out for now.', code: 'limit' };
+  }
   if (error instanceof Anthropic.APIError) {
     return { ok: false, error: `API error ${error.status ?? ''}: ${apiMessage(error) ?? error.message}`.trim(), code: 'unknown' };
   }

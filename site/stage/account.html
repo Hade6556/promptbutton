@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Account screen states</title>
+<style>body{margin:0;background:#3b2a1c;font:13px -apple-system,system-ui;color:#f7efe6;padding:24px;display:grid;grid-template-columns:repeat(2,600px);gap:28px 32px}
+figure{margin:0}figcaption{margin:0 0 8px;opacity:.75}iframe{width:600px;border:0;border-radius:12px;background:rgba(23,18,15,.62);backdrop-filter:blur(24px);display:block}</style></head><body>
+<script>
+const acct = (o) => ({ email: 'ada@example.com', plan: 'trial', status: null, percentUsed: 47, resetsAt: null, held: false, canUpgrade: true, canManage: false, ...o });
+const states = [
+  ['Signed out, first press', { phase: 'settings', accountScreen: { mode: 'signin' } }],
+  ['Code sent', { phase: 'settings', accountScreen: { mode: 'code', email: 'ada@example.com' } }],
+  ['Wrong code', { phase: 'settings', error: 'That code is not right. Check the email and try again.', accountScreen: { mode: 'code', email: 'ada@example.com' } }],
+  ['Free trial, signed in', { phase: 'settings', accountScreen: { mode: 'account', email: 'ada@example.com', account: acct() } }],
+  ['Trial used up', { phase: 'settings', error: 'You have used your free trial. Upgrade to Pro to keep going.', accountScreen: { mode: 'account', email: 'ada@example.com', account: acct({ percentUsed: 100 }) } }],
+  ['Checkout open in the browser', { phase: 'settings', accountScreen: { mode: 'account', email: 'ada@example.com', note: 'Finish checkout in your browser. This updates by itself when it is done.', account: acct({ percentUsed: 100 }) } }],
+  ['Pro', { phase: 'settings', accountScreen: { mode: 'account', email: 'ada@example.com', account: acct({ plan: 'pro', status: 'active', percentUsed: 12, resetsAt: 1797465600, canUpgrade: false, canManage: true }) } }],
+  ['Own key', { phase: 'settings', accountScreen: { mode: 'ownKey', hasOwnKey: true } }],
+];
+for (const [label, state] of states) {
+  const f = document.createElement('figure');
+  f.innerHTML = `<figcaption>${label}</figcaption>`;
+  const frame = document.createElement('iframe');
+  frame.src = 'panel/index.html?state=' + btoa(unescape(encodeURIComponent(JSON.stringify({ hotkey: '⌥⇧P', ...state }))));
+  frame.style.height = '160px';
+  f.appendChild(frame); document.body.appendChild(f);
+}
+addEventListener('message', (e) => { if (e.data?.type === 'pb-height') for (const fr of document.querySelectorAll('iframe')) if (fr.contentWindow === e.source) fr.style.height = Math.min(e.data.height, 400) + 'px'; });
+</script></body></html>
