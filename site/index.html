@@ -126,8 +126,9 @@ body.menu-open .menu-btn .x { display: block; }
 .hero .cta small { font-size: 0.875rem; color: rgba(255, 255, 255, 0.86); }
 /* Download state, filled from /download/latest.json */
 .hero .cta .dl-info { font-size: 0.8125rem; color: rgba(255, 255, 255, 0.78); min-height: 1.2em; }
-.hero .cta .dl-alt { font-size: 0.875rem; color: rgba(255, 255, 255, 0.86); }
-.hero .cta .dl-alt a { color: #fff; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.hero .cta-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.hero .cta-pair .btn { width: 100%; }
+@media (max-width: 480px) { .hero .cta-pair { grid-template-columns: 1fr; width: min(100%, 320px); } }
 .hero .cta .dl-info.error { color: #fff; background: rgba(23, 18, 15, 0.72); padding: 6px 14px; border-radius: 999px; }
 a.btn.dl-off { opacity: 0.55; cursor: not-allowed; }
 .key { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; margin: 0 1px; vertical-align: -3px; background: rgba(255, 255, 255, 0.14); color: #fff; font-size: 0.75rem; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.3); }
@@ -309,10 +310,12 @@ img.lazy.in { filter: none; }
       <hr class="rule fade-up" />
       <p class="sub fade-up">Pimp My Prompt reads the screen in front of you, asks only what is still missing, and rewrites your draft in any app on your Mac or PC.</p>
       <div class="cta fade-up">
-        <a class="btn btn-primary" href="/download/PimpMyPrompt.dmg" id="heroCta"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
+        <div class="cta-pair" id="heroCta">
+          <a class="btn btn-primary" href="/download/PimpMyPrompt.dmg" download="PimpMyPrompt.dmg" data-fixed data-os="mac"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for Mac</a>
+          <a class="btn btn-primary" href="/download/PimpMyPrompt-Setup.exe" download="PimpMyPrompt-Setup.exe" data-fixed data-os="windows"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#windows"/></svg>Download for Windows</a>
+        </div>
         <small>Press <span style="white-space:nowrap"><kbd class="key">⌥</kbd><kbd class="key">⇧</kbd><kbd class="key">P</kbd></span> in any app. Start free, no card needed.</small>
         <small class="dl-info" id="dlInfo" aria-live="polite"></small>
-        <small class="dl-alt" id="dlAlt"></small>
       </div>
     </div>
     <div class="mac fade-up">
@@ -496,16 +499,10 @@ img.lazy.in { filter: none; }
   const ua = navigator.userAgent;
   const touch = 'ontouchend' in document;
   const platform = /Windows NT/.test(ua) ? 'windows' : /Macintosh|Mac OS X/.test(ua) && !touch ? 'mac' : 'other';
-  // data-fixed links (the footer's) always point at their own system and are left alone.
+  // The hero has one button per system (data-os). The other download buttons, in the header, the
+  // floating bar and the closing section, follow the visitor's computer. data-fixed links stay as they are.
   const dlLinks = [...document.querySelectorAll('a[href="/download/PimpMyPrompt.dmg"]:not([data-fixed])')];
-  const dlAlt = $('dlAlt');
-  // Under the main button, always offer the other system, so a Mac visitor can still fetch the Windows app.
-  const offer = (label, href, file) => {
-    dlAlt.textContent = '';
-    const a = document.createElement('a');
-    a.href = href; a.textContent = label; a.setAttribute('download', file);
-    dlAlt.append('Also available ', a, '.');
-  };
+  const heroButtons = { mac: document.querySelector('[data-os="mac"]'), windows: document.querySelector('[data-os="windows"]') };
   const dlInfo = $('dlInfo');
   if (platform === 'windows') {
     // The hotkey is Alt+Shift+P on Windows: swap the Mac key symbols wherever they appear.
@@ -522,32 +519,36 @@ img.lazy.in { filter: none; }
       a.lastChild.textContent = a.lastChild.textContent.replace('Download for macOS', 'Download for Windows');
     });
   }
-  const unavailable = (what) => {
-    dlInfo.textContent = `The ${what} download is not available right now. Please check back shortly.`;
-    dlInfo.classList.add('error');
-    dlLinks.forEach((a) => {
-      a.classList.add('dl-off'); a.setAttribute('aria-disabled', 'true');
-      a.addEventListener('click', (e) => { e.preventDefault(); dlInfo.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }); });
-    });
+  const disable = (a) => {
+    if (!a) return;
+    a.classList.add('dl-off'); a.setAttribute('aria-disabled', 'true');
+    a.addEventListener('click', (e) => { e.preventDefault(); dlInfo.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }); });
+  };
+  /** Marks one system's download as missing: its hero button, and the other buttons when they point at it. */
+  const unavailable = (os) => {
+    disable(heroButtons[os]);
+    if ((platform === 'windows') === (os === 'windows')) dlLinks.forEach(disable);
   };
   fetch('/download/latest.json', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
     .then((rel) => {
       const mb = (bytes) => Math.round(bytes / 1048576);
-      if (platform === 'windows') {
-        if (!rel.windows) return unavailable('Windows');
-        dlLinks.forEach((a) => a.setAttribute('download', 'PimpMyPrompt-Setup.exe'));
-        dlInfo.textContent = `Version ${rel.windows.version}, ${mb(rel.windows.bytes)} MB. For Windows 10 and 11 on Intel, AMD and ARM PCs.`;
-        offer('for Mac', '/download/PimpMyPrompt.dmg', 'PimpMyPrompt.dmg');
-        return;
-      }
-      dlLinks.forEach((a) => a.setAttribute('download', 'PimpMyPrompt.dmg'));
-      dlInfo.textContent = platform === 'mac'
-        ? `Version ${rel.version}, ${mb(rel.bytes)} MB. For Apple Silicon and Intel Macs with macOS ${parseInt(rel.minimumMacOS, 10)} or later.`
-        : 'Pimp My Prompt runs on Mac and Windows. Open this page on your computer to download it.';
-      if (rel.windows) offer('for Windows', '/download/PimpMyPrompt-Setup.exe', 'PimpMyPrompt-Setup.exe');
+      dlLinks.forEach((a) => a.setAttribute('download', platform === 'windows' ? 'PimpMyPrompt-Setup.exe' : 'PimpMyPrompt.dmg'));
+      const parts = [];
+      if (rel.file) parts.push(`Mac: ${mb(rel.bytes)} MB, macOS ${parseInt(rel.minimumMacOS, 10)} or later, Apple Silicon and Intel.`);
+      else unavailable('mac');
+      if (rel.windows) parts.push(`Windows: ${mb(rel.windows.bytes)} MB, Windows 10 and 11, Intel, AMD and ARM.`);
+      else unavailable('windows');
+      const missing = [!rel.file && 'Mac', !rel.windows && 'Windows'].filter(Boolean);
+      if (missing.length) parts.push(`The ${missing.join(' and ')} download is not available right now.`);
+      dlInfo.textContent = `Version ${rel.version ?? rel.windows?.version}. ${parts.join(' ')}`;
     })
-    .catch(() => unavailable(platform === 'windows' ? 'Windows' : 'Mac'));
+    .catch(() => {
+      unavailable('mac');
+      unavailable('windows');
+      dlInfo.textContent = 'The downloads are not available right now. Please check back shortly.';
+      dlInfo.classList.add('error');
+    });
 
   /* Images blur up as they arrive */
   document.querySelectorAll('img.lazy').forEach((img) => { const done = () => img.classList.add('in'); if (img.complete) done(); else img.addEventListener('load', done, { once: true }); });
