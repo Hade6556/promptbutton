@@ -126,6 +126,8 @@ body.menu-open .menu-btn .x { display: block; }
 .hero .cta small { font-size: 0.875rem; color: rgba(255, 255, 255, 0.86); }
 /* Download state, filled from /download/latest.json */
 .hero .cta .dl-info { font-size: 0.8125rem; color: rgba(255, 255, 255, 0.78); min-height: 1.2em; }
+.hero .cta .dl-alt { font-size: 0.875rem; color: rgba(255, 255, 255, 0.86); }
+.hero .cta .dl-alt a { color: #fff; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
 .hero .cta .dl-info.error { color: #fff; background: rgba(23, 18, 15, 0.72); padding: 6px 14px; border-radius: 999px; }
 a.btn.dl-off { opacity: 0.55; cursor: not-allowed; }
 .key { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; margin: 0 1px; vertical-align: -3px; background: rgba(255, 255, 255, 0.14); color: #fff; font-size: 0.75rem; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.3); }
@@ -310,6 +312,7 @@ img.lazy.in { filter: none; }
         <a class="btn btn-primary" href="/download/PimpMyPrompt.dmg" id="heroCta"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
         <small>Press <span style="white-space:nowrap"><kbd class="key">⌥</kbd><kbd class="key">⇧</kbd><kbd class="key">P</kbd></span> in any app. Start free, no card needed.</small>
         <small class="dl-info" id="dlInfo" aria-live="polite"></small>
+        <small class="dl-alt" id="dlAlt"></small>
       </div>
     </div>
     <div class="mac fade-up">
@@ -441,7 +444,7 @@ img.lazy.in { filter: none; }
           <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="22" height="22" />Pimp My Prompt</a>
           <div class="status"><i aria-hidden="true"></i>Runs on Mac and Windows. Start free.</div>
         </div>
-        <div><h3>Product</h3><ul><li><a href="/download/PimpMyPrompt.dmg">Download</a></li><li><a href="#how">How it works</a></li><li><a href="#prompt">The prompt</a></li><li><a href="#trust">Trust</a></li></ul></div>
+        <div><h3>Product</h3><ul><li><a href="/download/PimpMyPrompt.dmg" data-fixed>Download for Mac</a></li><li><a href="/download/PimpMyPrompt-Setup.exe" data-fixed>Download for Windows</a></li><li><a href="#how">How it works</a></li><li><a href="#prompt">The prompt</a></li><li><a href="#trust">Trust</a></li></ul></div>
         <div><h3>Resources</h3><ul><li><a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a></li><li><a href="https://github.com/Hade6556/promptbutton/blob/main/docs/master-prompt-playbook.md" rel="noopener">Master prompt playbook</a></li><li><a href="https://github.com/Hade6556/promptbutton/tree/main/eval" rel="noopener">Eval results</a></li><li><a href="https://github.com/Hade6556/promptbutton/tree/main/hardware" rel="noopener">Hardware button</a></li></ul></div>
         <div><h3>Compare</h3><ul><li><a href="#faq">Versus prompt enhancers</a></li><li><a href="#how">Versus a prompting course</a></li><li><a href="#prompt">Versus writing it yourself</a></li></ul></div>
         <div><h3>Support</h3><ul><li><a href="https://github.com/Hade6556/promptbutton/issues" rel="noopener">Report a problem</a></li><li><a href="https://github.com/Hade6556/promptbutton#readme" rel="noopener">Set-up guide</a></li></ul></div>
@@ -493,7 +496,16 @@ img.lazy.in { filter: none; }
   const ua = navigator.userAgent;
   const touch = 'ontouchend' in document;
   const platform = /Windows NT/.test(ua) ? 'windows' : /Macintosh|Mac OS X/.test(ua) && !touch ? 'mac' : 'other';
-  const dlLinks = [...document.querySelectorAll('a[href="/download/PimpMyPrompt.dmg"]')];
+  // data-fixed links (the footer's) always point at their own system and are left alone.
+  const dlLinks = [...document.querySelectorAll('a[href="/download/PimpMyPrompt.dmg"]:not([data-fixed])')];
+  const dlAlt = $('dlAlt');
+  // Under the main button, always offer the other system, so a Mac visitor can still fetch the Windows app.
+  const offer = (label, href, file) => {
+    dlAlt.textContent = '';
+    const a = document.createElement('a');
+    a.href = href; a.textContent = label; a.setAttribute('download', file);
+    dlAlt.append('Also available ', a, '.');
+  };
   const dlInfo = $('dlInfo');
   if (platform === 'windows') {
     // The hotkey is Alt+Shift+P on Windows: swap the Mac key symbols wherever they appear.
@@ -526,12 +538,14 @@ img.lazy.in { filter: none; }
         if (!rel.windows) return unavailable('Windows');
         dlLinks.forEach((a) => a.setAttribute('download', 'PimpMyPrompt-Setup.exe'));
         dlInfo.textContent = `Version ${rel.windows.version}, ${mb(rel.windows.bytes)} MB. For Windows 10 and 11 on Intel, AMD and ARM PCs.`;
+        offer('for Mac', '/download/PimpMyPrompt.dmg', 'PimpMyPrompt.dmg');
         return;
       }
       dlLinks.forEach((a) => a.setAttribute('download', 'PimpMyPrompt.dmg'));
       dlInfo.textContent = platform === 'mac'
         ? `Version ${rel.version}, ${mb(rel.bytes)} MB. For Apple Silicon and Intel Macs with macOS ${parseInt(rel.minimumMacOS, 10)} or later.`
         : 'Pimp My Prompt runs on Mac and Windows. Open this page on your computer to download it.';
+      if (rel.windows) offer('for Windows', '/download/PimpMyPrompt-Setup.exe', 'PimpMyPrompt-Setup.exe');
     })
     .catch(() => unavailable(platform === 'windows' ? 'Windows' : 'Mac'));
 
