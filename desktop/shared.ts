@@ -12,7 +12,65 @@ export interface Settings {
   depth: Depth;
   /** macOS NSWindowSharingNone / Windows WDA_EXCLUDEFROMCAPTURE: the panel is invisible to screen sharing. */
   hideFromCapture: boolean;
+  /** The first-run setup that was completed; 0 = never. Bumped when setup gains a step everyone must see. */
+  onboarded: number;
+  /** A user-chosen global shortcut (Electron accelerator), or null for the defaults. */
+  shortcut: string | null;
+  /** The settings pane open last, restored next time. */
+  lastPane: SetupPane;
 }
+
+/** Settings window panes, in toolbar order. */
+export type SetupPane = 'general' | 'prompts' | 'account' | 'permissions' | 'about';
+/** First-run steps, in order. */
+export type OnboardingStep = 'welcome' | 'permissions' | 'account' | 'try' | 'done';
+
+export type PermissionKind = 'accessibility' | 'screen' | 'microphone';
+/** 'restart': switched on in System Settings, but macOS applies it only after the app restarts. */
+export type PermissionStatus = 'granted' | 'denied' | 'not-determined' | 'restart' | 'unsupported';
+export type Permissions = Record<PermissionKind, PermissionStatus>;
+
+/** Everything the settings / setup window shows. Secrets never reach it (see publicSettings in main.ts). */
+export interface SetupState {
+  view: 'onboarding' | 'settings';
+  step: OnboardingStep;
+  pane: SetupPane;
+  platform: string;
+  version: string;
+  settings: Settings;
+  accountScreen: AccountScreen;
+  accountError?: string;
+  permissions: Permissions;
+  /** Required access was lost after setup: the window opened by itself to fix it. */
+  revoked: boolean;
+  shortcut: { keys: string[][]; label: string; custom: boolean; recording: boolean; error?: string };
+  /** The shortcut was pressed while this window had focus (ms timestamp), for the practice step. */
+  shortcutPressedAt: number | null;
+  openAtLogin: boolean;
+}
+
+export type SetupAction =
+  | { type: 'step'; step: OnboardingStep }
+  | { type: 'pane'; pane: SetupPane }
+  | { type: 'finishOnboarding' }
+  | { type: 'restartOnboarding' }
+  | { type: 'requestPermission'; permission: PermissionKind }
+  | { type: 'openPermissionPane'; permission: PermissionKind }
+  | { type: 'relaunch' }
+  | { type: 'prefs'; prefs: Partial<Pick<Settings, 'askMode' | 'depth' | 'hideFromCapture'>> }
+  | { type: 'openAtLogin'; on: boolean }
+  | { type: 'recordShortcut'; on: boolean }
+  | { type: 'setShortcut'; accelerator: string | null }
+  | { type: 'account'; action: AccountAction }
+  | { type: 'open'; target: 'site' | 'privacy' | 'terms' | 'support' }
+  | { type: 'close' }
+  | { type: 'quit' };
+
+/** Account actions both surfaces send: the panel's inline card and the settings window. */
+export type AccountAction = Extract<
+  RendererAction,
+  { type: 'requestCode' | 'verifyCode' | 'changeEmail' | 'signOut' | 'upgrade' | 'manageBilling' | 'ownKeyMode' | 'saveOwnKey' }
+>;
 
 export type Phase =
   | 'hidden'
@@ -128,6 +186,14 @@ export interface PbApi {
   resize(height: number): void;
   /** Let clicks fall through to the app underneath when the pointer is off the pill/card. */
   setMouseThrough(ignore: boolean): void;
+  /** The settings / setup window. */
+  setup: {
+    get(): Promise<SetupState>;
+    onState(callback: (state: SetupState) => void): () => void;
+    send(action: SetupAction): void;
+    /** Ask the window to fit this content height (px). */
+    resize(height: number): void;
+  };
 }
 
 declare global {

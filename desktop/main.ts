@@ -3,6 +3,8 @@
 // rewrite pipeline as the extension, and writes the result back into the field.
 import Anthropic from '@anthropic-ai/sdk';
 import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, systemPreferences, Tray } from 'electron';
+import { hasRequired, openPermissionPane, readPermissions, requestPermission } from './permissions';
+import { shortcutKeys, shortcutLabel, shortcutsFor, validShortcut } from './shortcut';
 import path from 'node:path';
 import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
 import { toResult } from '../src/llm/errors';
@@ -15,14 +17,12 @@ import { captureContext, hashDistance, type Capture } from './capture';
 import { cancelDictation, startDictation, stopDictation } from './dictation';
 import { dotEnvPaths, resolveApiKey } from './env';
 import { forcePaste, insertText } from './insert';
-import { loadSettings, saveSettings } from './settings';
-import type { AccountScreen, AccountView, PanelState, RendererAction, Settings } from './shared';
+import { DEFAULTS, loadSettings, saveSettings } from './settings';
+import type { AccountAction, AccountScreen, AccountView, OnboardingStep, PanelState, Permissions, RendererAction, Settings, SetupAction, SetupPane, SetupState } from './shared';
 
 const IS_MAC = process.platform === 'darwin';
-// macOS: ⌥⇧P is the documented chord; ⌥⌘P is what people press when they read ⇧ as ⌘.
-// Windows: Alt+Shift+P matches the Mac; Ctrl+Alt+P is the fallback if a keyboard-layout switcher eats Alt+Shift.
-const HOTKEYS = IS_MAC ? ['Alt+Shift+P', 'Alt+Command+P'] : ['Alt+Shift+P', 'Control+Alt+P'];
-const HOTKEY = IS_MAC ? '⌥⇧P (or ⌥⌘P)' : 'Alt+Shift+P (or Ctrl+Alt+P)';
+/** Bump when first-run setup gains a step that existing users must also see. */
+const ONBOARDING_VERSION = 1;
 const PASTE_KEYS = IS_MAC ? '⌘V' : 'Ctrl+V';
 const PANEL_WIDTH = 600;
 const PANEL_HEIGHT = 56; // the bare box; the renderer asks for more as content appears
@@ -30,8 +30,10 @@ const PANEL_MAX_HEIGHT = 760;
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let settings: Settings = { apiKey: null, account: null, askMode: 'auto', depth: 'full', hideFromCapture: false };
-let state: PanelState = { phase: 'hidden', hotkey: HOTKEY };
+let settings = { ...DEFAULTS };
+/** The shortcut as people see it: "⌥⇧P (or ⌥⌘P)", or the one they chose. */
+const hotkeyLabel = () => shortcutLabel(settings.shortcut);
+let state: PanelState = { phase: 'hidden', hotkey: hotkeyLabel() };
 let busy = false;
 /** Incremented on every trigger/close so results from a cancelled run are ignored. */
 let runId = 0;
@@ -89,7 +91,7 @@ function cachedRun(capture: Capture): typeof lastRun {
 
 function setState(patch: Partial<PanelState>) {
   const previous = state.phase;
-  state = { ...state, ...patch, hotkey: HOTKEY };
+  state = { ...state, ...patch, hotkey: hotkeyLabel() };
   if (state.phase !== previous) {
     const detail =
       state.phase === 'asking' && state.report
@@ -102,6 +104,7 @@ function setState(patch: Partial<PanelState>) {
     console.log(`[PromptButton] ${previous} → ${state.phase}${detail}`);
   }
   win?.webContents.send('pb:state', state);
+  if (trayMode() !== trayModeShown) updateTrayIcon();
 }
 
 let resumeAfterSettings = false;
@@ -150,10 +153,19 @@ function currentScreen(): AccountScreen {
   return { ...accountScreen, account: accountView, hasOwnKey: Boolean(settings.apiKey) };
 }
 
+/** Where account screens render: the panel (inline, mid-run) or the settings window that sent the action. */
+let accountSurface: 'panel' | 'window' = 'panel';
+
 function showAccount(error?: string, patch: Partial<AccountScreen> = {}) {
   accountScreen = { ...accountScreen, ...patch };
+  if (accountSurface === 'window' && setupWin) {
+    setup.accountError = error;
+    pushSetup();
+    return;
+  }
   setState({ phase: 'settings', settings: publicSettings(), accountScreen: currentScreen(), error });
   showPanel(true);
+  pushSetup();
 }
 
 async function accountApi<T>(path: string, options: { method?: 'GET' | 'POST'; body?: unknown; auth?: boolean } = {}): Promise<T> {
@@ -192,6 +204,7 @@ async function refreshAccount(): Promise<AccountView | null> {
     else console.warn('[PromptButton] account refresh failed:', message(error));
   }
   if (state.phase === 'settings') setState({ settings: publicSettings(), accountScreen: currentScreen() });
+  pushSetup();
   return accountView;
 }
 
@@ -203,12 +216,10 @@ function watchForUpgrade() {
     const view = await refreshAccount();
     if (view?.plan === 'pro') {
       clearInterval(checkoutPoll);
-      if (state.phase === 'settings') showAccount(undefined, { note: 'You are on Pro now. Thank you!' });
+      if (state.phase === 'settings' || setupWin) showAccount(undefined, { note: 'You are on Pro now. Thank you!' });
     } else if (Date.now() > until || !settings.account) clearInterval(checkoutPoll);
   }, 4000);
 }
-
-type AccountAction = Extract<RendererAction, { type: 'requestCode' | 'verifyCode' | 'changeEmail' | 'signOut' | 'upgrade' | 'manageBilling' | 'ownKeyMode' | 'saveOwnKey' }>;
 
 async function accountAction(action: AccountAction) {
   switch (action.type) {
@@ -233,11 +244,11 @@ async function accountAction(action: AccountAction) {
         accountView = data.account;
         accountScreen = { mode: 'account', email };
         console.log('[PromptButton] signed in');
-        if (resumeAfterSettings && current) {
+        if (accountSurface === 'panel' && resumeAfterSettings && current) {
           resumeAfterSettings = false;
           return analyzeAndContinue();
         }
-        showAccount();
+        showAccount(undefined, { working: false });
       } catch (error) {
         showAccount(message(error), { working: false });
       }
@@ -272,10 +283,11 @@ async function accountAction(action: AccountAction) {
     case 'saveOwnKey':
       settings = { ...settings, apiKey: action.key };
       saveSettings(settings);
-      if (action.key && resumeAfterSettings && current) {
+      if (accountSurface === 'panel' && action.key && resumeAfterSettings && current) {
         resumeAfterSettings = false;
         return analyzeAndContinue();
       }
+      if (accountSurface === 'window') return showAccount(undefined, action.key ? { note: undefined } : { mode: settings.account ? 'account' : 'signin' });
       return action.key ? hidePanel() : showAccount(undefined, { mode: settings.account ? 'account' : 'signin' });
   }
 }
@@ -414,19 +426,19 @@ function notice(text: string, options: { ttl?: number; offerForcePaste?: boolean
   if (options.ttl) noticeTimer = setTimeout(hidePanel, options.ttl);
 }
 
-/** Without Accessibility the app can neither read the field nor write into it, so say that and open the right pane. */
+/**
+ * Without Accessibility the app can neither read the field nor write into it. Close the panel and open
+ * the permissions screen, which shows live status and the way back: first-run setup if it never
+ * finished, otherwise Settings → Permissions with a note that access was lost.
+ */
 function needAccessibility() {
-  busy = false;
-  const name = app.getName();
-  setState({
-    phase: 'error',
-    error: `${name} needs Accessibility access to read and write the field you are typing in. In the window that just opened, turn on ${name}, then press ${HOTKEY} again. If it is already on, remove it with the minus button and add it back.`,
-  });
-  showPanel(true);
-  void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+  hidePanel();
+  if (settings.onboarded < ONBOARDING_VERSION) openSetup('onboarding', { step: 'permissions' });
+  else openSetup('settings', { pane: 'permissions', revoked: true });
 }
 
 function fail(error: unknown) {
+  accountSurface = 'panel';
   const raw = error instanceof Error ? error.message : String(error);
   if (/not allowed to send keystrokes|not allowed assistive access|\(1002\)|\(-25211\)|\(-1719\)/i.test(raw)) return needAccessibility();
   const result = toResult<never>(error);
@@ -453,6 +465,17 @@ async function trigger(options: { fresh?: boolean } = {}) {
   if (state.phase !== 'hidden' && !options.fresh) {
     console.log(`[PromptButton] hotkey while ${state.phase} → closing`);
     hidePanel();
+    return;
+  }
+  // Setup's practice step listens for the shortcut. In our own window there is nothing to improve, so
+  // the press only counts as practice there; elsewhere it also runs for real.
+  if (setupWin && setup.view === 'onboarding' && setup.step === 'try') {
+    setup.pressedAt = Date.now();
+    pushSetup();
+  }
+  if (setupWin?.isFocused()) {
+    setup.pressedAt = Date.now();
+    pushSetup();
     return;
   }
   if (busy) return;
@@ -754,16 +777,18 @@ async function handleAction(action: RendererAction) {
     case 'manageBilling':
     case 'ownKeyMode':
     case 'saveOwnKey':
+      accountSurface = 'panel';
       return accountAction(action);
     case 'openSettings':
-      showAccount(undefined, { working: false, note: undefined });
-      return void refreshAccount();
+      hidePanel();
+      return openSetup('settings');
     case 'saveSettings':
       // Preferences only: the key and the session are changed through the account actions.
       settings = { ...action.settings, apiKey: settings.apiKey, account: settings.account };
       saveSettings(settings);
       win?.setContentProtection(settings.hideFromCapture);
       buildTray();
+      pushSetup();
       if (resumeAfterSettings && current) {
         resumeAfterSettings = false;
         console.log('[PromptButton] key saved — resuming the interrupted run');
@@ -784,86 +809,390 @@ async function undo() {
   }
 }
 
+// ── Menu bar item ─────────────────────────────────────────────────────────────────────────────────
+// macOS draws the idle states from template images (black and clear), tinting them for a light or dark
+// menu bar and for the open menu, as a menu bar extra should look. The colour arrives only with status:
+// the amber keycap while a request runs (Ember: the accent marks the primary action and status). An
+// outline keycap means setup is not finished: the one permission the app needs is missing.
+
+type TrayMode = 'ready' | 'busy' | 'off';
+let trayModeShown: TrayMode | null = null;
+let permissions: Permissions = { accessibility: 'unsupported', screen: 'unsupported', microphone: 'unsupported' };
+
+function trayMode(): TrayMode {
+  if (state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting') return 'busy';
+  return hasRequired(permissions) ? 'ready' : 'off';
+}
+
+function trayImage(mode: TrayMode): Electron.NativeImage {
+  const dir = path.join(__dirname, '..', 'assets', 'tray');
+  // Electron loads the @2x file next to it and marks *Template.png files as template images.
+  const file = IS_MAC ? { ready: 'trayTemplate.png', off: 'trayOffTemplate.png', busy: 'trayBusy.png' }[mode] : mode === 'off' ? 'trayWinOff.png' : 'trayWin.png';
+  return nativeImage.createFromPath(path.join(dir, file));
+}
+
+function updateTrayIcon() {
+  if (!tray) return;
+  const mode = trayMode();
+  trayModeShown = mode;
+  tray.setImage(trayImage(mode));
+  const name = app.getName();
+  tray.setToolTip(mode === 'off' ? `${name}: needs Accessibility access` : mode === 'busy' ? `${name}: working…` : `${name}: ${hotkeyLabel()}`);
+}
+
 function buildTray() {
-  const size = IS_MAC ? 18 : 16;
-  const icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'public', 'icon', '32.png')).resize({ width: size, height: size });
   if (!tray) {
-    tray = new Tray(icon);
+    tray = new Tray(trayImage(trayMode()));
     // Windows tray icons open their menu on right-click only; make a left-click do the same.
     if (!IS_MAC) tray.on('click', () => tray?.popUpContextMenu());
   }
-  tray.setToolTip(app.getName());
-  const mode = (value: Settings['askMode'], label: string): Electron.MenuItemConstructorOptions => ({
-    label,
-    type: 'radio',
-    checked: settings.askMode === value,
-    click: () => {
-      settings = { ...settings, askMode: value };
-      saveSettings(settings);
-    },
-  });
-  const depth = (value: Settings['depth'], label: string): Electron.MenuItemConstructorOptions => ({
-    label,
-    type: 'radio',
-    checked: settings.depth === value,
-    click: () => {
-      settings = { ...settings, depth: value };
-      saveSettings(settings);
-    },
-  });
+  updateTrayIcon();
+  const ready = hasRequired(permissions);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: `Improve prompt  ${HOTKEY}`, click: () => void trigger() },
+      ...(ready
+        ? []
+        : ([
+            { label: 'Finish setup…', click: () => needAccessibility() },
+            { type: 'separator' },
+          ] as Electron.MenuItemConstructorOptions[])),
+      { label: `Improve prompt  ${hotkeyLabel()}`, enabled: ready, click: () => void trigger() },
       { label: 'Undo last insert', click: () => void undo(), enabled: lastInsert !== null },
       { type: 'separator' },
-      { label: 'Ask questions', submenu: [mode('auto', 'Only when the draft is ambiguous'), mode('always', 'Always'), mode('never', 'Never, just rewrite')] },
-      { label: 'Rewrite depth', submenu: [depth('full', 'Full master prompt'), depth('concise', 'Concise — tighten only')] },
-      {
-        label: 'Hide from screen sharing',
-        type: 'checkbox',
-        checked: settings.hideFromCapture,
-        click: (item) => {
-          settings = { ...settings, hideFromCapture: item.checked };
-          saveSettings(settings);
-          win?.setContentProtection(settings.hideFromCapture);
-        },
-      },
-      { label: 'Account…', click: () => void handleAction({ type: 'openSettings' }) },
+      { label: 'Settings…', accelerator: 'CommandOrControl+,', click: () => openSetup('settings') },
+      { label: 'Account…', click: () => openSetup('settings', { pane: 'account' }) },
       { type: 'separator' },
       { label: `Quit ${app.getName()}`, role: 'quit' },
     ]),
   );
 }
 
+// ── Shortcut ──────────────────────────────────────────────────────────────────────────────────────
+
+/** Registers the saved shortcut, or both defaults. Returns the chords another app or macOS already owns. */
+function registerShortcuts(): string[] {
+  globalShortcut.unregisterAll();
+  const failed: string[] = [];
+  for (const chord of shortcutsFor(settings.shortcut)) {
+    let ok = false;
+    try {
+      ok = globalShortcut.register(chord, () => {
+        console.log(`[PromptButton] hotkey ${chord}`);
+        void trigger();
+      });
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      failed.push(chord);
+      console.error(`[PromptButton] could not register ${chord}; another app owns it.`);
+    }
+  }
+  return failed;
+}
+
+/** Saves a new shortcut if it can be registered; otherwise keeps the old one and says why. */
+function applyShortcut(accelerator: string | null): string | undefined {
+  if (accelerator && !validShortcut(accelerator)) return `Use ${IS_MAC ? '⌘, ⌃ or ⌥' : 'Ctrl or Alt'} with one other key.`;
+  const previous = settings.shortcut;
+  settings = { ...settings, shortcut: accelerator };
+  if (accelerator && registerShortcuts().length > 0) {
+    settings = { ...settings, shortcut: previous };
+    registerShortcuts();
+    return `${shortcutKeys(accelerator).join(IS_MAC ? '' : '+')} is already used by ${IS_MAC ? 'macOS' : 'Windows'} or another app. Try a different one.`;
+  }
+  if (!accelerator) registerShortcuts();
+  saveSettings(settings);
+  buildTray();
+  setState({});
+  return undefined;
+}
+
+// ── Settings and first-run setup window ─────────────────────────────────────────────────────────
+// One ordinary window for both: setup walks through the steps once, Settings holds panes. It is a
+// real window (title bar, ⌘W, ⌘,), not the floating panel, because people come here on purpose.
+
+let setupWin: BrowserWindow | null = null;
+const setup = {
+  view: 'settings' as SetupState['view'],
+  step: 'welcome' as OnboardingStep,
+  pane: 'general' as SetupPane,
+  revoked: false,
+  accountError: undefined as string | undefined,
+  recording: false,
+  shortcutError: undefined as string | undefined,
+  pressedAt: null as number | null,
+};
+const SETUP_WIDTH = 640;
+const LINKS = {
+  site: 'https://pimpmypromt.ai',
+  privacy: 'https://pimpmypromt.ai/privacy.html',
+  terms: 'https://pimpmypromt.ai/terms.html',
+  support: 'mailto:hello@pimpmypromt.ai',
+} as const;
+
+function setupState(): SetupState {
+  return {
+    view: setup.view,
+    step: setup.step,
+    pane: setup.pane,
+    platform: process.platform,
+    version: app.getVersion(),
+    settings: publicSettings(),
+    accountScreen: currentScreen(),
+    accountError: setup.accountError,
+    permissions,
+    revoked: setup.revoked,
+    shortcut: {
+      keys: shortcutsFor(settings.shortcut).map(shortcutKeys),
+      label: hotkeyLabel(),
+      custom: settings.shortcut !== null,
+      recording: setup.recording,
+      error: setup.shortcutError,
+    },
+    shortcutPressedAt: setup.pressedAt,
+    openAtLogin: app.getLoginItemSettings().openAtLogin,
+  };
+}
+
+function pushSetup() {
+  setupWin?.webContents.send('pb:setup:state', setupState());
+}
+
+function openSetup(view: SetupState['view'], options: { step?: OnboardingStep; pane?: SetupPane; revoked?: boolean } = {}) {
+  setup.view = view;
+  if (view === 'onboarding') setup.step = options.step ?? 'welcome';
+  setup.pane = options.pane ?? settings.lastPane;
+  setup.revoked = options.revoked ?? false;
+  setup.accountError = undefined;
+  setup.shortcutError = undefined;
+  setup.pressedAt = null;
+  accountSurface = 'window';
+  if (accountScreen.working) accountScreen = { ...accountScreen, working: false };
+  permissions = readPermissions();
+  if (settings.account) void refreshAccount();
+  if (!setupWin) createSetupWindow();
+  else pushSetup();
+  if (setupWin!.webContents.isLoading()) setupWin!.once('ready-to-show', () => revealSetup());
+  else revealSetup();
+}
+
+function revealSetup() {
+  if (!setupWin) return;
+  setupWin.show();
+  setupWin.focus();
+  // A menu bar app is never frontmost by itself; bring this window in front of the app in use.
+  if (IS_MAC) app.focus({ steal: true });
+}
+
+function createSetupWindow() {
+  setupWin = new BrowserWindow({
+    width: SETUP_WIDTH,
+    height: 520,
+    useContentSize: true,
+    show: false,
+    title: app.getName(),
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    // Basalt underneath so nothing flashes white before the page paints.
+    backgroundColor: IS_MAC ? '#00000000' : '#17120f',
+    ...(IS_MAC
+      ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 14, y: 14 }, vibrancy: 'hud' as const, visualEffectState: 'active' as const }
+      : { autoHideMenuBar: true }),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  if (!IS_MAC) setupWin.removeMenu();
+  void setupWin.loadFile(path.join(__dirname, 'renderer', 'index.html'), { hash: 'setup' });
+  setupWin.on('closed', () => {
+    setupWin = null;
+    accountSurface = 'panel';
+    if (setup.recording) {
+      setup.recording = false;
+      registerShortcuts();
+    }
+  });
+  const contents = setupWin.webContents;
+  contents.on('before-input-event', (event, input) => {
+    const primary = IS_MAC ? input.meta : input.control;
+    if (input.type === 'keyDown' && primary && !input.alt && !input.shift && input.key.toLowerCase() === 'w') {
+      event.preventDefault();
+      setupWin?.close();
+    }
+  });
+  // Links open in the browser, never inside the app.
+  contents.setWindowOpenHandler(({ url }) => {
+    if (/^(https:|mailto:)/.test(url)) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
+}
+
+async function handleSetupAction(action: SetupAction) {
+  switch (action.type) {
+    case 'step':
+      setup.step = action.step;
+      if (action.step === 'try') setup.pressedAt = null;
+      break;
+    case 'pane':
+      setup.pane = action.pane;
+      setup.shortcutError = undefined;
+      settings = { ...settings, lastPane: action.pane };
+      saveSettings(settings);
+      if (action.pane === 'account' && settings.account) void refreshAccount();
+      break;
+    case 'finishOnboarding':
+      settings = { ...settings, onboarded: ONBOARDING_VERSION };
+      saveSettings(settings);
+      console.log('[PromptButton] setup finished');
+      setupWin?.close();
+      return;
+    case 'restartOnboarding':
+      setup.view = 'onboarding';
+      setup.step = 'welcome';
+      break;
+    case 'requestPermission':
+      await requestPermission(action.permission);
+      permissions = readPermissions();
+      buildTray();
+      break;
+    case 'openPermissionPane':
+      openPermissionPane(action.permission);
+      return;
+    case 'relaunch': {
+      // Screen Recording takes effect only in a new process. Come back to the same place.
+      const where = setup.view === 'onboarding' ? `--pmp-setup=onboarding:${setup.step}` : `--pmp-setup=settings:${setup.pane}`;
+      app.relaunch({ args: [...process.argv.slice(1).filter((a) => !a.startsWith('--pmp-setup=')), where] });
+      app.exit(0);
+      return;
+    }
+    case 'prefs':
+      settings = { ...settings, ...action.prefs };
+      saveSettings(settings);
+      win?.setContentProtection(settings.hideFromCapture);
+      break;
+    case 'openAtLogin':
+      app.setLoginItemSettings({ openAtLogin: action.on });
+      break;
+    case 'recordShortcut':
+      // While recording, the current chords must not fire, or pressing them could not be recorded.
+      setup.recording = action.on;
+      setup.shortcutError = undefined;
+      if (action.on) globalShortcut.unregisterAll();
+      else registerShortcuts();
+      break;
+    case 'setShortcut':
+      setup.recording = false;
+      setup.shortcutError = applyShortcut(action.accelerator);
+      break;
+    case 'account':
+      accountSurface = 'window';
+      setup.accountError = undefined;
+      return accountAction(action.action as AccountAction);
+    case 'open':
+      void shell.openExternal(LINKS[action.target]);
+      return;
+    case 'close':
+      setupWin?.close();
+      return;
+    case 'quit':
+      app.quit();
+      return;
+  }
+  pushSetup();
+}
+
+/** The app menu appears while the settings window is in front: ⌘, ⌘W, ⌘Q and the Edit commands. */
+function buildAppMenu() {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(IS_MAC
+      ? ([
+          {
+            label: app.getName(),
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              { label: 'Settings…', accelerator: 'Command+,', click: () => openSetup('settings') },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ] as Electron.MenuItemConstructorOptions[])
+      : []),
+    { role: 'editMenu' },
+    { role: 'windowMenu' },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+// Testing: PMP_USER_DATA=/some/dir runs with its own settings, as a fresh install would, beside the installed app.
+if (process.env.PMP_USER_DATA) app.setPath('userData', path.resolve(process.env.PMP_USER_DATA));
+
 // One copy only: a second launch would add a second tray icon and fight over the hotkey.
 if (!app.requestSingleInstanceLock()) app.quit();
-app.on('second-instance', () => console.log('[PromptButton] already running; ignoring the second launch'));
+app.on('second-instance', () => {
+  // Opening the app again (Finder, Spotlight) is how people look for it: show Settings.
+  console.log('[PromptButton] second launch → showing Settings');
+  openSetup(settings.onboarded < ONBOARDING_VERSION ? 'onboarding' : 'settings');
+});
 
 app.whenReady().then(() => {
   if (!app.hasSingleInstanceLock()) return;
   settings = loadSettings();
   app.dock?.hide(); // menu-bar utility, no Dock icon
+  permissions = readPermissions();
+  buildAppMenu();
   createWindow();
   buildTray();
   powerMonitor.on('resume', () => rebuildHiddenWindow('wake'));
   powerMonitor.on('unlock-screen', () => rebuildHiddenWindow('unlock'));
 
-  if (process.platform === 'darwin') {
-    // Prompts once for Accessibility (needed to read the focused field and to paste).
-    const trusted = systemPreferences.isTrustedAccessibilityClient(true);
-    const screenStatus = systemPreferences.getMediaAccessStatus('screen');
-    console.log(`[PromptButton] permissions: accessibility=${trusted ? 'granted' : 'NOT granted'} screen-recording=${screenStatus}`);
-    if (!trusted) console.warn(`[PromptButton] Grant Accessibility: System Settings → Privacy & Security → Accessibility → ${app.getName()}.`);
-    if (screenStatus !== 'granted') console.warn(`[PromptButton] Grant Screen Recording: System Settings → Privacy & Security → Screen Recording → ${app.getName()}, then restart.`);
+  // Permissions change outside the app (System Settings) and can be revoked at any time: follow them,
+  // so the menu bar item and an open setup screen update the moment the switch moves.
+  setInterval(() => {
+    const next = readPermissions();
+    if (JSON.stringify(next) === JSON.stringify(permissions)) return;
+    console.log(`[PromptButton] permissions: accessibility=${next.accessibility} screen=${next.screen} microphone=${next.microphone}`);
+    const regained = !hasRequired(permissions) && hasRequired(next);
+    permissions = next;
+    if (regained) setup.revoked = false;
+    buildTray();
+    pushSetup();
+  }, 1500);
+
+  if (IS_MAC) {
+    console.log(`[PromptButton] permissions: accessibility=${permissions.accessibility} screen-recording=${permissions.screen} microphone=${permissions.microphone}`);
   }
 
-  for (const chord of HOTKEYS) {
-    const ok = globalShortcut.register(chord, () => {
-      console.log(`[PromptButton] hotkey ${chord}`);
-      void trigger();
-    });
-    if (!ok) console.error(`[PromptButton] could not register ${chord}; another app owns it.`);
+  const failed = registerShortcuts();
+  if (settings.shortcut && failed.length > 0) {
+    // The saved chord was taken while the app was closed: fall back to the defaults rather than having none.
+    console.warn('[PromptButton] saved shortcut unavailable; using the defaults');
+    settings = { ...settings, shortcut: null };
+    saveSettings(settings);
+    registerShortcuts();
+    buildTray();
   }
+
+  // First run: setup. Later runs: only if the one required permission is gone (revoked, or reset by
+  // an update), straight to the screen that fixes it. A relaunch from setup returns to where it was.
+  const resume = process.argv.find((a) => a.startsWith('--pmp-setup='))?.slice('--pmp-setup='.length);
+  if (resume) {
+    const [view, where] = resume.split(':');
+    if (view === 'onboarding') openSetup('onboarding', { step: where as OnboardingStep });
+    else openSetup('settings', { pane: where as SetupPane });
+  } else if (settings.onboarded < ONBOARDING_VERSION) openSetup('onboarding');
+  else if (!hasRequired(permissions)) openSetup('settings', { pane: 'permissions', revoked: true });
+
   // Scriptable triggers for testing and for buttons that are not keyboards:
   //   kill -USR2 <pid>  → improve the focused field (same as the hotkey)
   //   kill -USR1 <pid>  → insert the finished rewrite (same as the arrow / ⌘↵)
@@ -880,10 +1209,18 @@ app.whenReady().then(() => {
   ipcMain.on('pb:resize', (_event, height: number) => fitPanel(Number(height) || PANEL_HEIGHT));
   // Transparent areas of the window must not swallow clicks meant for the app underneath.
   ipcMain.on('pb:mouse', (_event, ignore: boolean) => win?.setIgnoreMouseEvents(Boolean(ignore), { forward: true }));
+  ipcMain.handle('pb:setup:get', () => setupState());
+  ipcMain.on('pb:setup:action', (_event, action: SetupAction) => void handleSetupAction(action));
+  // The settings window takes the height of what it shows, like a macOS settings pane.
+  ipcMain.on('pb:setup:resize', (_event, height: number) => {
+    const h = Math.max(320, Math.min(760, Math.ceil(Number(height) || 0)));
+    const [, current] = setupWin?.getContentSize() ?? [0, 0];
+    if (setupWin && h !== current) setupWin.setContentSize(SETUP_WIDTH, h, IS_MAC);
+  });
 
   const mode = settings.apiKey ? 'own key' : settings.account ? `account ${settings.account.email} via ${API_BASE}` : `developer key from ${resolveApiKey(null).source}`;
   console.log(`[PromptButton] Claude calls use: ${mode} (developer keys checked in env, ${dotEnvPaths().join(', ')})`);
-  console.log(`[PromptButton] ready — ${HOTKEY} (pid ${process.pid})`);
+  console.log(`[PromptButton] ready — ${hotkeyLabel()} (pid ${process.pid})`);
 });
 
 app.on('window-all-closed', () => {

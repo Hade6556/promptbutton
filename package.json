@@ -26,6 +26,7 @@
     "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron .",
     "desktop:bundle": "esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
     "desktop:helper": "mkdir -p desktop/bin && xcrun swiftc -O -o desktop/bin/axhelper desktop/native/axhelper.swift && xcrun swiftc -O -o desktop/bin/dictate desktop/native/dictate.swift -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker desktop/native/dictate-Info.plist",
+    "desktop:icons": "node --import tsx scripts/make-menubar-icons.mts",
     "desktop:dist": "bash scripts/package-mac.sh",
     "desktop:dist:win": "bash scripts/package-win.sh",
     "release:upload": "bash scripts/upload-release.sh",
@@ -63,6 +64,7 @@
       "package.json",
       "desktop/dist/**/*",
       "!desktop/dist/**/*.map",
+      "desktop/assets/**/*",
       "public/icon/**/*"
     ],
     "asarUnpack": [

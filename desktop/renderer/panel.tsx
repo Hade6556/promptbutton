@@ -98,7 +98,7 @@ function BlockView({ block }: { block: Block }) {
  * The rewrite, as sections when it is a master prompt (XML tags or "Role:" labels), otherwise as
  * plain text. While streaming, the box follows the text; when done it scrolls back to the top.
  */
-function usageLine(a: AccountView): string {
+export function usageLine(a: AccountView): string {
   if (a.held) return 'Paused while a payment question is open. Reply to our email to sort it out.';
   if (a.plan === 'pro') {
     const resets = new Date((a.resetsAt ?? 0) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });

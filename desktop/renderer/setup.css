@@ -1,0 +1,613 @@
+/* The settings and first-run window. Same Ember tokens as the panel (styles.css): basalt glass, warm
+   white labels, amber only for the primary action and for status (a lit keycap, a switch that is on),
+   ice for what needs the user (recording a shortcut) and keyboard focus. Everything else is quiet:
+   grouped rows like System Settings, so it reads as a Mac window, not a web page. */
+
+:root[data-view='setup'] {
+  --surface-window: rgba(23, 18, 15, 0.84);
+  --group: rgba(255, 236, 214, 0.045);
+  --gutter: 24px;
+  /* Keycaps: basalt body, the darker side below it, and the amber cap's side when lit (= the app icon's). */
+  --cap-top: #3a302a;
+  --cap-bottom: #2b231e;
+  --cap-side: #120e0b;
+  --cap-side-lit: var(--cap-side-lit);
+  --cap-shadow: rgba(0, 0, 0, 0.35);
+  --input-well: rgba(0, 0, 0, 0.22);
+}
+:root[data-view='setup'][data-platform='win32'] {
+  --surface-window: var(--surface-solid);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root[data-view='setup'] {
+    --surface-window: var(--surface-solid);
+    --group: rgba(255, 236, 214, 0.08);
+  }
+}
+:root[data-view='setup'] body {
+  background: var(--surface-window);
+  min-height: 100vh;
+}
+:root[data-view='setup'] #app {
+  overflow: visible;
+}
+
+/* ── Title bar and toolbar ──────────────────────────────────────────────────────────────────── */
+.chrome {
+  -webkit-app-region: drag;
+  padding-top: 8px;
+  border-bottom: 1px solid var(--separator);
+}
+.chrome.slim {
+  height: 40px;
+  padding: 0;
+  border-bottom: 0;
+}
+.chrome button {
+  -webkit-app-region: no-drag;
+}
+.title {
+  height: 20px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--label-2);
+}
+:root[data-platform='win32'] .title {
+  text-align: left;
+  padding-left: var(--gutter);
+}
+.toolbar {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 0 8px;
+}
+.tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 76px;
+  padding: 6px 8px 5px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--label-2);
+  font-size: 11px;
+  line-height: 13px;
+  cursor: pointer;
+}
+.tool:hover {
+  background: var(--fill-2);
+  color: var(--label);
+}
+.tool:active {
+  background: var(--fill);
+}
+/* The active pane: a neutral lit tile. Selection is not status, so it stays out of amber. */
+.tool.on {
+  background: var(--fill-hover);
+  color: var(--label);
+}
+.tool .badge {
+  position: absolute;
+  top: 5px;
+  right: 22px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+/* ── Panes ──────────────────────────────────────────────────────────────────────────────────── */
+.pane {
+  padding: 20px var(--gutter) var(--gutter);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: fade-in 200ms var(--ease-out);
+  user-select: text;
+}
+.group-title {
+  margin: 0 0 6px 12px;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--label-3);
+}
+.group-body {
+  border-radius: 10px;
+  background: var(--group);
+  box-shadow: inset 0 0 0 0.5px var(--hairline);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 48px;
+  padding: 10px 14px;
+}
+.row + .row {
+  border-top: 1px solid var(--separator);
+}
+.row.block {
+  display: block;
+  padding: 14px;
+}
+.row-text {
+  flex: 1;
+  min-width: 0;
+}
+.row-label {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--label);
+}
+.row-hint,
+.hint {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--label-3);
+}
+.hint {
+  margin: 0;
+}
+.row-hint.fix {
+  margin-top: 6px;
+  color: var(--label-2);
+}
+.row-control {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.need {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--label-3);
+}
+.footnote {
+  margin: 0 12px;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--label-3);
+}
+.banner {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgb(from var(--warning) r g b / 0.1);
+  box-shadow: inset 0 0 0 0.5px rgb(from var(--warning) r g b / 0.35);
+  color: var(--label-2);
+  font-size: 12px;
+  line-height: 17px;
+}
+.banner strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--warning);
+  font-weight: 600;
+}
+
+/* Permission status: a word, never colour alone. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--label-3);
+}
+.status.granted {
+  color: var(--success);
+}
+.status.denied,
+.status.restart {
+  color: var(--warning);
+}
+
+/* ── Controls ───────────────────────────────────────────────────────────────────────────────── */
+.btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--fill);
+  box-shadow: inset 0 0.5px 0 var(--highlight);
+  color: var(--label);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  background: var(--fill-hover);
+}
+.btn:active:not(:disabled) {
+  background: var(--fill-2);
+  box-shadow: none;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* Primary: the shared amber states of .go and .opt.primary (styles.css), on a rectangular button. */
+.btn.primary {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+  box-shadow: inset 0 1px 0 var(--accent-sheen), 0 0 14px -6px var(--accent-glow);
+  color: var(--on-accent);
+  font-weight: 600;
+  transition: box-shadow 120ms var(--ease-out), transform 80ms var(--ease-out);
+}
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%);
+  box-shadow: inset 0 1px 0 var(--accent-sheen), 0 0 18px -5px var(--accent-glow);
+}
+.btn.primary:active:not(:disabled) {
+  background: linear-gradient(180deg, var(--accent-deep) 0%, var(--accent-pressed) 100%);
+  box-shadow: none;
+  transform: translateY(0.5px);
+}
+.btn:focus-visible,
+.btn.primary:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+.btn.primary:disabled {
+  box-shadow: none;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+/* Switch: off is a neutral track; on is amber, because on is a state. */
+.switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 0.5px var(--hairline);
+  cursor: pointer;
+  transition: background 160ms var(--ease-out);
+}
+.switch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--label);
+  box-shadow: 0 1px 2px var(--cap-shadow);
+  transition: transform 160ms var(--ease-out);
+}
+.switch:hover {
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+.switch[aria-checked='true'] {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+}
+.switch[aria-checked='true']:hover {
+  background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%);
+}
+.switch[aria-checked='true'] span {
+  transform: translateX(14px);
+  background: var(--label);
+}
+.switch:active span {
+  width: 19px;
+}
+.switch[aria-checked='true']:active span {
+  transform: translateX(11px);
+}
+
+/* Segmented control: the chosen option is a raised neutral tile. */
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--fill);
+}
+.seg button {
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--label-2);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.seg button:hover {
+  color: var(--label);
+}
+.seg button.on {
+  background: var(--fill-hover);
+  box-shadow: inset 0 0.5px 0 var(--highlight);
+  color: var(--label);
+  font-weight: 600;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--input-well);
+  box-shadow: inset 0 0 0 0.5px var(--separator);
+  color: var(--label);
+  font-size: 13px;
+  outline: none;
+  user-select: text;
+}
+.input::placeholder {
+  color: var(--label-3);
+}
+.input:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+.field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.form-error,
+.error-text {
+  color: var(--danger);
+}
+.form-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+.ok-text {
+  color: var(--success);
+}
+.recording {
+  color: var(--secondary);
+}
+
+/* ── Account ────────────────────────────────────────────────────────────────────────────────── */
+.acct {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.actions.end {
+  justify-content: flex-end;
+}
+
+/* ── Keycaps: the product's signature, the same caps as on pimpmypromt.ai ──────────────────── */
+.keys {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+}
+.cap {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px 2px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--cap-top) 0%, var(--cap-bottom) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--highlight),
+    0 2px 0 var(--cap-side),
+    0 3px 6px var(--cap-shadow);
+  color: var(--label);
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    transform 120ms var(--ease-out),
+    box-shadow 120ms var(--ease-out),
+    background 160ms var(--ease-out);
+}
+.keys.lg .cap {
+  min-width: 64px;
+  height: 64px;
+  padding: 0 14px 4px;
+  border-radius: 14px;
+  font-size: 26px;
+  font-weight: 500;
+  box-shadow:
+    inset 0 1px 0 var(--highlight),
+    0 5px 0 var(--cap-side),
+    0 8px 18px var(--cap-shadow);
+}
+.keys.lg {
+  gap: 10px;
+}
+.keys.lg .cap.word {
+  font-size: 18px;
+}
+/* Lit: pressed down and glowing amber — the shortcut just reached the app. */
+.keys.lit .cap,
+.cap.lit-static {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+  color: var(--on-accent);
+  box-shadow:
+    inset 0 1px 0 var(--accent-sheen),
+    0 1px 0 var(--cap-side-lit),
+    0 0 22px -4px var(--accent-glow);
+  transform: translateY(1px);
+}
+.keys.lg.lit .cap {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 1px 0 var(--accent-sheen),
+    0 1px 0 var(--cap-side-lit),
+    0 0 36px -6px var(--accent-glow);
+}
+.cap.lit-static {
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 var(--accent-sheen),
+    0 4px 0 var(--cap-side-lit);
+}
+.shortcut-list {
+  display: inline-flex;
+  gap: 10px;
+}
+.recording-keys {
+  min-width: 60px;
+  justify-content: flex-end;
+  color: var(--secondary);
+}
+.dots {
+  color: var(--secondary);
+  font-weight: 600;
+}
+
+/* ── About ──────────────────────────────────────────────────────────────────────────────────── */
+.about {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 4px 0;
+}
+.about-name {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+/* ── First-run setup ────────────────────────────────────────────────────────────────────────── */
+.onboarding {
+  display: flex;
+  flex-direction: column;
+}
+.step {
+  padding: 8px 40px 8px;
+  animation: fade-in 260ms var(--ease-out);
+  user-select: text;
+}
+.step h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.lede {
+  margin: 0 0 22px;
+  max-width: 62ch;
+  color: var(--label-2);
+  font-size: 13px;
+  line-height: 19px;
+}
+.hero-keys {
+  display: flex;
+  justify-content: center;
+  padding: 26px 0 30px;
+}
+.tips {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tips li {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 12px;
+  color: var(--label-2);
+}
+.tips .keys {
+  justify-content: flex-end;
+}
+/* The menu bar keycap drawn as it appears there: a small monochrome cap. */
+.tray-glyph {
+  justify-self: end;
+  margin-right: 3px;
+  color: var(--label);
+}
+.step-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 40px 24px;
+}
+.spacer {
+  flex: 1;
+}
+.progress-text {
+  display: inline-flex;
+  gap: 6px;
+}
+.pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fill-hover);
+}
+.pip.done {
+  background: var(--label-3);
+}
+.pip.on {
+  width: 18px;
+  border-radius: 3px;
+  background: var(--label);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane,
+  .step {
+    animation: none;
+  }
+  .cap,
+  .switch,
+  .switch span,
+  .btn.primary {
+    transition: none;
+  }
+  .keys.lit .cap,
+  .keys.lg.lit .cap,
+  .btn.primary:active:not(:disabled) {
+    transform: none;
+  }
+}
