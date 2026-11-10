@@ -13,6 +13,10 @@ Works on **claude.ai** and **chatgpt.com**. Trigger: `Alt+Shift+P`, the ✦ butt
 **Try it without installing anything:** the playground at <https://hade6556.github.io/promptbutton/> runs the same
 two Claude calls on a conversation you paste in (bring your own Anthropic key; it stays in your browser).
 
+**Landing page for the Mac app:** `site/` is a single static `index.html` plus `assets/`, built on the app's own
+Ember tokens. `npm run site` serves it at <http://localhost:5500>; it needs no backend, so it can be copied to any
+static host as is. The download link is `[DMG download URL]` until there is a build to point at.
+
 ## Desktop app (works in any app, like VS Code)
 
 `desktop/` is an Electron menu-bar app for macOS. Press `⌥⇧P` in **any** app and a panel appears over it:

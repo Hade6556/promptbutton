@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PromptButton for Mac</title>
+<meta name="description" content="Press one key on a rough draft and get the prompt a specialist would have written. PromptButton reads the conversation, asks only what is missing, and rewrites your prompt in any app on your Mac." />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0e0b09" />
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<meta property="og:title" content="PromptButton for Mac" />
+<meta property="og:description" content="One key. The prompt a specialist would have written." />
+<style>
+/* ---------- Brand tokens: palette "Ember", copied from desktop/renderer/styles.css ---------- */
+:root {
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, 'Helvetica Neue', sans-serif;
+  --bg-deep: #0e0b09;
+  --surface: rgba(23, 18, 15, 0.62);
+  --surface-solid: #17120f;
+  --fill: rgba(255, 236, 214, 0.08);
+  --fill-2: rgba(255, 236, 214, 0.05);
+  --fill-hover: rgba(255, 236, 214, 0.14);
+  --highlight: rgba(255, 228, 196, 0.16);
+  --hairline: rgba(255, 228, 196, 0.08);
+  --separator: rgba(247, 239, 230, 0.16);
+  --label: #f7efe6;
+  --label-2: rgba(247, 239, 230, 0.72);
+  --label-3: rgba(247, 239, 230, 0.58);
+  --accent: #ffb547;
+  --accent-deep: #e8892a;
+  --on-accent: #1f1408;
+  --accent-glow: rgba(255, 181, 71, 0.55);
+  --secondary: #8ed8ff;
+  --secondary-fill: rgba(142, 216, 255, 0.13);
+  --focus-ring: rgba(142, 216, 255, 0.85);
+  --success: #7be0a0;
+  --warning: #ffe27a;
+  --radius: 12px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Page-only */
+  --max: 1120px;
+  --gutter: 16px;
+  --radius-lg: 24px;
+}
+@media (min-width: 768px) { :root { --gutter: 32px; } }
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg-deep);
+  color: var(--label);
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1, h2, h3, p, ul, ol, dl { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+img, svg { display: block; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; border-radius: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.wrap { width: min(100% - 2 * var(--gutter), var(--max)); margin-inline: auto; }
+
+/* ---------- Type scale ---------- */
+.display {
+  font-size: clamp(2.5rem, 7.2vw, 4.9rem);
+  line-height: 1.02;
+  letter-spacing: -0.028em;
+  font-weight: 600;
+}
+.h2 {
+  font-size: clamp(1.9rem, 4.4vw, 3.1rem);
+  line-height: 1.08;
+  letter-spacing: -0.022em;
+  font-weight: 600;
+}
+.h2 .soft { color: var(--label-3); font-weight: 500; }
+.lead { font-size: clamp(1.05rem, 1.6vw, 1.3rem); line-height: 1.45; color: var(--label-2); }
+.sub { font-size: 1.0625rem; color: var(--label-2); }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  height: 48px; padding: 0 22px; border-radius: 9999px;
+  font-weight: 600; font-size: 1rem; white-space: nowrap;
+  transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background 160ms;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  color: var(--on-accent);
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.45), 0 10px 30px -10px var(--accent-glow);
+}
+.btn-primary:hover { box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.5), 0 14px 36px -10px var(--accent-glow); }
+.btn-quiet { color: var(--label); background: var(--fill); box-shadow: inset 0 0 0 1px var(--hairline); height: 40px; padding: 0 16px; font-size: 0.9375rem; }
+.btn-quiet:hover { background: var(--fill-hover); }
+.btn .apple { width: 16px; height: 16px; fill: currentColor; }
+.btn-lg { height: 54px; padding: 0 28px; font-size: 1.0625rem; }
+
+/* ---------- Header ---------- */
+.site-header {
+  position: absolute; inset: 0 0 auto; z-index: 20;
+  padding-top: 18px;
+}
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; height: 48px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.125rem; letter-spacing: -0.01em; }
+.brand img { width: 28px; height: 28px; }
+.nav-links { display: none; align-items: center; gap: 6px; }
+.nav-links a {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 9999px;
+  color: var(--label-2); font-weight: 500;
+}
+.nav-links a:hover { color: var(--label); background: var(--fill-2); }
+.nav-right { display: flex; align-items: center; gap: 8px; }
+.menu-btn {
+  width: 44px; height: 44px; display: grid; place-items: center; border-radius: 9999px;
+  color: var(--label);
+}
+.menu-btn:hover { background: var(--fill-2); }
+.menu-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.menu-btn .x { display: none; }
+.mobile-menu {
+  display: none;
+  margin-top: 12px; padding: 8px; border-radius: 16px;
+  background: var(--surface-solid);
+  box-shadow: inset 0 0 0 1px var(--hairline), 0 24px 60px -20px rgba(0, 0, 0, 0.8);
+}
+.mobile-menu a { display: flex; align-items: center; min-height: 48px; padding: 0 14px; border-radius: 10px; color: var(--label); font-weight: 500; }
+.mobile-menu a:hover { background: var(--fill-2); }
+.mobile-menu .btn { margin: 8px 6px 6px; width: calc(100% - 12px); }
+.site-header.open .mobile-menu { display: block; }
+.site-header.open .menu-btn .bars { display: none; }
+.site-header.open .menu-btn .x { display: block; }
+.nav-links a { white-space: nowrap; }
+@media (min-width: 1024px) {
+  .nav-links { display: flex; }
+  .menu-btn, .mobile-menu { display: none !important; }
+}
+@media (max-width: 767px) { .nav-right .btn-quiet { display: none; } }
+
+/* Floating CTA that appears once the hero button has scrolled away. */
+.float-cta {
+  position: fixed; right: 20px; top: 20px; z-index: 30; width: max-content;
+  opacity: 0; transform: translateY(-8px); pointer-events: none;
+  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+}
+.float-cta.show { opacity: 1; transform: none; pointer-events: auto; }
+@media (max-width: 767px) { .float-cta { top: auto; bottom: 16px; right: 16px; left: 16px; } .float-cta .btn { width: 100%; } }
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative; overflow: hidden;
+  padding: 128px 0 0;
+  text-align: center;
+}
+/* The scene: a basalt sky, an ember horizon and a low sun, in gradients only. */
+.hero::before {
+  content: ""; position: absolute; inset: 0; z-index: -2;
+  background:
+    radial-gradient(60% 38% at 78% 72%, rgba(255, 181, 71, 0.55), rgba(255, 181, 71, 0) 70%),
+    radial-gradient(120% 50% at 50% 100%, rgba(232, 137, 42, 0.38), rgba(232, 137, 42, 0) 70%),
+    linear-gradient(180deg, #0e0b09 0%, #1a110c 55%, #3a2412 100%);
+}
+.hero::after {
+  content: ""; position: absolute; inset: auto 0 0; height: 44%; z-index: -1;
+  background: linear-gradient(180deg, rgba(14, 11, 9, 0) 0%, rgba(14, 11, 9, 0.6) 100%);
+}
+.hero .display { margin-inline: auto; max-width: 15ch; text-wrap: balance; }
+.hero .lead { margin: 22px auto 0; max-width: 42ch; text-wrap: pretty; }
+.hero .cta { margin-top: 34px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.hero .cta small { color: var(--label-3); font-size: 0.875rem; }
+.hero .cta small kbd { font: inherit; }
+.kbd-row { display: inline-flex; gap: 4px; vertical-align: middle; }
+.key {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 6px; background: var(--fill); color: var(--label-2);
+  font-size: 0.75rem; font-weight: 600; box-shadow: inset 0 -1px 0 rgba(0,0,0,.4), inset 0 1px 0 var(--highlight);
+}
+
+/* ---------- Demo: a Mac desktop with the panel over a chat ---------- */
+.demo { margin-top: 64px; position: relative; }
+.mac {
+  position: relative; margin-inline: auto; width: min(100%, 1120px);
+  aspect-ratio: 16 / 9.6; min-height: 520px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; overflow: hidden;
+  background:
+    radial-gradient(80% 60% at 20% 110%, rgba(255, 181, 71, 0.35), transparent 70%),
+    radial-gradient(60% 50% at 90% 20%, rgba(142, 216, 255, 0.18), transparent 70%),
+    linear-gradient(160deg, #2a1a10 0%, #0f0c0a 60%, #140e0b 100%);
+  box-shadow: inset 0 0 0 1px var(--hairline), 0 -30px 80px -40px rgba(255, 181, 71, 0.35);
+  text-align: left;
+}
+.menubar {
+  position: absolute; inset: 0 0 auto; height: 28px; padding: 0 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(14, 11, 9, 0.5); color: var(--label-2); font-size: 12px;
+  backdrop-filter: blur(10px);
+}
+.menubar img { width: 14px; height: 14px; }
+.menubar .right { display: flex; gap: 12px; }
+.chat {
+  position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: min(92%, 860px); height: 82%;
+  border-radius: 14px 14px 0 0;
+  background: #1c1a1c;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 30px 80px -30px rgba(0,0,0,.9);
+  color: #d8d4cf; font-size: 13px;
+}
+.chat .titlebar { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.dots i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #5a5553; margin-right: 6px; }
+.chat .title { margin-left: auto; margin-right: auto; color: #9a938d; font-size: 12px; }
+.chat .msgs { padding: 22px 24px 0; display: grid; gap: 14px; }
+.msg { max-width: 72%; padding: 10px 14px; border-radius: 14px; line-height: 1.45; }
+.msg.them { background: #2a2729; color: #cfcac5; }
+.msg.me { justify-self: end; background: #3a332b; color: #f1ebe4; }
+.chat .composer {
+  position: absolute; left: 20px; right: 20px; bottom: 18px; min-height: 54px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px;
+  border-radius: 14px; background: #262325; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+  color: #e9e3dc;
+}
+.chat .composer .send { width: 30px; height: 30px; border-radius: 50%; background: #4a443f; display: grid; place-items: center; }
+.chat .composer .send svg { width: 14px; height: 14px; stroke: #d9d2ca; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The PromptButton panel: the same box as the app, drawn with the same tokens. */
+.panel {
+  position: absolute; left: 50%; top: 10%; transform: translateX(-50%);
+  width: min(92%, 600px);
+  border-radius: var(--radius);
+  background: rgba(23, 18, 15, 0.86);
+  backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: inset 0 1px 0 0 var(--highlight), inset 0 0 0 0.5px var(--hairline), 0 30px 90px -20px rgba(0, 0, 0, 0.85);
+  color: var(--label); font-size: 13px; line-height: 18px;
+}
+.panel .ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; opacity: 0; transition: opacity 320ms var(--ease-out); }
+.panel .ring rect { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: butt; filter: drop-shadow(0 0 5px var(--accent-glow)); }
+.panel .content { padding: 14px 16px 2px; }
+.panel .content:empty { display: none; }
+.sec { opacity: 0; transform: translateY(3px); }
+.sec.in { opacity: 1; transform: none; transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out); }
+.sec + .sec { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--separator); }
+.sec-label { display: block; margin-bottom: 2px; color: var(--label-2); font-size: 11px; line-height: 14px; font-weight: 600; }
+.sec ol { padding-left: 18px; list-style: decimal; margin-top: 2px; }
+.sec li::marker { color: var(--label-3); }
+.assumed, .ph { display: inline-block; padding: 0 6px; border-radius: 9999px; font-size: 10px; line-height: 15px; font-weight: 600; vertical-align: 1px; white-space: nowrap; }
+.assumed { margin-left: 4px; background: var(--fill); color: var(--label-2); }
+.ph { background: var(--secondary-fill); color: var(--secondary); font-weight: 500; white-space: normal; }
+.caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -2px; background: var(--accent); animation: blink 0.9s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.panel .composer-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px 8px 16px; }
+.panel .field { flex: 1; min-width: 0; color: var(--label-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel .field.typed { color: var(--label); }
+.panel .field.listening { color: var(--secondary); }
+.panel .controls { display: flex; align-items: center; gap: 2px; }
+.icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9999px; color: var(--label-3); }
+.icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.icon.mic { color: var(--label-2); }
+.icon.mic.live { background: var(--secondary-fill); color: var(--secondary); box-shadow: 0 0 0 3px rgba(142, 216, 255, 0.22); }
+.go { width: 28px; height: 28px; margin-left: 6px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%); color: var(--on-accent); box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.45), 0 0 14px -4px var(--accent-glow); }
+.go svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.heard { display: flex; align-items: center; gap: 8px; padding: 0 16px 6px; color: var(--label-2); font-size: 12px; }
+.heard svg { width: 13px; height: 13px; flex: none; stroke: var(--secondary); fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.heard .text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.heard .undo { margin-left: auto; flex: none; color: var(--secondary); font-weight: 600; }
+
+/* Keycaps that "press" at the start of the demo. */
+.press { position: absolute; left: 50%; top: 4.5%; transform: translateX(-50%); display: flex; gap: 6px; opacity: 0; }
+.press .cap {
+  min-width: 34px; height: 34px; padding: 0 9px; display: grid; place-items: center; border-radius: 9px;
+  background: linear-gradient(180deg, #2a2320, #1a1412); color: var(--label); font-weight: 600; font-size: 14px;
+  box-shadow: inset 0 1px 0 var(--highlight), 0 4px 0 #0a0807, 0 10px 24px -8px rgba(0,0,0,.9);
+  transition: transform 90ms, box-shadow 90ms;
+}
+.press.down .cap { transform: translateY(3px); box-shadow: inset 0 1px 0 var(--highlight), 0 1px 0 #0a0807; }
+.press.show { opacity: 1; transition: opacity 200ms; }
+.replay {
+  position: absolute; right: 16px; bottom: 16px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 9999px;
+  background: var(--surface-solid); color: var(--label-2); font-size: 0.875rem; font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.replay:hover { color: var(--label); background: #231b16; }
+.replay svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (max-width: 767px) {
+  .mac { aspect-ratio: auto; height: 560px; min-height: 0; }
+  .chat { width: 100%; height: 74%; border-radius: 12px 12px 0 0; }
+  .chat .msgs { padding: 16px 16px 0; }
+  .msg { max-width: 88%; }
+  .panel { width: calc(100% - 24px); top: 11%; font-size: 12px; line-height: 17px; }
+  .panel .content { padding: 12px 14px 2px; }
+}
+
+/* ---------- Sections ---------- */
+.section { padding: 112px 0; }
+.section-head { text-align: center; }
+.section-head .lead { margin: 16px auto 0; max-width: 48ch; }
+@media (max-width: 767px) { .section { padding: 80px 0; } }
+
+/* Steps: three cards, the first in the accent (as Cluely tints its first card). */
+.steps { margin-top: 48px; display: grid; gap: 18px; grid-template-columns: 1fr; }
+@media (min-width: 768px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+.step {
+  position: relative; min-height: 380px; padding: clamp(20px, 2.6vw, 28px); border-radius: var(--radius-lg); overflow: hidden;
+  background: var(--surface-solid); box-shadow: inset 0 0 0 1px var(--hairline);
+  display: flex; flex-direction: column;
+}
+.step h3 { font-size: 1.375rem; line-height: 1.2; letter-spacing: -0.015em; font-weight: 600; }
+.step p { margin-top: 8px; color: var(--label-2); font-size: 1rem; max-width: 34ch; }
+.step .num { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; margin-bottom: 18px; background: var(--fill); color: var(--label-2); font-size: 0.875rem; font-weight: 600; }
+.step.accent { background: linear-gradient(170deg, var(--accent) 0%, var(--accent-deep) 100%); color: var(--on-accent); box-shadow: inset 0 1px 0 rgba(255,244,228,.5); }
+.step.accent p, .step.accent .num { color: #3d2a14; }
+.step.accent .num { background: rgba(31, 20, 8, 0.12); }
+.step .art { margin-top: auto; padding-top: 24px; }
+/* Mini visuals inside steps */
+.mini { border-radius: 12px; background: rgba(23, 18, 15, 0.92); box-shadow: inset 0 1px 0 var(--highlight), inset 0 0 0 .5px var(--hairline); color: var(--label); font-size: 12px; line-height: 17px; padding: 12px 14px; }
+.step.accent .mini { box-shadow: inset 0 1px 0 var(--highlight), 0 20px 40px -20px rgba(31,20,8,.6); }
+.mini .row { display: flex; align-items: center; gap: 8px; color: var(--label-2); }
+.mini .row + .row { margin-top: 8px; }
+.mini .pillset { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.opt { height: 26px; padding: 0 10px; border-radius: 9999px; background: var(--fill); color: var(--label); font-size: 11px; font-weight: 500; display: inline-flex; align-items: center; }
+.opt.pick { background: var(--secondary-fill); color: var(--secondary); }
+.mini .q { color: var(--label); font-weight: 500; }
+.scan { position: relative; height: 6px; border-radius: 9999px; background: var(--fill); overflow: hidden; margin-top: 10px; }
+.scan::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 42%; border-radius: inherit; background: linear-gradient(90deg, transparent, var(--accent)); animation: scan 2.6s var(--ease-out) infinite; }
+@keyframes scan { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+.lines i { display: block; height: 7px; border-radius: 4px; background: var(--fill); margin-top: 7px; }
+.lines i:nth-child(1) { width: 92%; } .lines i:nth-child(2) { width: 78%; } .lines i:nth-child(3) { width: 85%; background: var(--fill-hover); }
+
+/* Voice feature: headline, then one big mock inside a glowing container. */
+.stage {
+  margin-top: 48px; padding: clamp(24px, 6vw, 72px) var(--gutter);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(70% 70% at 50% 110%, rgba(142, 216, 255, 0.16), transparent 70%),
+    linear-gradient(180deg, #17120f, #0f0c0a);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center;
+}
+.stage .panel { position: static; transform: none; width: min(100%, 600px); }
+.stage .spoken { margin-top: 22px; text-align: center; color: var(--label-2); font-size: 1rem; }
+.stage .spoken q { color: var(--label); font-style: italic; }
+
+/* Features grid */
+.features { margin-top: 18px; display: grid; gap: 18px; grid-template-columns: 1fr; }
+@media (min-width: 768px) { .features { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .features { grid-template-columns: repeat(3, 1fr); } }
+.feature { padding: 26px; border-radius: 20px; background: var(--surface-solid); box-shadow: inset 0 0 0 1px var(--hairline); }
+.feature .glyph { width: 40px; height: 40px; border-radius: 12px; background: var(--fill); display: grid; place-items: center; color: var(--accent); margin-bottom: 18px; }
+.feature .glyph svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.feature h3 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
+.feature p { margin-top: 6px; color: var(--label-2); font-size: 0.9375rem; }
+.apps { margin-top: 56px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 14px; color: var(--label-3); font-size: 0.9375rem; }
+.apps span { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 9999px; box-shadow: inset 0 0 0 1px var(--hairline); }
+.apps .lbl { box-shadow: none; padding-left: 0; }
+
+/* Social proof placeholder */
+.proof { text-align: center; }
+.proof .quote { margin: 28px auto 0; max-width: 60ch; font-size: clamp(1.25rem, 2.4vw, 1.75rem); line-height: 1.35; letter-spacing: -0.012em; font-weight: 500; }
+.proof .who { margin-top: 16px; color: var(--label-3); font-size: 0.9375rem; }
+.todo { display: inline-block; padding: 0 8px; border-radius: 9999px; background: var(--secondary-fill); color: var(--secondary); font-size: 0.75rem; font-weight: 600; vertical-align: 2px; margin-left: 6px; }
+
+/* FAQ */
+.faq { margin-top: 40px; border-top: 1px solid var(--separator); }
+.faq details { border-bottom: 1px solid var(--separator); }
+.faq summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 22px 4px; font-size: 1.125rem; font-weight: 500;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary svg { width: 18px; height: 18px; flex: none; stroke: var(--label-3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 200ms var(--ease-out); }
+.faq details[open] summary svg { transform: rotate(180deg); }
+.faq .a { padding: 0 4px 24px; color: var(--label-2); max-width: 70ch; }
+.faq .a a { color: var(--secondary); }
+
+/* Closing CTA: two lines, left-aligned, with the shortcut keycaps standing in for art. */
+.closing { position: relative; overflow: hidden; padding: 120px 0; }
+.closing::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(70% 90% at 90% 50%, rgba(255, 181, 71, 0.22), transparent 70%), linear-gradient(180deg, #0e0b09, #1a120d); }
+.closing .wrap { display: grid; gap: 40px; align-items: center; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .closing .wrap { grid-template-columns: 1.2fr 1fr; } }
+.closing .h2 { max-width: 20ch; }
+.closing .lead { margin-top: 8px; }
+.closing .btn { margin-top: 28px; }
+.bigkeys { display: flex; gap: 14px; justify-content: center; transform: rotate(-6deg); }
+.bigkeys .cap {
+  width: clamp(72px, 10vw, 112px); aspect-ratio: 1; border-radius: 22px; display: grid; place-items: center;
+  background: linear-gradient(180deg, #2a2320, #171210); color: var(--label); font-size: clamp(1.4rem, 3vw, 2.2rem); font-weight: 600;
+  box-shadow: inset 0 1px 0 var(--highlight), 0 10px 0 #0a0807, 0 30px 50px -20px rgba(0,0,0,.9);
+}
+.bigkeys .cap.amber { background: linear-gradient(180deg, var(--accent), var(--accent-deep)); color: var(--on-accent); box-shadow: inset 0 1px 0 rgba(255,244,228,.5), 0 10px 0 #9a5a19, 0 30px 60px -20px var(--accent-glow); }
+.bigkeys .cap:nth-child(2) { translate: 0 18px; }
+.bigkeys .cap:nth-child(3) { translate: 0 -10px; }
+
+/* Footer */
+.site-footer { padding: 64px 0 40px; border-top: 1px solid var(--separator); font-size: 0.9375rem; }
+.foot-grid { display: grid; gap: 36px; grid-template-columns: 1fr 1fr; }
+@media (min-width: 768px) { .foot-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1024px) { .foot-grid { grid-template-columns: 1.4fr repeat(4, 1fr); } }
+.foot-brand { grid-column: 1 / -1; }
+@media (min-width: 1024px) { .foot-brand { grid-column: auto; } }
+.foot-brand p { margin-top: 12px; color: var(--label-3); max-width: 28ch; }
+.site-footer h3 { font-size: 0.875rem; font-weight: 600; color: var(--label); margin-bottom: 14px; }
+.site-footer li + li { margin-top: 10px; }
+.site-footer li a { color: var(--label-2); }
+.site-footer li a:hover { color: var(--label); }
+.badge { display: inline-flex; align-items: center; gap: 8px; margin-top: 44px; height: 32px; padding: 0 12px; border-radius: 9999px; box-shadow: inset 0 0 0 1px var(--hairline); color: var(--label-2); font-size: 0.8125rem; }
+.badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 10px var(--success); }
+.foot-bottom { margin-top: 28px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; color: var(--label-3); font-size: 0.8125rem; }
+.foot-bottom a { color: var(--label-2); }
+
+/* ---------- Motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .sec { opacity: 1; transform: none; }
+  .replay, .press { display: none; }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .panel { background: var(--surface-solid); backdrop-filter: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header" id="top">
+  <div class="wrap">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="28" height="28" />PromptButton</a>
+      <div class="nav-links">
+        <a href="#how">How it works</a>
+        <a href="#voice">Voice</a>
+        <a href="#features">Features</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <a class="btn btn-quiet" href="[DMG download URL]">Download for macOS</a>
+        <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="mobileMenu" aria-label="Open menu">
+          <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+    </nav>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="#how">How it works</a>
+      <a href="#voice">Voice</a>
+      <a href="#features">Features</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a>
+      <a class="btn btn-primary" href="[DMG download URL]"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
+    </div>
+  </div>
+</header>
+
+<div class="float-cta" id="floatCta" aria-hidden="true">
+  <a class="btn btn-primary" href="[DMG download URL]" tabindex="-1"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
+</div>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <h1 class="display">One key. The prompt a specialist would write.</h1>
+      <p class="lead">PromptButton reads your conversation, asks only what is still missing, and turns a rough draft into a complete prompt. In any app on your Mac.</p>
+      <div class="cta">
+        <a class="btn btn-primary btn-lg" href="[DMG download URL]" id="heroCta"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
+        <small>Bring your own Anthropic key. Press <span class="kbd-row" aria-label="Option Shift P"><kbd class="key">⌥</kbd><kbd class="key">⇧</kbd><kbd class="key">P</kbd></span> in any app.</small>
+      </div>
+    </div>
+
+    <div class="wrap demo">
+      <div class="mac" role="img" aria-label="A Mac desktop with a chat app open. The draft reads: i want to build a landing page. The PromptButton panel over it shows the finished prompt with Role, Goal, Task, Quality bar and Output sections.">
+        <div class="menubar" aria-hidden="true">
+          <img src="assets/logo.svg" alt="" width="14" height="14" />
+          <div class="right"><span>Tue 9:41</span></div>
+        </div>
+
+        <div class="chat" aria-hidden="true">
+          <div class="titlebar"><span class="dots"><i></i><i></i><i></i></span><span class="title">Chat</span></div>
+          <div class="msgs">
+            <div class="msg them">Hi. What are we building today?</div>
+          </div>
+          <div class="composer"><span id="chatDraft">i want to build a landing page</span><span class="send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
+        </div>
+
+        <div class="press" id="press" aria-hidden="true"><span class="cap">⌥</span><span class="cap">⇧</span><span class="cap">P</span></div>
+
+        <div class="panel" id="panel" aria-hidden="true">
+          <svg class="ring" id="ring" aria-hidden="true"><rect x="1.5" y="1.5" rx="11" ry="11" pathLength="100" id="ringRect" /></svg>
+          <div class="content" id="panelContent"></div>
+          <div class="composer-row">
+            <span class="field" id="panelField">Your draft is read from the field above</span>
+            <span class="controls">
+              <span class="icon mic"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+              <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+              <span class="go"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+            </span>
+          </div>
+        </div>
+
+        <button class="replay" id="replay" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>Replay</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="h2">What happens <span class="soft">when you press</span></h2>
+        <p class="lead">Three steps, about ten seconds, and nothing is sent until you say so.</p>
+      </div>
+      <ol class="steps">
+        <li class="step accent">
+          <span class="num" aria-hidden="true">1</span>
+          <h3>It reads the conversation</h3>
+          <p>Your draft comes from the field you are typing in. The chat around it comes from a screenshot of the front window, so it works in VS Code, Cursor, Slack or a browser.</p>
+          <div class="art" aria-hidden="true">
+            <div class="mini">
+              <div class="row"><span>Reading the window</span></div>
+              <div class="scan"></div>
+              <div class="lines"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </li>
+        <li class="step">
+          <span class="num" aria-hidden="true">2</span>
+          <h3>It asks only what is missing</h3>
+          <p>A gap check names what the model still needs and has not already learnt from the chat. At most three questions, each with answers you can tap or say.</p>
+          <div class="art" aria-hidden="true">
+            <div class="mini">
+              <div class="q">Who is the page for?</div>
+              <div class="pillset"><span class="opt pick">Developers</span><span class="opt">Founders</span><span class="opt">Shoppers</span></div>
+            </div>
+          </div>
+        </li>
+        <li class="step">
+          <span class="num" aria-hidden="true">3</span>
+          <h3>It rewrites, you decide</h3>
+          <p>The prompt streams in with a role, goal, task, quality bar and the format you want back. Facts come from the chat; anything unknown is a marked placeholder, never a guess. Insert it, edit it, or undo.</p>
+          <div class="art" aria-hidden="true">
+            <div class="mini">
+              <span class="sec-label">Role</span>
+              <div>You are a senior product designer who ships front-end code<span class="caret"></span></div>
+              <div class="pillset"><span class="opt">Insert</span><span class="opt">Edit</span><span class="opt">Undo</span></div>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" id="voice" style="padding-top:0">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="h2">Say the change. <span class="soft">It is made.</span></h2>
+        <p class="lead">The mic does not take dictation. It understands what you mean in the current box and acts on it, with Undo one click away.</p>
+      </div>
+      <div class="stage">
+        <div class="panel" role="img" aria-label="The panel after a spoken edit. A line reads: Add TypeScript, no role section, with an Undo link. The text field shows the words that were said.">
+          <div class="content">
+            <div class="sec in"><span class="sec-label">Role</span><div>You are a staff front-end engineer who ships TypeScript for a living<span class="assumed">assumed</span>.</div></div>
+            <div class="sec in"><span class="sec-label">Constraints</span><div>TypeScript only, strict mode on. No framework beyond what the repo already uses.</div></div>
+          </div>
+          <div class="heard"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="text">Add: TypeScript, no role section</span><span class="undo">Undo</span></div>
+          <div class="composer-row">
+            <span class="field listening">also make it TypeScript and, um, drop the role part</span>
+            <span class="controls">
+              <span class="icon mic live"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+              <span class="go"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+            </span>
+          </div>
+        </div>
+        <p class="spoken">With a prompt on screen, <q>also make it TypeScript</q> revises it. At a question, <q>for developers, single HTML file</q> answers two at once. Over a chat, a brain dump becomes the draft.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="features" style="padding-top:0">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="h2">Built to be trusted <span class="soft">with your words</span></h2>
+      </div>
+      <ul class="features" style="margin-top:48px">
+        <li class="feature">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+          <h3>Voice that edits</h3>
+          <p>Speak a change and it is applied to the prompt, the question or the reply in front of you. Filler words and corrections are cleaned up on the way.</p>
+        </li>
+        <li class="feature">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg></span>
+          <h3>Undo, always</h3>
+          <p>Every spoken change and every insert can be reversed in one click, in the panel and in the field it wrote to.</p>
+        </li>
+        <li class="feature">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></span>
+          <h3>Any app, one shortcut</h3>
+          <p>A menu-bar app, not a browser extension. The same key works in VS Code, Cursor, Slack, Claude, ChatGPT and whatever is in front.</p>
+        </li>
+        <li class="feature">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h16M4 6h16M4 18h10"/></svg></span>
+          <h3>A real prompt, not a longer one</h3>
+          <p>Role, goal, context, task, quality bar, output and done-when, drawn from a playbook of what top practitioners pin down in ten fields of work.</p>
+        </li>
+        <li class="feature">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+          <h3>Nothing invented</h3>
+          <p>Facts come from the chat and your answers. Anything unknown becomes a marked placeholder or a default labelled as assumed.</p>
+        </li>
+        <li class="feature">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+          <h3>Your key stays on your Mac</h3>
+          <p>Calls go straight from your machine to Anthropic with your own key. It never sends a message for you, and it can hide itself from screen sharing.</p>
+        </li>
+      </ul>
+      <p class="apps"><span class="lbl">Works wherever you type</span><span>VS Code</span><span>Cursor</span><span>Claude</span><span>ChatGPT</span><span>Slack</span><span>Notes</span></p>
+    </div>
+  </section>
+
+  <section class="section proof" id="proof" style="padding-top:0">
+    <div class="wrap">
+      <h2 class="h2">What people <span class="soft">are saying</span><span class="todo">TODO</span></h2>
+      <p class="quote">“[testimonials or user count] goes here. Keep it one sentence, in the speaker's words, about the moment the rewrite beat their own draft.”</p>
+      <p class="who">[Name, role] · TODO: replace with a real quote or a user count once we have one</p>
+    </div>
+  </section>
+
+  <section class="section" id="faq" style="padding-top:0">
+    <div class="wrap">
+      <div class="section-head"><h2 class="h2">Questions</h2></div>
+      <div class="faq">
+        <details>
+          <summary>How is this different from a prompt enhancer in a browser?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">Enhancers make your prompt longer. PromptButton reads the whole conversation first, works out which of goal, audience, format, constraints and success criteria is actually missing, asks you only when it matters, and then writes the kind of prompt an expert in that field would write. It also works in every app, not just one site.</div>
+        </details>
+        <details>
+          <summary>Who is it for?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">Anyone on a Mac who asks AI assistants for real work: code, documents, analysis, plans. If you have ever typed “make it better” and got something worse, it is for you.</div>
+        </details>
+        <details>
+          <summary>What does it cost?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">It runs on your own Anthropic API key. A full press costs a few cents of API usage, and a spoken edit costs well under one cent. The price of the app itself is <span class="ph">[app price or free]</span>. TODO: confirm before launch.</div>
+        </details>
+        <details>
+          <summary>Does it send messages for me?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">No. It writes the rewritten prompt into the field you were typing in and stops. Sending is always your action, and Undo restores what was there before.</div>
+        </details>
+        <details>
+          <summary>What does it need access to?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">Accessibility, to read the field and write back into it, and Screen Recording, to see the conversation in the front window. Voice adds Microphone and Speech Recognition, which runs on-device when your language supports it. Nothing is stored on a server of ours; there is none.</div>
+        </details>
+        <details>
+          <summary>Which apps and languages work?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">Any app with a text field. The chat is read from the screen, so the app does not need an integration. Voice uses macOS speech recognition in the languages your Mac supports. The rewrite is in the language you wrote in.</div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="wrap">
+      <div>
+        <h2 class="h2">Better prompts, without studying prompting.</h2>
+        <p class="lead">Try it on the next thing you ask an AI.</p>
+        <a class="btn btn-primary btn-lg" href="[DMG download URL]"><svg class="apple" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple"/></svg>Download for macOS</a>
+      </div>
+      <div class="bigkeys" aria-hidden="true"><span class="cap">⌥</span><span class="cap">⇧</span><span class="cap amber">P</span></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="28" height="28" />PromptButton</a>
+        <p>One key on your Mac. The prompt a specialist would write.</p>
+        <span class="badge"><i aria-hidden="true"></i>Runs on your Mac, with your key</span>
+      </div>
+      <div>
+        <h3>Product</h3>
+        <ul>
+          <li><a href="[DMG download URL]">Download</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#voice">Voice</a></li>
+          <li><a href="#features">Features</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Resources</h3>
+        <ul>
+          <li><a href="https://github.com/Hade6556/promptbutton" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Hade6556/promptbutton/blob/main/docs/master-prompt-playbook.md" rel="noopener">Master prompt playbook</a></li>
+          <li><a href="https://github.com/Hade6556/promptbutton/tree/main/eval" rel="noopener">Eval results</a></li>
+          <li><a href="https://github.com/Hade6556/promptbutton/tree/main/hardware" rel="noopener">Hardware button</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Compare</h3>
+        <ul>
+          <li><a href="#faq">Versus prompt enhancers</a></li>
+          <li><a href="#how">Versus a prompting course</a></li>
+          <li><a href="#faq">Versus writing it yourself</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Support</h3>
+        <ul>
+          <li><a href="https://github.com/Hade6556/promptbutton/issues" rel="noopener">Report a problem</a></li>
+          <li><a href="#" aria-disabled="true">Privacy policy <span class="todo">TODO</span></a></li>
+          <li><a href="#" aria-disabled="true">Terms <span class="todo">TODO</span></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 PromptButton.</span>
+      <span>Made for people who would rather do the work than write the prompt.</span>
+    </div>
+  </div>
+</footer>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="apple" viewBox="0 0 24 24"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.8-3.5.8-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.7 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.1.8 1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.7-1-2.7-4.1zM14.1 5.8c.6-.8 1.1-1.9.9-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1.1.1 2.1-.5 2.8-1.3z"/></symbol>
+</svg>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (id) => document.getElementById(id);
+
+  /* Mobile menu */
+  const header = document.querySelector('.site-header');
+  const menuBtn = $('menuBtn');
+  menuBtn.addEventListener('click', () => {
+    const open = header.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', String(open));
+    menuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  });
+  $('mobileMenu').addEventListener('click', (e) => { if (e.target.closest('a')) { header.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false'); } });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && header.classList.contains('open')) { header.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false'); menuBtn.focus(); } });
+
+  /* Floating download button once the hero button is out of view */
+  const floatCta = $('floatCta');
+  const floatLink = floatCta.querySelector('a');
+  new IntersectionObserver(([entry]) => {
+    const show = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+    floatCta.classList.toggle('show', show);
+    floatCta.setAttribute('aria-hidden', String(!show));
+    floatLink.tabIndex = show ? 0 : -1;
+  }, { threshold: 0 }).observe($('heroCta'));
+
+  /* The demo: press the keys, the panel reads, the prompt appears section by section. */
+  const SECTIONS = [
+    ['Role', 'You are a senior product designer who also ships production front-end code<span class="assumed">assumed</span>. You judge a page by whether a stranger gets it in five seconds.'],
+    ['Goal', 'A landing page for <span class="ph">[product name]</span> whose one job is getting visitors to <span class="ph">[primary action]</span>.'],
+    ['Task', '<ol><li>Hero: one headline, one subline, one button.</li><li>Three benefit sections with short copy.</li><li>Pricing, FAQ, footer with the call to action again.</li></ol>'],
+    ['Quality bar', 'Correct at 375, 768 and 1280 px. Visible focus states, contrast of at least 4.5:1, alt text. Placeholder copy in our voice, marked TODO.'],
+    ['Output', 'One index.html with embedded CSS and JS<span class="assumed">assumed</span>, plus the command to serve it.'],
+  ];
+  const panel = $('panel'), content = $('panelContent'), field = $('panelField'), ring = $('ring'), ringRect = $('ringRect'), press = $('press'), replay = $('replay');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let run = 0;
+
+  function renderAll() {
+    content.innerHTML = SECTIONS.map(([l, b]) => `<div class="sec in"><span class="sec-label">${l}</span><div>${b}</div></div>`).join('');
+    field.textContent = 'Insert, edit, or undo';
+    field.className = 'field';
+  }
+
+  async function play() {
+    const id = ++run;
+    const alive = () => id === run;
+    content.innerHTML = '';
+    field.textContent = 'Your draft is read from the field above';
+    field.className = 'field';
+    ring.style.opacity = '0';
+    replay.hidden = true;
+
+    press.classList.add('show');
+    await sleep(500); if (!alive()) return;
+    press.classList.add('down');
+    await sleep(140); if (!alive()) return;
+    press.classList.remove('down');
+    await sleep(260); if (!alive()) return;
+    press.classList.remove('show');
+
+    field.textContent = 'i want to build a landing page';
+    field.className = 'field typed';
+    await sleep(350); if (!alive()) return;
+
+    // Reading: a comet travels the edge of the box.
+    field.textContent = 'Reading the conversation';
+    field.className = 'field';
+    ringRect.style.strokeDasharray = '18 82';
+    ring.style.opacity = '1';
+    const anim = ringRect.animate([{ strokeDashoffset: 100 }, { strokeDashoffset: -100 }], { duration: 2200, iterations: 1, easing: 'linear' });
+    await sleep(1600); if (!alive()) { anim.cancel(); return; }
+    field.textContent = 'Writing the prompt';
+
+    for (let i = 0; i < SECTIONS.length; i++) {
+      const [l, b] = SECTIONS[i];
+      const sec = document.createElement('div');
+      sec.className = 'sec';
+      sec.innerHTML = `<span class="sec-label">${l}</span><div>${b}${i === SECTIONS.length - 1 ? '' : '<span class="caret"></span>'}</div>`;
+      const prev = content.lastElementChild;
+      if (prev) prev.querySelector('.caret')?.remove();
+      content.appendChild(sec);
+      requestAnimationFrame(() => sec.classList.add('in'));
+      await sleep(i === 0 ? 420 : 300); if (!alive()) { anim.cancel(); return; }
+    }
+    anim.cancel();
+    ring.style.opacity = '0';
+    field.textContent = 'Insert, edit, or undo';
+    replay.hidden = false;
+  }
+
+  if (reduce) {
+    renderAll();
+  } else {
+    // Start when the demo is actually on screen.
+    new IntersectionObserver((entries, obs) => {
+      if (entries.some((e) => e.isIntersecting)) { obs.disconnect(); setTimeout(play, 300); }
+    }, { threshold: 0.35 }).observe(panel);
+    replay.addEventListener('click', play);
+  }
+})();
+</script>
+</body>
+</html>

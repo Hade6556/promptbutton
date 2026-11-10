@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="PromptButton keycap mark">
+  <defs>
+    <linearGradient id="cap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb547"/>
+      <stop offset="1" stop-color="#e8892a"/>
+    </linearGradient>
+  </defs>
+  <!-- The keycap from public/icon/*.png (scripts/make-icons.mts), recoloured from cobalt to the Ember amber. -->
+  <rect x="3" y="7" width="26" height="22" rx="6" fill="#9a5a19"/>
+  <rect x="3" y="3" width="26" height="22" rx="6" fill="url(#cap)"/>
+  <rect x="3.5" y="3.5" width="25" height="21" rx="5.5" fill="none" stroke="rgba(255,244,228,0.35)" stroke-width="1"/>
+</svg>
