@@ -6,6 +6,7 @@ import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, n
 import { hasRequired, openPermissionPane, readPermissions, requestPermission, resetPermission } from './permissions';
 import { shortcutKeys, shortcutLabel, shortcutsFor, validShortcut } from './shortcut';
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
 import { toResult } from '../src/llm/errors';
@@ -17,7 +18,7 @@ import { KB_VERSION, familyOf, planTechniques } from '../src/llm/kb';
 import { discussPrompt } from '../src/llm/discuss';
 import { interpretVoice } from '../src/llm/voice';
 import type { ChatTurn, GapReport, ImproveInput, Result, RewriteOptions, UserAnswer, VoiceContext, VoiceIntent } from '../src/messaging';
-import { captureContext, hashDistance, type Capture } from './capture';
+import { captureContext, hashDistance, runHelper, type Capture } from './capture';
 import { cancelDictation, startDictation, stopDictation } from './dictation';
 import { dotEnvPaths, resolveApiKey } from './env';
 import { forcePaste, insertText, squash, type InsertResult } from './insert';
@@ -348,7 +349,11 @@ function createWindow() {
   win.setVisibleOnAllWorkspaces(true, FLOAT_EVERYWHERE);
   win.setContentProtection(settings.hideFromCapture);
   void win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.on('closed', () => (win = null));
+  const created = win;
+  // Only the current window may clear the reference: a late event from a rebuilt one must not orphan its replacement.
+  created.on('closed', () => {
+    if (win === created) win = null;
+  });
   // A panel window never makes the app active, so the menu's ⌘C/⌘V/⌘X/⌘A/⌘Z never fire. Do them here
   // (Ctrl on Windows, where the same handler also copies the shown result when nothing is selected).
   const contents = win.webContents;
@@ -408,7 +413,8 @@ function fitPanel(height: number) {
  * The window must float over every Space, full-screen apps included. A window that has lived through
  * a sleep/wake or a full-screen Space being torn down can lose that membership (seen on macOS 26: the
  * panel stopped appearing over full-screen VS Code until the app was restarted), so the layering is
- * re-asserted before every show, and a hidden window is rebuilt after the Mac wakes or unlocks.
+ * re-asserted before every show, a hidden window is rebuilt after the Mac wakes or unlocks, and after
+ * every show the window server is asked whether the panel really is on top (verifyPanel).
  */
 function assertLayering() {
   if (!win) return;
@@ -427,18 +433,27 @@ function assertLayering() {
  */
 const FLOAT_EVERYWHERE = { visibleOnFullScreen: true, skipTransformProcessType: true } as const;
 
+/** Set when the Mac woke, unlocked or changed displays while the panel was on screen: it is rebuilt the moment it hides. */
+let panelStale: string | null = null;
+
 function rebuildHiddenWindow(reason: string) {
-  if (!win || win.isVisible()) return;
+  if (!win) return;
+  if (win.isVisible()) {
+    panelStale = reason;
+    return;
+  }
+  panelStale = null;
   console.log(`[PromptButton] rebuilding the panel window after ${reason}`);
   win.destroy();
   win = null;
   createWindow();
 }
 
-function showPanel(takeFocus: boolean) {
-  if (!win) createWindow();
-  positionPanel();
-  assertLayering();
+/** Every show and hide gets a number, so a check that finishes late can tell it was overtaken. */
+let panelSeq = 0;
+let showCount = 0;
+
+function present(takeFocus: boolean) {
   if (takeFocus) {
     win!.show();
     // show() on a panel that is already on screen (shown without focus while it worked) does not
@@ -449,11 +464,105 @@ function showPanel(takeFocus: boolean) {
   win!.moveTop();
 }
 
+function showPanel(takeFocus: boolean) {
+  if (!win) createWindow();
+  positionPanel();
+  assertLayering();
+  present(takeFocus);
+  if (IS_MAC) void verifyPanel(takeFocus, ++showCount);
+}
+
+/** The only way the panel leaves the screen, so a pending check never mistakes "hidden on purpose" for "lost". */
+function concealPanel() {
+  panelSeq++;
+  win?.hide();
+  if (panelStale) rebuildHiddenWindow(panelStale);
+}
+
+// ── Is the panel really on top? ─────────────────────────────────────────────────────────────────
+// AppKit can go on answering "visible, screen-saver level" for a window the window server no longer
+// shows above other apps, so asking Electron proves nothing. After every show the window server is
+// asked instead; a window that is not on screen at the top level is replaced by a new one.
+
+/** The layer the window server reports for Electron's 'screen-saver' level. */
+const PANEL_LAYER = 1000;
+interface PanelHealth {
+  found: boolean;
+  layer: number;
+  onscreen: boolean;
+  frontPid: number;
+}
+const onTop = (health: PanelHealth) => health.found && health.onscreen && health.layer === PANEL_LAYER;
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function panelHealth(): Promise<PanelHealth | null> {
+  // "window:<CGWindowID>:0": the id the window server knows this window by.
+  const id = win?.getMediaSourceId().split(':')[1];
+  if (!id) return null;
+  try {
+    return await runHelper<PanelHealth>(['window', id]);
+  } catch {
+    return null; // no answer is not evidence of a fault
+  }
+}
+
+/** Kept on disk because a packaged app has no console: this is the record of what went wrong and when. */
+function overlayLog(line: string) {
+  console.log(`[PromptButton] overlay: ${line}`);
+  try {
+    const file = path.join(app.getPath('logs'), 'overlay.log');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    if (fs.existsSync(file) && fs.statSync(file).size > 512 * 1024) fs.truncateSync(file, 0);
+    fs.appendFileSync(file, `${new Date().toISOString()} ${line}\n`);
+  } catch {
+    // logging must never break a run
+  }
+}
+
+async function verifyPanel(takeFocus: boolean, n: number, rebuilt = false) {
+  const seq = ++panelSeq;
+  const overtaken = () => seq !== panelSeq || !win;
+  await pause(150); // the window server needs a moment to order the window in
+  if (overtaken()) return;
+  let health = await panelHealth();
+  if (health && !onTop(health)) {
+    // Ask twice before replacing a window: one odd sample (mid Space switch) is not a fault.
+    await pause(200);
+    if (overtaken()) return;
+    health = await panelHealth();
+  }
+  if (overtaken() || !health) return;
+  const seen = `layer=${health.layer} onscreen=${health.onscreen} found=${health.found} key=${win!.isFocused()} frontPid=${health.frontPid}`;
+  if (onTop(health)) {
+    if (rebuilt) overlayLog(`show #${n}: on top again after the rebuild (${seen})`);
+    if (takeFocus && !win!.isFocused()) {
+      // On top but the keyboard still goes to the app underneath: ask once more, no rebuild needed.
+      overlayLog(`show #${n}: on top without the keyboard, asking again (${seen})`);
+      win!.focus();
+      win!.webContents.focus();
+    }
+    return;
+  }
+  if (rebuilt) return overlayLog(`show #${n}: still not on top after a rebuild, leaving it (${seen})`);
+  overlayLog(`show #${n}: not on top, rebuilding the window (${seen})`);
+  win!.destroy();
+  win = null;
+  createWindow();
+  const fresh = win!;
+  // Shown only once its page is loaded, so the replacement never flashes an empty box.
+  fresh.webContents.once('did-finish-load', () => {
+    if (overtaken() || win !== fresh) return;
+    positionPanel();
+    present(takeFocus);
+    void verifyPanel(takeFocus, n, true);
+  });
+}
+
 function hidePanel() {
   clearTimeout(noticeTimer);
   cancelDictation(); // the mic never stays on behind a closed panel
   voiceSnapshots = [];
-  win?.hide();
+  concealPanel();
   busy = false;
   runId++; // anything still in flight belongs to a closed run
   setState({ phase: 'hidden', report: null, text: '', assist: undefined, error: undefined, notice: undefined, offerForcePaste: false, chat: null, talking: false, readyReason: undefined });
@@ -524,7 +633,7 @@ async function trigger(options: { fresh?: boolean } = {}) {
   busy = true;
   try {
     // Capture before showing the panel so the screenshot does not include it.
-    if (options.fresh) win?.hide();
+    if (options.fresh) concealPanel();
     const capture = await captureContext();
     if (stale(my)) return;
 
@@ -899,7 +1008,7 @@ async function accept(text: string) {
   const { capture } = current;
   current.text = text; // what "replace everything" pastes if this attempt ends on the clipboard
   // Give focus back to the target app before writing; our window must not be key.
-  win?.hide();
+  concealPanel();
   try {
     const result = await insertText(capture, text);
     if (reportInsert(result, capture.appName, text.length)) recordInsert(capture, text);
@@ -938,7 +1047,7 @@ async function handleAction(action: RendererAction) {
     case 'forcePaste':
       if (current) {
         const { capture, text } = current;
-        win?.hide(); // focus must leave the panel before the keystrokes
+        concealPanel(); // focus must leave the panel before the keystrokes
         const result = await forcePaste(capture, text);
         // A second failure is not offered a third try: say what happened and leave it on the clipboard.
         if (result.outcome === 'copied') {
@@ -1424,6 +1533,9 @@ app.whenReady().then(async () => {
   buildTray();
   powerMonitor.on('resume', () => rebuildHiddenWindow('wake'));
   powerMonitor.on('unlock-screen', () => rebuildHiddenWindow('unlock'));
+  // Spaces belong to displays: plugging one in or out reshuffles them under a window that already exists.
+  screen.on('display-added', () => rebuildHiddenWindow('a display change'));
+  screen.on('display-removed', () => rebuildHiddenWindow('a display change'));
 
   // Permissions change outside the app (System Settings) and can be revoked at any time: follow them,
   // so the menu bar item and an open setup screen update the moment the switch moves.

@@ -7,6 +7,7 @@
 //   axhelper paste <pid> all|selection → ⌘A (optional) + ⌘V, only once <pid> is frontmost and no modifier is held
 //   axhelper copy               → ⌘C in the frontmost app
 //   axhelper copy all <pid>     → ⌘A, ⌘C, then → to drop the selection: reads a box the app does not describe
+//   axhelper window <id>        → what the window server says about one window: its level and whether it is on screen
 //
 // Keys are posted as CGEvents from here rather than through AppleScript's System Events: that needs
 // only the Accessibility permission the app already has, where System Events needs a second one
@@ -442,6 +443,21 @@ case "dump":
     }
     _ = setFlag(app, "AXEnhancedUserInterface", false)
     print(lines.joined(separator: "\n"))
+
+case "window":
+    // Asked from outside the app on purpose: AppKit reports what the app requested, the window
+    // server reports what is actually on screen, and the two are what drift apart.
+    guard args.count > 2, let id = CGWindowID(args[2]) else {
+        emit(["error": "usage: axhelper window <id>"])
+        exit(1)
+    }
+    let info = (CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]])?.first
+    emit([
+        "found": info != nil,
+        "layer": info?[kCGWindowLayer as String] as? Int ?? -1,
+        "onscreen": info?[kCGWindowIsOnscreen as String] as? Bool ?? false,
+        "frontPid": Int(frontmostPid()),
+    ])
 
 default:
     emit(["error": "unknown command \(command)"])
