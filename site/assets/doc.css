@@ -1,5 +1,5 @@
 :root { --paper: #fff; --paper-2: #f5f6f8; --ink: #101216; --ink-2: #434852; --ink-3: #6c727d; --line: #e3e6eb; --accent-ink: #b2600f; --focus: #0b6e9e;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; --serif: "Instrument Serif", Georgia, serif; }
+  --font: "Geist", "Avenir Next", "Segoe UI Variable Text", system-ui, -apple-system, sans-serif; --serif: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent-ink); text-underline-offset: 2px; }
