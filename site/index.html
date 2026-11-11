@@ -583,11 +583,11 @@ body.menu-open .menu-btn .x { display: block; }
 @media (max-width: 599px) {
   :root { --gap-section: 72px; }
 
-  /* Hero: the button grows to a full tap target; the note under it is plain text with the link on its own line. */
+  /* Hero: the button grows to a full tap target. */
   .btn-quiet { height: 44px; font-size: 1rem; }
-  .hero .meta { padding: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; font-size: 1rem; }
-  .hero .meta span { display: grid; justify-items: center; }
-  .hero .meta a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; }
+  /* The note stays a small one-line pill under the button; the link's tap area is taller than it looks. */
+  .hero .meta { padding: 5px 10px; white-space: nowrap; }
+  .hero .meta a { display: inline-block; padding: 14px 0; margin: -14px 0; }
   .dl-info { font-size: 1rem; }
 
   /* The demo is the chat window and nothing else: 480px instead of 930, no menu bar, no dock, so the
@@ -598,10 +598,10 @@ body.menu-open .menu-btn .x { display: block; }
   .desk { height: 480px; }
   .menubar, .dock { display: none; }
   .app { inset: 10px; height: auto; }
-  /* 96px keeps the panel just above the chat box, as 476px did in the taller frame. Solid, because a
+  /* 104px keeps the panel just above the chat box, as 476px did in the taller frame. Solid, because a
      28px blur over a moving page is the most expensive thing here on a phone. */
-  .pmp { bottom: 96px; background: #15171c; backdrop-filter: none; -webkit-backdrop-filter: none; }
-  .pmp .text { max-height: 288px; }
+  .pmp { bottom: 104px; background: #15171c; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .pmp .text { max-height: 280px; }
   /* The keys sit clear of a two-line draft in the chat box. */
   .strokes { bottom: 108px; }
   /* The ending: "without" shrinks to its title and its token count, "with" gets the room. */
