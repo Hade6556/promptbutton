@@ -16,7 +16,8 @@ if security find-identity -v -p codesigning | grep -q "Developer ID Application"
     echo "No APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID: signed but not notarized."
   fi
 else
-  echo "No Developer ID certificate: signing ad hoc (build/after-pack.cjs)."
+  echo "No Developer ID certificate: signing with the self-signed identity, or ad hoc without one (build/after-pack.cjs)."
+  bash scripts/make-signing-identity.sh
   export PMP_ADHOC=1
   args+=(-c.mac.identity=null)
 fi

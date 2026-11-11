@@ -2,21 +2,23 @@
 // Reads the focused field + a window screenshot, runs the same gap-analysis → questions →
 // rewrite pipeline as the extension, and writes the result back into the field.
 import Anthropic from '@anthropic-ai/sdk';
-import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, systemPreferences, Tray } from 'electron';
-import { hasRequired, openPermissionPane, readPermissions, requestPermission } from './permissions';
+import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, systemPreferences, Tray } from 'electron';
+import { hasRequired, openPermissionPane, readPermissions, requestPermission, resetPermission } from './permissions';
 import { shortcutKeys, shortcutLabel, shortcutsFor, validShortcut } from './shortcut';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
 import { toResult } from '../src/llm/errors';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { suggestReplies } from '../src/llm/reply';
 import { rewritePrompt } from '../src/llm/rewrite';
+import { discussPrompt } from '../src/llm/discuss';
 import { interpretVoice } from '../src/llm/voice';
-import type { GapReport, ImproveInput, Result, RewriteOptions, UserAnswer, VoiceContext, VoiceIntent } from '../src/messaging';
+import type { ChatTurn, GapReport, ImproveInput, Result, RewriteOptions, UserAnswer, VoiceContext, VoiceIntent } from '../src/messaging';
 import { captureContext, hashDistance, type Capture } from './capture';
 import { cancelDictation, startDictation, stopDictation } from './dictation';
 import { dotEnvPaths, resolveApiKey } from './env';
-import { forcePaste, insertText } from './insert';
+import { forcePaste, insertText, squash, type InsertResult } from './insert';
 import { DEFAULTS, loadSettings, saveSettings } from './settings';
 import type { AccountAction, AccountScreen, AccountView, OnboardingStep, PanelState, Permissions, RendererAction, Settings, SetupAction, SetupPane, SetupState } from './shared';
 
@@ -44,9 +46,13 @@ interface Run {
   report: GapReport | null;
   text: string;
   answers: UserAnswer[];
+  /** The chat about the prompt on screen, oldest turn first. */
+  chat?: ChatTurn[];
+  /** The message the editor argued against, kept for "Change it anyway". */
+  contested?: string;
 }
 let current: Run | null = null;
-let lastInsert: { capture: Capture; original: string } | null = null;
+let lastInsert: { capture: Capture; original: string; text: string } | null = null;
 let noticeTimer: NodeJS.Timeout | undefined;
 
 /** The last finished run, so re-opening on unchanged input costs no tokens. */
@@ -62,7 +68,7 @@ function fingerprint(capture: Capture): string {
 
 function rememberRun() {
   if (!current) return;
-  if (state.phase !== 'asking' && state.phase !== 'done' && state.phase !== 'replies') return;
+  if (state.phase !== 'asking' && state.phase !== 'done' && state.phase !== 'replies' && state.phase !== 'ready') return;
   lastRun = { key: fingerprint(current.capture), hash: current.capture.screenshotHash, at: Date.now(), snapshot: { ...state }, current };
 }
 
@@ -338,7 +344,7 @@ function createWindow() {
         if (selected) return contents.copy();
         // Nothing selected: copy what the panel is showing.
         const shown = state.phase === 'error' ? state.error : state.phase === 'done' ? current?.text : '';
-        if (shown) clipboard.writeText(shown);
+        if (shown) void clipboard.writeText(shown);
       });
     } else if (key === 'v' && !input.shift) { event.preventDefault(); contents.paste(); }
     else if (key === 'x' && !input.shift) { event.preventDefault(); contents.cut(); }
@@ -416,7 +422,7 @@ function hidePanel() {
   win?.hide();
   busy = false;
   runId++; // anything still in flight belongs to a closed run
-  setState({ phase: 'hidden', report: null, text: '', assist: undefined, error: undefined, notice: undefined, offerForcePaste: false });
+  setState({ phase: 'hidden', report: null, text: '', assist: undefined, error: undefined, notice: undefined, offerForcePaste: false, chat: null, talking: false, readyReason: undefined });
 }
 
 function notice(text: string, options: { ttl?: number; offerForcePaste?: boolean } = {}) {
@@ -440,7 +446,7 @@ function needAccessibility() {
 function fail(error: unknown) {
   accountSurface = 'panel';
   const raw = error instanceof Error ? error.message : String(error);
-  if (/not allowed to send keystrokes|not allowed assistive access|\(1002\)|\(-25211\)|\(-1719\)/i.test(raw)) return needAccessibility();
+  if (/accessibility_not_trusted|not allowed to send keystrokes|not allowed assistive access|\(1002\)|\(-25211\)|\(-1719\)/i.test(raw)) return needAccessibility();
   const result = toResult<never>(error);
   busy = false;
   if (!result.ok) {
@@ -627,10 +633,18 @@ async function analyzeAndContinue() {
       report: null,
       text: '',
       error: undefined,
+      chat: null,
+      talking: false,
     });
     showPanel(false);
 
-    if (settings.askMode === 'never') {
+    // Pressed again on the prompt this app just wrote, unchanged: nothing to improve, and no need to ask the model.
+    if (lastInsert && squash(input.draft) === squash(lastInsert.text) && squash(input.draft).length > 0) {
+      return alreadyGood('It is the prompt I just wrote for you, unchanged.');
+    }
+    // "Never ask" skips the analysis, except for drafts long enough to be finished prompts already:
+    // those still get the check, or pressing twice would rewrite a good prompt forever.
+    if (settings.askMode === 'never' && input.draft.length < READY_CHECK_MIN_CHARS) {
       await rewrite([]);
       return;
     }
@@ -646,7 +660,8 @@ async function analyzeAndContinue() {
       await suggestForEmptyField(my);
       return;
     }
-    const shouldAsk = report.questions.length > 0 && (settings.askMode === 'always' || report.ambiguity >= ASK_THRESHOLD);
+    if (report.ready) return alreadyGood(report.readyReason ?? 'It already states the goal, the context and the output you want.', report);
+    const shouldAsk = settings.askMode !== 'never' && report.questions.length > 0 && (settings.askMode === 'always' || report.ambiguity >= ASK_THRESHOLD);
     if (shouldAsk) {
       busy = false;
       setState({ phase: 'asking', report, asked: true });
@@ -659,6 +674,76 @@ async function analyzeAndContinue() {
   } catch (error) {
     if (!stale(my)) fail(error);
   }
+}
+
+/** Below this a draft cannot already be a complete prompt; see analyzeAndContinue. */
+const READY_CHECK_MIN_CHARS = 280;
+
+/** The "good enough" safeguard: say the prompt needs no rewrite, with the reason, and leave the field alone. */
+function alreadyGood(reason: string, report: GapReport | null = null) {
+  busy = false;
+  console.log(`[PromptButton] already good enough: ${reason}`);
+  setState({ phase: 'ready', readyReason: reason, report, asked: false });
+  rememberRun();
+  showPanel(true);
+}
+
+/**
+ * The user said something about the prompt on screen. The editor decides: agree and revise, defend
+ * the prompt with a reason (the user can still overrule it), or answer a question.
+ */
+async function discuss(text: string) {
+  const said = text.trim();
+  if (!current || !current.text || !said) return;
+  const my = runId;
+  const run = current;
+  const turns = run.chat ?? [];
+  const before = { state: { ...state }, current: { ...run, answers: [...run.answers] } };
+  busy = true;
+  setState({ talking: true, chat: { user: said, reply: '', action: null } });
+  try {
+    const decision = await discussPrompt(client(), {
+      app: run.capture.appName,
+      draft: run.input.draft,
+      prompt: run.text,
+      domain: run.report?.domain,
+      answers: run.answers,
+      turns,
+      message: said,
+    });
+    if (stale(my)) return;
+    console.log(`[PromptButton] chat → ${decision.action}: "${decision.reply.slice(0, 120)}"`);
+    run.chat = [...turns, { role: 'user', text: said }, { role: 'assistant', text: decision.reply, action: decision.action }];
+    run.contested = decision.action === 'defend' ? said : undefined;
+    setState({ talking: false, chat: { user: said, reply: decision.reply, action: decision.action } });
+    if (decision.action === 'revise') {
+      voiceSnapshots.push(before); // Undo puts back the prompt as it was before this change
+      if (voiceSnapshots.length > 10) voiceSnapshots.shift();
+      return rewrite(run.answers, { previous: run.text, request: decision.instruction });
+    }
+    busy = false;
+    showPanel(true);
+  } catch (error) {
+    if (stale(my)) return;
+    busy = false;
+    const result = toResult<never>(error);
+    // Sign-in and allowance problems go to the account screen; anything else leaves the prompt on screen.
+    if (!result.ok && (result.code === 'no_api_key' || result.code === 'auth' || result.code === 'limit')) return fail(error);
+    setState({ talking: false, chat: { user: said, reply: `No reply this time (${result.ok ? 'unknown error' : result.error}). Your prompt is unchanged; try again.`, action: 'answer' } });
+    showPanel(true);
+  }
+}
+
+/** After a defence: the user overrules it ("Change it anyway") or lets it stand. */
+async function chatDecision(change: boolean) {
+  if (!current) return;
+  const contested = current.contested;
+  current.contested = undefined;
+  if (!change || !contested) return setState({ chat: null });
+  current.chat = [...(current.chat ?? []), { role: 'user', text: 'Change it anyway.' }, { role: 'assistant', text: 'Changing it.', action: 'revise' }];
+  voiceSnapshots.push({ state: { ...state, chat: null }, current: { ...current, answers: [...current.answers] } });
+  setState({ chat: { user: contested, reply: 'Your call. Changing it.', action: 'revise' } });
+  return rewrite(current.answers, { previous: current.text, request: contested });
 }
 
 async function rewrite(answers: UserAnswer[], revision?: { previous: string; request: string }) {
@@ -701,25 +786,67 @@ async function rewrite(answers: UserAnswer[], revision?: { previous: string; req
   }
 }
 
+/** One plain sentence for each way an insert can end with the prompt on the clipboard instead of in the app. */
+function insertMessage(result: InsertResult, appName: string): string {
+  const onClipboard = `Your prompt is on the clipboard: click the chat box and press ${PASTE_KEYS}.`;
+  switch (result.reason) {
+    case 'app_gone':
+      return `${appName} is no longer open, so nothing was pasted. Your prompt is on the clipboard.`;
+    case 'not_frontmost':
+      return `${appName} did not come to the front, so nothing was typed. ${onClipboard}`;
+    case 'secure_input':
+      return `macOS is blocking typed keys because a password field or Secure Keyboard Entry is active. ${onClipboard}`;
+    case 'field_changed':
+      return `The text box in ${appName} changed after you pressed the shortcut, so it was left alone. ${onClipboard}`;
+    case 'not_changed':
+      return `${appName} did not take the paste. The chat box may have lost focus. ${onClipboard}`;
+    case 'no_field':
+      return `No text box was selected in ${appName}. ${onClipboard}`;
+    case 'no_target':
+      return `Copied. Press ${PASTE_KEYS} where you want the prompt.`;
+    default:
+      return `Could not paste into ${appName}${result.detail ? ` (${result.detail})` : ''}. ${onClipboard}`;
+  }
+}
+
+/** Shows how an insert ended. Returns true when the prompt is in the app (or was sent to it). */
+function reportInsert(result: InsertResult, appName: string, chars: number): boolean {
+  console.log(`[PromptButton] insert into "${appName}": ${result.outcome}${result.reason ? ` (${result.reason}${result.detail ? `: ${result.detail}` : ''})` : ''} (${chars} chars)`);
+  if (result.outcome === 'replaced' || result.outcome === 'pasted') {
+    hidePanel();
+    return true;
+  }
+  if (result.outcome === 'unverified') {
+    // Sent to the app in front, but the app does not let us read the box to check.
+    hidePanel();
+    notice(`Pasted into ${appName}. Not there? Press ${PASTE_KEYS}: the prompt is still on your clipboard.`, { ttl: 4500 });
+    return true;
+  }
+  if (result.reason === 'no_permission') {
+    needAccessibility();
+    return false;
+  }
+  // Select-all-and-paste only helps when the app is there and takes keys.
+  const canForce = result.reason === 'not_changed' || result.reason === 'no_field' || result.reason === 'field_changed';
+  notice(canForce ? `${insertMessage(result, appName)} Or press ↵ to replace everything in the box.` : insertMessage(result, appName), {
+    offerForcePaste: canForce,
+    ttl: canForce ? undefined : 9000,
+  });
+  return false;
+}
+
 async function accept(text: string) {
   if (!current) return;
   const { capture } = current;
+  current.text = text; // what "replace everything" pastes if this attempt ends on the clipboard
   // Give focus back to the target app before writing; our window must not be key.
   win?.hide();
   try {
-    const outcome = await insertText(capture, text);
-    console.log(`[PromptButton] insert into "${capture.appName}": ${outcome} (${text.length} chars)`);
-    lastInsert = { capture, original: capture.draft };
-    if (outcome === 'copied') {
-      notice(`Copied. ${capture.appName} did not accept a direct replace — press ${PASTE_KEYS} to paste, or let me select all and paste.`, {
-        offerForcePaste: true,
-      });
-      return;
-    }
-    hidePanel();
+    const result = await insertText(capture, text);
+    if (reportInsert(result, capture.appName, text.length)) lastInsert = { capture, original: capture.draft, text };
   } catch (error) {
-    clipboard.writeText(text);
-    notice(`Copied to the clipboard (${error instanceof Error ? error.message : 'insert failed'}). Press ${PASTE_KEYS} to paste.`, { ttl: 6000 });
+    await clipboard.writeText(text);
+    reportInsert({ outcome: 'copied', reason: 'failed', detail: message(error) }, capture.appName, text.length);
   }
 }
 
@@ -733,21 +860,34 @@ async function handleAction(action: RendererAction) {
       if (!current || !action.note.trim()) return;
       // Revise the previous rewrite instead of regenerating, so the parts the user liked survive.
       return rewrite(current.answers, { previous: current.text, request: action.note.trim() });
+    case 'chat':
+      return discuss(action.text);
+    case 'chatDecision':
+      return chatDecision(action.change);
+    case 'improveAnyway': {
+      if (!current) return;
+      const note = action.note?.trim();
+      // With a note: change only that in the user's own prompt. Without: a full pass, because they asked for one.
+      return note ? rewrite([], { previous: current.input.draft, request: note }) : rewrite([]);
+    }
     case 'accept':
     case 'reply':
       return accept(action.text);
     case 'copy':
-      clipboard.writeText(action.text);
+      await clipboard.writeText(action.text);
       return notice('Copied to the clipboard.', { ttl: 1800 });
     case 'forcePaste':
       if (current) {
-        try {
-          if (!IS_MAC) win?.hide(); // Windows: focus must leave the panel before the keystrokes
-          await forcePaste(current.capture, current.text);
-          hidePanel();
-        } catch (error) {
-          notice(`Could not paste: ${error instanceof Error ? error.message : error}`, { ttl: 5000 });
+        const { capture, text } = current;
+        win?.hide(); // focus must leave the panel before the keystrokes
+        const result = await forcePaste(capture, text);
+        // A second failure is not offered a third try: say what happened and leave it on the clipboard.
+        if (result.outcome === 'copied') {
+          console.log(`[PromptButton] replace-all into "${capture.appName}": copied (${result.reason})`);
+          if (result.reason === 'no_permission') return needAccessibility();
+          return notice(insertMessage(result, capture.appName), { ttl: 9000 });
         }
+        if (reportInsert(result, capture.appName, text.length)) lastInsert = { capture, original: capture.draft, text };
       }
       return;
     case 'cancel':
@@ -801,10 +941,11 @@ async function handleAction(action: RendererAction) {
 async function undo() {
   if (!lastInsert) return;
   try {
-    await insertText(lastInsert.capture, lastInsert.original);
-    notice('Restored your original draft.', { ttl: 2000 });
+    const result = await insertText(lastInsert.capture, lastInsert.original);
+    if (result.outcome === 'copied') notice(`Could not put your draft back by itself. It is on the clipboard: press ${PASTE_KEYS}.`, { ttl: 6000 });
+    else notice('Restored your original draft.', { ttl: 2000 });
   } catch {
-    clipboard.writeText(lastInsert.original);
+    await clipboard.writeText(lastInsert.original);
     notice('Original draft copied to the clipboard.', { ttl: 3000 });
   }
 }
@@ -918,6 +1059,7 @@ const setup = {
   step: 'welcome' as OnboardingStep,
   pane: 'general' as SetupPane,
   revoked: false,
+  updatedFrom: null as string | null,
   accountError: undefined as string | undefined,
   recording: false,
   shortcutError: undefined as string | undefined,
@@ -943,6 +1085,7 @@ function setupState(): SetupState {
     accountError: setup.accountError,
     permissions,
     revoked: setup.revoked,
+    updatedFrom: setup.updatedFrom,
     shortcut: {
       keys: shortcutsFor(settings.shortcut).map(shortcutKeys),
       label: hotkeyLabel(),
@@ -959,11 +1102,12 @@ function pushSetup() {
   setupWin?.webContents.send('pb:setup:state', setupState());
 }
 
-function openSetup(view: SetupState['view'], options: { step?: OnboardingStep; pane?: SetupPane; revoked?: boolean } = {}) {
+function openSetup(view: SetupState['view'], options: { step?: OnboardingStep; pane?: SetupPane; revoked?: boolean; updatedFrom?: string | null } = {}) {
   setup.view = view;
   if (view === 'onboarding') setup.step = options.step ?? 'welcome';
   setup.pane = options.pane ?? settings.lastPane;
   setup.revoked = options.revoked ?? false;
+  setup.updatedFrom = options.updatedFrom ?? null;
   setup.accountError = undefined;
   setup.shortcutError = undefined;
   setup.pressedAt = null;
@@ -1064,6 +1208,11 @@ async function handleSetupAction(action: SetupAction) {
     case 'openPermissionPane':
       openPermissionPane(action.permission);
       return;
+    case 'resetPermission':
+      await resetPermission(action.permission, BUNDLE_ID);
+      permissions = readPermissions();
+      buildTray();
+      break;
     case 'relaunch': {
       // Screen Recording takes effect only in a new process. Come back to the same place.
       const where = setup.view === 'onboarding' ? `--pmp-setup=onboarding:${setup.step}` : `--pmp-setup=settings:${setup.pane}`;
@@ -1137,19 +1286,71 @@ function buildAppMenu() {
 // Testing: PMP_USER_DATA=/some/dir runs with its own settings, as a fresh install would, beside the installed app.
 if (process.env.PMP_USER_DATA) app.setPath('userData', path.resolve(process.env.PMP_USER_DATA));
 
+const BUNDLE_ID = 'ai.pimpmypromt.mac';
+/** The .app this process runs from (macOS), or the executable elsewhere. */
+const OWN_BUNDLE = IS_MAC ? app.getPath('exe').replace(/\/Contents\/MacOS\/[^/]+$/, '') : app.getPath('exe');
+
 // One copy only: a second launch would add a second tray icon and fight over the hotkey.
-if (!app.requestSingleInstanceLock()) app.quit();
-app.on('second-instance', () => {
+if (!app.requestSingleInstanceLock({ bundle: OWN_BUNDLE, version: app.getVersion() })) app.quit();
+app.on('second-instance', (_event, _argv, _cwd, data) => {
+  const other = data as { bundle?: string; version?: string } | undefined;
+  // A different copy was opened (a newly downloaded version, usually): step aside for it. Staying
+  // would leave the old version running, and its permissions do not cover the new one.
+  if (IS_MAC && app.isPackaged && other?.bundle && other.bundle !== OWN_BUNDLE) {
+    console.log(`[PromptButton] another copy was opened (${other.version} at ${other.bundle}) → quitting so it can run`);
+    app.releaseSingleInstanceLock();
+    spawn('/usr/bin/open', ['-n', other.bundle], { detached: true, stdio: 'ignore' }).unref();
+    app.quit();
+    return;
+  }
   // Opening the app again (Finder, Spotlight) is how people look for it: show Settings.
   console.log('[PromptButton] second launch → showing Settings');
   openSetup(settings.onboarded < ONBOARDING_VERSION ? 'onboarding' : 'settings');
 });
 
-app.whenReady().then(() => {
+/**
+ * Run from the disk image or straight from Downloads, macOS starts the app from a random read-only
+ * place ("translocation"), and permissions granted there do not stick. Offer to move it first.
+ * Returns true when the app is moving (it relaunches from Applications by itself).
+ */
+async function offerMoveToApplications(): Promise<boolean> {
+  if (!IS_MAC || !app.isPackaged || app.isInApplicationsFolder()) return false;
+  if (!/\/AppTranslocation\/|^\/Volumes\//.test(OWN_BUNDLE)) return false;
+  const { response } = await dialog.showMessageBox({
+    type: 'question',
+    message: `Move ${app.getName()} to the Applications folder?`,
+    detail: 'It is running from the disk image. macOS only remembers its permissions once it is in Applications.',
+    buttons: ['Move to Applications', 'Not now'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response !== 0) return false;
+  try {
+    return app.moveToApplicationsFolder({
+      // An older copy is in Applications: replace it (quitting it first if it is running).
+      conflictHandler: () => true,
+    });
+  } catch (error) {
+    console.warn('[PromptButton] could not move to Applications:', message(error));
+    await dialog.showMessageBox({ type: 'warning', message: 'Could not move the app', detail: `Drag ${app.getName()} into Applications yourself, then open it from there.` });
+    return false;
+  }
+}
+
+app.whenReady().then(async () => {
   if (!app.hasSingleInstanceLock()) return;
   settings = loadSettings();
   app.dock?.hide(); // menu-bar utility, no Dock icon
+  if (await offerMoveToApplications()) return;
   permissions = readPermissions();
+  // An update can leave macOS refusing the new build while System Settings still shows the switch on.
+  const previousVersion = settings.lastVersion;
+  const updatedFrom = previousVersion && previousVersion !== app.getVersion() ? previousVersion : null;
+  if (previousVersion !== app.getVersion()) {
+    settings = { ...settings, lastVersion: app.getVersion() };
+    saveSettings(settings);
+  }
+  console.log(`[PromptButton] version ${app.getVersion()}${updatedFrom ? ` (updated from ${updatedFrom})` : ''} at ${OWN_BUNDLE}`);
   buildAppMenu();
   createWindow();
   buildTray();
@@ -1164,7 +1365,10 @@ app.whenReady().then(() => {
     console.log(`[PromptButton] permissions: accessibility=${next.accessibility} screen=${next.screen} microphone=${next.microphone}`);
     const regained = !hasRequired(permissions) && hasRequired(next);
     permissions = next;
-    if (regained) setup.revoked = false;
+    if (regained) {
+      setup.revoked = false;
+      setup.updatedFrom = null;
+    }
     buildTray();
     pushSetup();
   }, 1500);
@@ -1191,7 +1395,7 @@ app.whenReady().then(() => {
     if (view === 'onboarding') openSetup('onboarding', { step: where as OnboardingStep });
     else openSetup('settings', { pane: where as SetupPane });
   } else if (settings.onboarded < ONBOARDING_VERSION) openSetup('onboarding');
-  else if (!hasRequired(permissions)) openSetup('settings', { pane: 'permissions', revoked: true });
+  else if (!hasRequired(permissions)) openSetup('settings', { pane: 'permissions', revoked: true, updatedFrom });
 
   // Scriptable triggers for testing and for buttons that are not keyboards:
   //   kill -USR2 <pid>  → improve the focused field (same as the hotkey)

@@ -1,7 +1,7 @@
 {
   "name": "promptbutton",
   "productName": "Pimp My Prompt",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
   "author": "Pimp My Prompt",
@@ -19,6 +19,7 @@
     "site": "vite site --port 5500 --strictPort",
     "dev:staging": "vite site --port 5500 --strictPort --open /stage/avatar/preview.html",
     "site:deploy": "bash scripts/deploy-site.sh",
+    "test": "node --import tsx --test test/*.test.mts && npm run server:test",
     "server:test": "cd server && node --test test/*.test.mts",
     "server:deploy": "bash scripts/deploy-server.sh",
     "proxy": "node --env-file-if-exists=.env --import tsx proxy/server.mts",
@@ -27,13 +28,16 @@
     "desktop:bundle": "esbuild desktop/main.ts desktop/preload.ts --bundle --platform=node --target=node22 --format=cjs --outdir=desktop/dist --out-extension:.js=.cjs --packages=external --sourcemap && vite build --config desktop/vite.renderer.config.ts",
     "desktop:helper": "mkdir -p desktop/bin && xcrun swiftc -O -o desktop/bin/axhelper desktop/native/axhelper.swift && xcrun swiftc -O -o desktop/bin/dictate desktop/native/dictate.swift -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker desktop/native/dictate-Info.plist",
     "desktop:icons": "node --import tsx scripts/make-menubar-icons.mts",
+    "paste-test": "npm run desktop:helper && esbuild scripts/paste-test.ts --bundle --platform=node --target=node22 --format=cjs --outfile=desktop/dist/paste-test.cjs --packages=external --log-level=warning && env -u ELECTRON_RUN_AS_NODE electron desktop/dist/paste-test.cjs",
+    "desktop:identity": "bash scripts/make-signing-identity.sh",
     "desktop:dist": "bash scripts/package-mac.sh",
     "desktop:dist:win": "bash scripts/package-win.sh",
     "release:upload": "bash scripts/upload-release.sh",
     "release:upload:win": "bash scripts/upload-release-win.sh",
     "smoke": "node --env-file-if-exists=.env --import tsx eval/smoke.mts",
     "cost": "node --env-file-if-exists=.env --import tsx eval/cost.mts",
-    "voice-smoke": "node --env-file-if-exists=.env --import tsx eval/voice.mts"
+    "voice-smoke": "node --env-file-if-exists=.env --import tsx eval/voice.mts",
+    "collab-smoke": "node --env-file-if-exists=.env --import tsx eval/collab.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
@@ -64,6 +68,7 @@
       "package.json",
       "desktop/dist/**/*",
       "!desktop/dist/**/*.map",
+      "!desktop/dist/paste-test.*",
       "desktop/assets/**/*",
       "public/icon/**/*"
     ],

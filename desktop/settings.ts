@@ -12,6 +12,7 @@ export const DEFAULTS: Settings = {
   onboarded: 0,
   shortcut: null,
   lastPane: 'general',
+  lastVersion: null,
 };
 
 function file(): string {

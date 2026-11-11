@@ -393,7 +393,7 @@ export function Panel() {
   if (state.phase === 'hidden') return null;
 
   const busy =
-    state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting' || understanding || (state.phase === 'settings' && Boolean(state.accountScreen?.working));
+    state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting' || understanding || Boolean(state.talking) || (state.phase === 'settings' && Boolean(state.accountScreen?.working));
   const questions = state.report?.questions ?? [];
   const question = state.phase === 'asking' ? questions[qIndex] : undefined;
   const replies = state.phase === 'replies' ? (state.assist?.replies ?? []) : [];
@@ -461,9 +461,10 @@ export function Panel() {
     switch (intent.intent) {
       case 'edit_prompt':
         if (state.phase === 'done') {
-          show(true);
-          send({ type: 'voiceSnapshot' });
-          return send({ type: 'refine', note: said(intent.instruction) });
+          // Spoken words about the prompt go to the same chat as typed ones: the editor revises,
+          // defends or answers, and its reply (with Undo after a change) shows above the field.
+          setHeard(null);
+          return send({ type: 'chat', text: said(intent.instruction) });
         }
         if (state.phase === 'asking') return answer(said(intent.instruction || intent.text));
         show(true);
@@ -522,11 +523,18 @@ export function Panel() {
         return typed ? answer(typed) : rewriteWithAnswers();
       case 'done':
         if (typed) {
-          send({ type: 'refine', note: typed });
+          send({ type: 'chat', text: typed });
           setText('');
           return;
         }
         return state.text && send({ type: 'accept', text: state.text });
+      case 'ready':
+        if (typed) {
+          send({ type: 'improveAnyway', note: typed });
+          setText('');
+          return;
+        }
+        return send({ type: 'cancel' });
       case 'replies':
         return typed ? send({ type: 'reply', text: typed }) : undefined;
       case 'notice':
@@ -548,6 +556,7 @@ export function Panel() {
     if (mic === 'starting') return 'Starting the microphone…';
     if (mic === 'listening') return 'Listening… pause when you’re done';
     if (understanding) return 'Understanding…';
+    if (state.talking) return 'Thinking it over…';
     if (micNote) return micNote;
     switch (state.phase) {
       case 'capturing':
@@ -559,7 +568,9 @@ export function Panel() {
       case 'asking':
         return question ? 'Type an answer, or pick one above' : '';
       case 'done':
-        return `Change something, or ↵ to insert into ${app}`;
+        return `Tell me what to change, or ↵ to insert into ${app}`;
+      case 'ready':
+        return 'Say what to change anyway, or ↵ to close';
       case 'replies':
         return 'Pick a reply above or type your own, ↵ to put it in the box';
       case 'settings': {
@@ -587,6 +598,13 @@ export function Panel() {
         return state.text ? <ResultView text={state.text} streaming /> : null;
       case 'done':
         return <ResultView text={state.text ?? ''} streaming={false} />;
+      case 'ready':
+        return (
+          <div class="line">
+            <p class="ready-title">This prompt is already good enough.</p>
+            {state.readyReason && <p class="ready-reason">{state.readyReason}</p>}
+          </div>
+        );
       case 'replies':
         return state.assist ? (
           <div class="line">
@@ -616,6 +634,13 @@ export function Panel() {
   // Voice uses macOS speech recognition; other systems get the keyboard only for now.
   const showMic = window.pb.platform === 'darwin' && showField && state.phase !== 'settings' && (!busy || mic !== 'off');
   const options = [
+    ...(state.phase === 'ready'
+      ? [
+          <button type="button" class="opt" key="improve-anyway" onClick={() => send({ type: 'improveAnyway' })}>
+            Improve it anyway
+          </button>,
+        ]
+      : []),
     ...(question?.suggestions ?? []).map((s) => (
       <button type="button" class="opt" key={`q-${s}`} onClick={() => answer(s)}>
         {s}
@@ -672,6 +697,29 @@ export function Panel() {
                   send({ type: 'undoVoice' });
                 }}
               >
+                Undo
+              </button>
+            )}
+          </div>
+        )}
+        {/* The chat about the prompt: what the user said, and the editor's answer. After a defence the
+            user decides; after a change, Undo puts the previous prompt back. */}
+        {state.chat && (state.phase === 'done' || state.phase === 'rewriting') && (
+          <div class="talk" role="status" aria-live="polite">
+            <p class="talk-you">{state.chat.user}</p>
+            {state.chat.reply && <p class="talk-reply">{state.chat.reply}</p>}
+            {state.phase === 'done' && state.chat.action === 'defend' && (
+              <div class="opts">
+                <button type="button" class="opt" onClick={() => send({ type: 'chatDecision', change: true })}>
+                  Change it anyway
+                </button>
+                <button type="button" class="opt" onClick={() => send({ type: 'chatDecision', change: false })}>
+                  Keep it
+                </button>
+              </div>
+            )}
+            {state.phase === 'done' && state.chat.action === 'revise' && (
+              <button type="button" class="heard-undo talk-undo" onClick={() => send({ type: 'undoVoice' })}>
                 Undo
               </button>
             )}

@@ -1,6 +1,7 @@
 // macOS privacy permissions: what each one is for, its live status, and how to ask for it.
 // Windows needs none of these, so every status reads 'unsupported' there.
-import { desktopCapturer, shell, systemPreferences } from 'electron';
+import { app, desktopCapturer, shell, systemPreferences } from 'electron';
+import { execFile } from 'node:child_process';
 import type { PermissionKind, PermissionStatus, Permissions } from './shared';
 
 const IS_MAC = process.platform === 'darwin';
@@ -38,6 +39,27 @@ export const hasRequired = (p: Permissions) => p.accessibility === 'granted' || 
 
 export function openPermissionPane(kind: PermissionKind) {
   if (IS_MAC) void shell.openExternal(PANES[kind]);
+}
+
+const TCC_SERVICE: Record<PermissionKind, string> = { accessibility: 'Accessibility', screen: 'ScreenCapture', microphone: 'Microphone' };
+
+/**
+ * Removes macOS's record of this app for one permission, then asks again. This is the cure for a
+ * stale record: after an update signed differently (or a copy run from another place), System
+ * Settings can show the switch on while macOS refuses the app. Only the packaged app is reset;
+ * in development the record belongs to Electron itself.
+ */
+export async function resetPermission(kind: PermissionKind, bundleId: string): Promise<void> {
+  if (!IS_MAC) return;
+  if (app.isPackaged) {
+    await new Promise<void>((resolve) => {
+      execFile('/usr/bin/tccutil', ['reset', TCC_SERVICE[kind], bundleId], (error, stdout) => {
+        console.log(`[PromptButton] tccutil reset ${TCC_SERVICE[kind]} ${bundleId}: ${error ? error.message : stdout.trim()}`);
+        resolve();
+      });
+    });
+  }
+  await requestPermission(kind);
 }
 
 /**

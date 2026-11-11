@@ -1,13 +1,23 @@
 // axhelper — minimal Accessibility API bridge for PromptButton (macOS).
 //
-//   axhelper focused            → JSON about the frontmost app and its focused text element
+//   axhelper focused [--blind id,id] → JSON about the frontmost app and its focused text element
+//                                 (apps listed as blind expose nothing: do not wait for them)
 //   axhelper set <pid> < text   → sets AXValue of <pid>'s focused element to stdin, prints the read-back value
+//   axhelper activate <pid>     → brings <pid> to the front and waits until it really is frontmost
+//   axhelper paste <pid> all|selection → ⌘A (optional) + ⌘V, only once <pid> is frontmost and no modifier is held
+//   axhelper copy               → ⌘C in the frontmost app
+//   axhelper copy all <pid>     → ⌘A, ⌘C, then → to drop the selection: reads a box the app does not describe
+//
+// Keys are posted as CGEvents from here rather than through AppleScript's System Events: that needs
+// only the Accessibility permission the app already has, where System Events needs a second one
+// (Automation) that macOS asks for separately and resets with every unsigned build.
 //
 // Uses AXUIElementCreateSystemWide / CreateApplication directly because AppleScript's
 // System Events returns "missing value" for the focused element of Chromium-based apps
 // (Chrome, VS Code, Slack, …). Those apps only build their accessibility tree once an
 // assistive client asks for it (AXManualAccessibility / AXEnhancedUserInterface).
 import ApplicationServices
+import Carbon
 import Cocoa
 import Foundation
 
@@ -66,21 +76,27 @@ struct FocusResult {
     var diagnostics: [String: Any] = [:]
 }
 
-func findFocusedElement(app: AXUIElement) -> FocusResult {
+/// Chromium browsers build the accessibility tree of the page only while an assistive client holds
+/// AXEnhancedUserInterface on, and need about two seconds the first time. So: wait long enough, and
+/// when the flag is what made the field appear, leave it on, so the next press is instant.
+func findFocusedElement(app: AXUIElement, patient: Bool = true) -> FocusResult {
     var result = FocusResult()
     result.diagnostics["manualAccessibility"] = Int(setFlag(app, "AXManualAccessibility", true).rawValue)
     var enhancedSet = false
-    for attempt in 0..<8 {
+    var foundAfterEnhanced = false
+    for attempt in 0..<(patient ? 20 : 2) {
         let (fromApp, appError) = copyAttribute(app, kAXFocusedUIElementAttribute as String)
         if let fromApp = fromApp {
             result.element = (fromApp as! AXUIElement)
             result.diagnostics["via"] = "app"
+            foundAfterEnhanced = enhancedSet
             break
         }
         let (fromSystem, systemError) = copyAttribute(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute as String)
         if let fromSystem = fromSystem {
             result.element = (fromSystem as! AXUIElement)
             result.diagnostics["via"] = "system"
+            foundAfterEnhanced = enhancedSet
             break
         }
         result.diagnostics["appError"] = Int(appError.rawValue)
@@ -99,10 +115,11 @@ func findFocusedElement(app: AXUIElement) -> FocusResult {
             result.diagnostics["via"] = "none"
         }
     }
-    if enhancedSet {
-        // Leave the app as we found it; some apps resize oddly while this flag is on.
+    if enhancedSet && !foundAfterEnhanced {
+        // The flag did not help: leave the app as we found it (some apps animate oddly while it is on).
         _ = setFlag(app, "AXEnhancedUserInterface", false)
     }
+    if foundAfterEnhanced { result.diagnostics["keptEnhancedUI"] = true }
     return result
 }
 
@@ -121,6 +138,79 @@ func emit(_ object: [String: Any]) {
     let data = try! JSONSerialization.data(withJSONObject: object, options: [])
     FileHandle.standardOutput.write(data)
     FileHandle.standardOutput.write("\n".data(using: .utf8)!)
+}
+
+/// The pid that has keyboard focus right now. Asked from the Accessibility server each time, because
+/// NSWorkspace's value only refreshes on a running run loop, which this short-lived tool does not have.
+func frontmostPid() -> pid_t {
+    if let focusedApp = attribute(AXUIElementCreateSystemWide(), kAXFocusedApplicationAttribute as String) {
+        var pid: pid_t = 0
+        if AXUIElementGetPid(focusedApp as! AXUIElement, &pid) == .success, pid > 0 { return pid }
+    }
+    RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+    return NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+}
+
+/// Brings the app forward and waits until macOS reports it frontmost. Returns false if it never is.
+func bringToFront(_ pid: pid_t, timeout: TimeInterval) -> Bool {
+    if frontmostPid() == pid { return true }
+    guard let running = NSRunningApplication(processIdentifier: pid), !running.isTerminated else { return false }
+    let deadline = Date().addingTimeInterval(timeout)
+    var attempt = 0
+    while Date() < deadline {
+        // Two ways in turn: AppKit activation can be refused for a background app on macOS 14+,
+        // the Accessibility attribute is not.
+        if attempt % 2 == 0 { running.activate(options: [.activateAllWindows]) }
+        else { _ = setFlag(AXUIElementCreateApplication(pid), kAXFrontmostAttribute as String, true) }
+        attempt += 1
+        for _ in 0..<6 {
+            usleep(50_000)
+            if frontmostPid() == pid { return true }
+        }
+    }
+    return frontmostPid() == pid
+}
+
+/// The key that types `character` on the current keyboard layout, so ⌘V is ⌘V on Dvorak or AZERTY too.
+/// Layouts without that Latin letter (Cyrillic, Greek…) fall back to the ANSI position, which is where
+/// macOS itself maps their ⌘ shortcuts.
+func keyCode(for character: String, fallback: CGKeyCode) -> CGKeyCode {
+    guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+          let pointer = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return fallback }
+    let data = Unmanaged<CFData>.fromOpaque(pointer).takeUnretainedValue() as Data
+    return data.withUnsafeBytes { raw -> CGKeyCode in
+        guard let layout = raw.bindMemory(to: UCKeyboardLayout.self).baseAddress else { return fallback }
+        for code in 0..<UInt16(128) {
+            var dead: UInt32 = 0
+            var length = 0
+            var chars = [UniChar](repeating: 0, count: 4)
+            let status = UCKeyTranslate(layout, code, UInt16(kUCKeyActionDown), 0, UInt32(LMGetKbdType()),
+                                        OptionBits(kUCKeyTranslateNoDeadKeysBit), &dead, 4, &length, &chars)
+            if status == noErr, length == 1, String(utf16CodeUnits: chars, count: 1) == character { return CGKeyCode(code) }
+        }
+        return fallback
+    }
+}
+
+/// Waits (briefly) until ⌘ ⌥ ⌃ ⇧ are all up: a shortcut key still held down would turn ⌘V into ⌥⇧⌘V.
+func waitForModifiersReleased(timeout: TimeInterval) -> Bool {
+    let held: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        if CGEventSource.flagsState(.combinedSessionState).intersection(held).isEmpty { return true }
+        usleep(25_000)
+    }
+    return CGEventSource.flagsState(.combinedSessionState).intersection(held).isEmpty
+}
+
+func pressCommand(_ key: CGKeyCode) {
+    let source = CGEventSource(stateID: .combinedSessionState)
+    for down in [true, false] {
+        guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { continue }
+        event.flags = .maskCommand
+        event.post(tap: .cghidEventTap)
+        usleep(12_000)
+    }
 }
 
 let args = CommandLine.arguments
@@ -145,7 +235,14 @@ case "focused":
         "pid": Int(pid),
     ]
     if let bounds = windowBounds(of: app) { out["bounds"] = bounds }
-    let focus = findFocusedElement(app: app)
+    // Electron apps (under any framework name) ship their code as app.asar. Their editors take text
+    // only through real paste events, so the caller must not write the field's value directly.
+    if let resources = frontmost.bundleURL?.appendingPathComponent("Contents/Resources/app.asar").path {
+        out["electron"] = FileManager.default.fileExists(atPath: resources)
+    }
+    var blind: [String] = []
+    if let flag = args.firstIndex(of: "--blind"), args.count > flag + 1 { blind = args[flag + 1].split(separator: ",").map(String.init) }
+    let focus = findFocusedElement(app: app, patient: !blind.contains(frontmost.bundleIdentifier ?? ""))
     out["diagnostics"] = focus.diagnostics
     if let focused = focus.element {
         out["role"] = string(focused, kAXRoleAttribute as String) ?? ""
@@ -186,6 +283,105 @@ case "set":
         "axError": Int(result.rawValue),
         "value": string(focused, kAXValueAttribute as String) ?? "",
     ])
+
+case "activate":
+    guard args.count > 2, let pid = pid_t(args[2]) else {
+        emit(["error": "usage: axhelper activate <pid>"])
+        exit(1)
+    }
+    guard let running = NSRunningApplication(processIdentifier: pid), !running.isTerminated else {
+        emit(["error": "app_not_running"])
+        exit(1)
+    }
+    let ok = bringToFront(pid, timeout: 2.0)
+    emit(["frontmost": ok, "frontPid": Int(frontmostPid())])
+
+case "paste":
+    guard args.count > 3, let pid = pid_t(args[2]) else {
+        emit(["error": "usage: axhelper paste <pid> all|selection"])
+        exit(1)
+    }
+    guard let running = NSRunningApplication(processIdentifier: pid), !running.isTerminated else {
+        emit(["error": "app_not_running"])
+        exit(1)
+    }
+    // A focused password field (or Terminal's Secure Keyboard Entry) makes macOS drop posted keys.
+    if IsSecureEventInputEnabled() {
+        emit(["error": "secure_input"])
+        exit(1)
+    }
+    guard bringToFront(pid, timeout: 1.5) else {
+        emit(["error": "target_not_frontmost", "frontPid": Int(frontmostPid())])
+        exit(1)
+    }
+    let released = waitForModifiersReleased(timeout: 1.2)
+    // The last check before the keys go out: they must land in the target, never in whatever took focus meanwhile.
+    guard frontmostPid() == pid else {
+        emit(["error": "target_not_frontmost", "frontPid": Int(frontmostPid())])
+        exit(1)
+    }
+    if args[3] == "all" {
+        pressCommand(keyCode(for: "a", fallback: 0))
+        usleep(90_000)
+    }
+    pressCommand(keyCode(for: "v", fallback: 9))
+    emit(["pasted": true, "modifiersReleased": released])
+
+case "copy":
+    if IsSecureEventInputEnabled() {
+        emit(["error": "secure_input"])
+        exit(1)
+    }
+    let released = waitForModifiersReleased(timeout: 0.8)
+    if args.count > 3, args[2] == "all", let pid = pid_t(args[3]) {
+        // Read a whole box the app does not describe. Only ever in the app we mean to read.
+        guard frontmostPid() == pid else {
+            emit(["error": "target_not_frontmost", "frontPid": Int(frontmostPid())])
+            exit(1)
+        }
+        pressCommand(keyCode(for: "a", fallback: 0))
+        usleep(90_000)
+        pressCommand(keyCode(for: "c", fallback: 8))
+        usleep(120_000)
+        // → drops the selection and leaves the caret at the end, so the next key typed cannot wipe the text.
+        if let source = CGEventSource(stateID: .combinedSessionState) {
+            for down in [true, false] {
+                CGEvent(keyboardEventSource: source, virtualKey: 124, keyDown: down)?.post(tap: .cghidEventTap)
+                usleep(12_000)
+            }
+        }
+        emit(["copied": true, "all": true, "modifiersReleased": released])
+    } else {
+        pressCommand(keyCode(for: "c", fallback: 8))
+        emit(["copied": true, "modifiersReleased": released])
+    }
+
+case "focusfield":
+    // Test support (scripts/paste-test.ts): put the keyboard into the app's first text area, as a click would.
+    guard args.count > 2, let pid = pid_t(args[2]) else { exit(1) }
+    let target = AXUIElementCreateApplication(pid)
+    _ = setFlag(target, "AXManualAccessibility", true)
+    var found: AXUIElement?
+    if let window = focusedWindow(of: target) {
+        var queue: [AXUIElement] = [window]
+        var visited = 0
+        var fallback: AXUIElement?
+        while !queue.isEmpty && visited < 6000 && found == nil {
+            let element = queue.removeFirst()
+            visited += 1
+            let role = string(element, kAXRoleAttribute as String) ?? ""
+            if role == "AXTextArea" { found = element }
+            else if role == "AXTextField" && fallback == nil { fallback = element }
+            if let children = attribute(element, kAXChildrenAttribute as String) as? [AXUIElement] { queue.append(contentsOf: children) }
+        }
+        if found == nil { found = fallback }
+    }
+    guard let field = found else {
+        emit(["error": "no_text_field"])
+        exit(1)
+    }
+    let result = setFlag(field, kAXFocusedAttribute as String, true)
+    emit(["focused": result == .success, "role": string(field, kAXRoleAttribute as String) ?? ""])
 
 case "dump":
     // Debug: breadth-first listing of the frontmost window's tree (role, subrole, focused, value length).

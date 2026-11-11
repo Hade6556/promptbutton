@@ -13,6 +13,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type { Screenshot } from '../src/messaging';
 import type { DraftSource } from './shared';
+import { restoreClipboard, snapshotClipboard } from './clipboard';
 import { averageHash, captureWindow, isWindows, runWinHelper, type WinFocused } from './win';
 
 const execFileAsync = promisify(execFile);
@@ -32,6 +33,8 @@ export interface Capture {
   valueSettable: boolean;
   /** Electron/Chromium app: AXValue writes land in a hidden textarea and never reach the editor. */
   chromium: boolean;
+  /** The app describes no focused element at all (ChatGPT's app): the box is read and checked with select-all + copy. */
+  blind: boolean;
   /** Which text became the draft. */
   source: DraftSource;
   /** How the text was obtained. */
@@ -147,6 +150,8 @@ interface HelperFocused {
   placeholder?: string;
   selectedText: string;
   valueSettable: boolean;
+  /** The app is built on Electron (it ships an app.asar). */
+  electron?: boolean;
   diagnostics?: Record<string, unknown>;
 }
 
@@ -203,17 +208,53 @@ async function focusedViaAppleScript(): Promise<HelperFocused> {
   return { app, bundleId, pid: Number.parseInt(pidText, 10) || 0, bounds, role, value, selectedText, valueSettable: true };
 }
 
-/** Last resort: ⌘C / Ctrl+C the current selection and read the clipboard, then put the clipboard back. */
+/** Last resort: ⌘C / Ctrl+C the current selection and read the clipboard, then put the clipboard back as it was. */
 async function copySelection(): Promise<string> {
-  const previous = await clipboard.readText();
-  clipboard.writeText('');
+  const saved = await snapshotClipboard();
+  await clipboard.writeText('');
   try {
     if (isWindows) await runWinHelper(['copy']);
-    else await runAppleScript('tell application "System Events" to keystroke "c" using command down');
-    await delay(200);
-    return (await clipboard.readText()).trim();
+    else await runHelper(['copy']);
+    // Apps answer ⌘C at their own pace: wait for text to arrive rather than a fixed time.
+    for (let i = 0; i < 8; i++) {
+      await delay(50);
+      const text = (await clipboard.readText()).trim();
+      if (text) return text;
+    }
+    return '';
+  } catch (error) {
+    console.warn('[PromptButton] could not copy the selection:', error instanceof Error ? error.message : error);
+    return '';
   } finally {
-    clipboard.writeText(previous);
+    await restoreClipboard(saved);
+  }
+}
+
+/** Apps that exposed no focused element after the full wait: later presses skip the wait for them. */
+const blindApps = new Set<string>();
+/** Longer than any chat draft; more than this from select-all means we copied a page, not a box. */
+const MAX_BLIND_DRAFT_CHARS = 4000;
+
+/**
+ * Reads a whole box the app does not describe: ⌘A, ⌘C, then → to drop the selection. '' when the box
+ * is empty; null when it could not be read. The clipboard is put back as it was.
+ */
+export async function copyWholeField(pid: number): Promise<string | null> {
+  const saved = await snapshotClipboard();
+  await clipboard.writeText('');
+  try {
+    await (isWindows ? runWinHelper(['copy']) : runHelper(['copy', 'all', String(pid)]));
+    let text = '';
+    for (let i = 0; i < 8 && !text; i++) {
+      await delay(50);
+      text = await clipboard.readText();
+    }
+    return text;
+  } catch (error) {
+    console.warn('[PromptButton] could not read the box by copying:', error instanceof Error ? error.message : error);
+    return null;
+  } finally {
+    await restoreClipboard(saved);
   }
 }
 
@@ -249,7 +290,7 @@ export async function captureContext(): Promise<Capture> {
     focused = await runWinHelper<WinFocused>(['focused']);
     if (focused.diagnostics) console.debug('[PromptButton] uia', JSON.stringify(focused.diagnostics));
   } else try {
-    focused = await runHelper<HelperFocused>(['focused']);
+    focused = await runHelper<HelperFocused>(blindApps.size ? ['focused', '--blind', [...blindApps].join(',')] : ['focused']);
     if (focused.diagnostics) console.debug('[PromptButton] ax', JSON.stringify(focused.diagnostics));
   } catch (error) {
     console.warn('[PromptButton] axhelper unavailable, using AppleScript:', error instanceof Error ? error.message : error);
@@ -264,12 +305,25 @@ export async function captureContext(): Promise<Capture> {
   if (/^(Queue another message|Ask .*|Type a message|Message .*|Send a message)…?\.{0,3}$/i.test(field)) field = '';
   // Chat boxes (VS Code, Cursor, Copilot, Slack) expose their hint as the value: a short imperative line ending in an ellipsis.
   if (/^(Ask|Type|Queue|Message|Send|Add|Plan|Describe|Search|Write|Tell|Chat|Enter|Start|Edit|Reply)\b[^\n]{0,56}(…|\.\.\.)$/i.test(field)) field = '';
+  // The app describes nothing at all: no focused element, no role. (Not on Windows: UI Automation always answers.)
+  const blind = !isWindows && method === 'ax' && !focused.role && focused.diagnostics?.via === 'none';
+  if (focused.bundleId) {
+    if (blind) blindApps.add(focused.bundleId);
+    else blindApps.delete(focused.bundleId); // it answers now (its tree was still being built last time)
+  }
   if (!selection && !field) {
-    // Nothing exposed (e.g. Chrome). If the user selected their draft, ⌘C gets it.
+    // Nothing exposed. If the user selected their draft, ⌘C gets it.
     const copied = await copySelection();
     if (copied) {
       selection = copied;
       method = 'clipboard';
+    } else if (blind && focused.pid) {
+      // No selection either: read the whole box the keyboard is in.
+      const whole = (await copyWholeField(focused.pid))?.trim() ?? '';
+      if (whole && whole.length <= MAX_BLIND_DRAFT_CHARS) {
+        field = whole;
+        method = 'clipboard';
+      } else if (whole) console.log(`[PromptButton] select-all returned ${whole.length} chars: a page, not a text box; ignoring`);
     }
   }
 
@@ -283,14 +337,18 @@ export async function captureContext(): Promise<Capture> {
     bundleId: focused.bundleId,
     pid: focused.pid,
     role: focused.role,
-    fieldText: focused.value,
+    fieldText: blind ? field : focused.value,
     selectedText: focused.selectedText,
+    blind,
     valueSettable: focused.valueSettable !== false,
     // Electron accepts AXManualAccessibility (0 = success); native apps and Chrome reject it.
     // macOS: Electron accepts AXManualAccessibility (0 = success). Windows: UI Automation reports Chromium as "Chrome".
     chromium:
       focused.diagnostics?.manualAccessibility === 0 ||
+      focused.electron === true ||
       focused.diagnostics?.framework === 'Chrome' ||
+      // Browsers: a web page's editor (ProseMirror, Lexical…) only stays in sync through real paste events.
+      /chrome|chromium|brave|edgemac|thebrowser|vivaldi|opera|firefox|safari|comet|atlas/i.test(focused.bundleId) ||
       /\b(Code|Cursor|Slack|Discord|Notion|Figma|Linear|Teams)\b/.test(focused.app),
     source,
     method,

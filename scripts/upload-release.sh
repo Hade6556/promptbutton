@@ -14,7 +14,7 @@ app="release/mac-universal/Pimp My Prompt.app"
 [[ -f "$dmg" ]] || { echo "Missing $dmg. Run: npm run desktop:dist" >&2; exit 1; }
 bytes="$(stat -f %z "$dmg")"
 sha="$(shasum -a 256 "$dmg" | cut -d' ' -f1)"
-if codesign -dv --verbose=2 "$app" 2>&1 | grep -q "Authority=Developer ID Application"; then signing=developer-id; else signing=ad-hoc; fi
+if codesign -dv --verbose=2 "$app" 2>&1 | grep -q "Authority=Developer ID Application"; then signing=developer-id; elif codesign -dv --verbose=2 "$app" 2>&1 | grep -q "Authority=Pimp My Prompt Self-Signed"; then signing=self-signed; else signing=ad-hoc; fi
 if xcrun stapler validate "$dmg" >/dev/null 2>&1; then notarized=true; else notarized=false; fi
 cat > release/latest.json <<JSON
 {"version":"$version","file":"$file","url":"/download/PimpMyPrompt.dmg","bytes":$bytes,"sha256":"$sha","arch":"universal","minimumMacOS":"13.0","signing":"$signing","notarized":$notarized,"published":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}

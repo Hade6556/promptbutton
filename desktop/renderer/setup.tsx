@@ -148,7 +148,11 @@ function PermissionRows({ state }: { state: SetupState }) {
               <div class="row-hint">{why}</div>
               {showHint && (
                 <div class="row-hint fix">
-                  In System Settings, turn on {window.pb.platform === 'darwin' ? 'Pimp My Prompt' : 'the app'}. If it already looks on, select it, remove it with the minus button, then add it again. This screen updates by itself.
+                  In System Settings, turn on Pimp My Prompt. This screen updates by itself. If the switch already looks on, macOS is holding a record for an older copy:{' '}
+                  <button type="button" class="link" onClick={() => send({ type: 'resetPermission', permission: kind })}>
+                    reset it and ask again
+                  </button>
+                  .
                 </div>
               )}
               {status === 'restart' && <div class="row-hint fix">macOS turns Screen Recording on after the app restarts.</div>}
@@ -453,7 +457,10 @@ function PermissionsPane({ state }: { state: SetupState }) {
     <>
       {lostAccess && (
         <div class="banner" role="alert">
-          <strong>Pimp My Prompt can’t read or write text boxes right now.</strong> macOS turned Accessibility off, which happens after an update or when it is switched off in System Settings. Turn it back on below.
+          <strong>Pimp My Prompt can’t read or write text boxes right now.</strong>{' '}
+          {state.updatedFrom
+            ? `You updated from ${state.updatedFrom} to ${state.version}, and macOS wants Accessibility allowed again for the new version. Turn it on below.`
+            : 'Accessibility is off for this copy of the app. That happens after an update, or when it is switched off in System Settings. Turn it back on below.'}
         </div>
       )}
       <section class="group">

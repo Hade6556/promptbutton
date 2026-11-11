@@ -60,6 +60,46 @@ export interface GapReport {
   missing: AmbiguityType[];
   questions: GapQuestion[];
   alreadyClearBecause: string | null;
+  /** The draft already meets the quality bar: a rewrite would not get a materially better answer. */
+  ready: boolean;
+  /** One line saying what the draft already has; null when not ready. */
+  readyReason: string | null;
+}
+
+/** One exchange in the panel's chat about the prompt on screen. */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  text: string;
+  /** Assistant turns: what it did with the user's message. */
+  action?: DiscussAction;
+}
+
+/**
+ * revise: agree and change the prompt. defend: keep it and say why. answer: a question about the
+ * prompt, answered without changing it.
+ */
+export type DiscussAction = 'revise' | 'defend' | 'answer';
+
+export interface DiscussInput {
+  app: string;
+  /** What the user originally typed. */
+  draft: string;
+  /** The prompt on screen that the user is talking about. */
+  prompt: string;
+  domain?: Domain;
+  answers?: UserAnswer[];
+  /** Earlier turns of this chat, oldest first. */
+  turns: ChatTurn[];
+  /** What the user just said. */
+  message: string;
+}
+
+export interface Discussion {
+  action: DiscussAction;
+  /** What the user reads: one to three sentences. */
+  reply: string;
+  /** revise: the exact change for the reviser, self-contained. Empty otherwise. */
+  instruction: string;
 }
 
 /** "What should I say?" — produced when the user presses with an empty field. */

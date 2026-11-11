@@ -1,5 +1,5 @@
 // Types shared by the Electron main process and the panel renderer.
-import type { Depth, GapReport, ReplyAssist, Result, UserAnswer, VoiceIntent } from '../src/messaging';
+import type { Depth, DiscussAction, GapReport, ReplyAssist, Result, UserAnswer, VoiceIntent } from '../src/messaging';
 import type { AskMode } from '../src/llm/config';
 
 export interface Settings {
@@ -18,6 +18,8 @@ export interface Settings {
   shortcut: string | null;
   /** The settings pane open last, restored next time. */
   lastPane: SetupPane;
+  /** The app version that ran last, to notice an update (macOS may want permissions granted again). */
+  lastVersion: string | null;
 }
 
 /** Settings window panes, in toolbar order. */
@@ -43,6 +45,8 @@ export interface SetupState {
   permissions: Permissions;
   /** Required access was lost after setup: the window opened by itself to fix it. */
   revoked: boolean;
+  /** Set when access went missing right after an update from this version. */
+  updatedFrom: string | null;
   shortcut: { keys: string[][]; label: string; custom: boolean; recording: boolean; error?: string };
   /** The shortcut was pressed while this window had focus (ms timestamp), for the practice step. */
   shortcutPressedAt: number | null;
@@ -56,6 +60,8 @@ export type SetupAction =
   | { type: 'restartOnboarding' }
   | { type: 'requestPermission'; permission: PermissionKind }
   | { type: 'openPermissionPane'; permission: PermissionKind }
+  /** Clear macOS's record for this app (a stale switch that looks on but is not) and ask again. */
+  | { type: 'resetPermission'; permission: PermissionKind }
   | { type: 'relaunch' }
   | { type: 'prefs'; prefs: Partial<Pick<Settings, 'askMode' | 'depth' | 'hideFromCapture'>> }
   | { type: 'openAtLogin'; on: boolean }
@@ -79,6 +85,8 @@ export type Phase =
   | 'asking'
   | 'rewriting'
   | 'done'
+  /** The draft is already a finished prompt: say so instead of rewriting it again. */
+  | 'ready'
   /** Empty field: summary of the chat + suggested replies. */
   | 'replies'
   | 'error'
@@ -125,6 +133,12 @@ export interface PanelState {
   notice?: string;
   /** Offer "select all and paste" after a copy-only insert. */
   offerForcePaste?: boolean;
+  /** Phase 'ready': one line on why the draft needs no rewrite. */
+  readyReason?: string;
+  /** The latest exchange about the prompt on screen. `action` is null while the reply is being written. */
+  chat?: { user: string; reply: string; action: DiscussAction | null } | null;
+  /** The editor is working out its reply. */
+  talking?: boolean;
   settings?: Settings;
   accountScreen?: AccountScreen;
   hotkey?: string;
@@ -140,6 +154,12 @@ export type RendererAction =
   | { type: 'forcePaste' }
   /** Re-run the rewrite with an extra instruction typed into the input box. */
   | { type: 'refine'; note: string }
+  /** Say something about the prompt on screen (typed or spoken): the editor revises, defends or answers. */
+  | { type: 'chat'; text: string }
+  /** After the editor defended the prompt: change it anyway, or keep it. */
+  | { type: 'chatDecision'; change: boolean }
+  /** Phase 'ready': rewrite although the prompt is already good, optionally with what to change. */
+  | { type: 'improveAnyway'; note?: string }
   | { type: 'cancel' }
   /** Re-read the screen and run again, ignoring the cached result. */
   | { type: 'refresh' }

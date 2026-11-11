@@ -61,6 +61,11 @@ const CASES: Case[] = [
     check: (i) => (i.intent === 'edit_prompt' && /short/i.test(i.instruction) ? null : `${i.intent} "${i.instruction}"`),
   },
   {
+    name: 'done: pushback goes to the chat in the user\'s words',
+    ctx: base('done', "um I don't really like this prompt we're heading the wrong way", { rewrite: REWRITE }),
+    check: (i) => (i.intent === 'edit_prompt' && /wrong way|don.t like/i.test(i.instruction) ? null : `${i.intent} "${i.instruction}"`),
+  },
+  {
     name: 'done: insert (fast path)',
     ctx: base('done', 'Perfect, put it in.', { rewrite: REWRITE }),
     check: (i) => (i.command === 'insert' ? null : `${i.intent}/${i.command}`),

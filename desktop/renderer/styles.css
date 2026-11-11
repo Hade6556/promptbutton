@@ -207,8 +207,47 @@ p {
   padding: 14px var(--inset) 14px;
 }
 .content + .composer,
-.content + .heard {
+.content + .heard,
+.content + .talk {
   border-top: 1px solid var(--separator);
+}
+
+/* The chat about the prompt. The user's words are quiet; the editor's reply is the thing to read. */
+.talk {
+  position: relative;
+  padding: 10px var(--inset) 2px;
+  font-size: 12px;
+  line-height: 17px;
+  user-select: text;
+  -webkit-app-region: no-drag;
+  animation: fade-in 240ms var(--ease-out);
+}
+.talk-you {
+  padding-right: 56px;
+  color: var(--label-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.talk-reply {
+  margin-top: 3px;
+  color: var(--label);
+}
+.talk .opts {
+  margin-top: 8px;
+}
+.talk-undo {
+  position: absolute;
+  top: 7px;
+  right: 10px;
+}
+.ready-title {
+  font-weight: 600;
+  color: var(--label);
+}
+.ready-reason {
+  margin-top: 2px;
+  color: var(--label-2);
 }
 
 /* What voice just did: mic glyph, a few words, Undo. Quiet, on the composer's top edge. */
