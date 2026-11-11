@@ -583,6 +583,17 @@ body.menu-open .menu-btn .x { display: block; }
 @media (max-width: 599px) {
   :root { --gap-section: 72px; }
 
+  /* Header, measured off Cluely's at 390px: 40px tall (10px of padding over a 30px bar), the logo 12px
+     from the left edge and 22px high, resting 2px below centre, and a 24px menu icon 20px from the right
+     with a 48px tap area around it. */
+  .site-header { padding-top: 10px; }
+  .site-header .nav { height: 30px; }
+  .site-header .brand { margin-left: -8px; transform: translateY(2px); }
+  .menu-btn { position: relative; width: 24px; height: 24px; border-radius: 6px; }
+  .menu-btn::before { content: ""; position: absolute; inset: -12px; }
+  .menu-btn svg { width: 24px; height: 24px; }
+  .mobile-menu { inset: 48px 12px auto; }
+
   /* Hero: the button grows to a full tap target. */
   .btn-quiet { height: 44px; font-size: 1rem; }
   /* The note stays a small one-line pill under the button; the link's tap area is taller than it looks. */
@@ -594,7 +605,7 @@ body.menu-open .menu-btn .x { display: block; }
      whole story fits on one phone screen under the button. */
   /* Headline spacing measured off Cluely's hero at 390px: it starts 40px under the header, fills about
      nine tenths of the screen's width, sets its two lines tight, and leaves 48px before the button. */
-  .hero { padding-top: 96px; }
+  .hero { padding-top: 80px; }
   .hero .h1 { font-size: 10.9vw; line-height: 1; }
   .hero .cta { margin-top: 48px; gap: 10px; }
   .demo { margin-top: 12px; }
