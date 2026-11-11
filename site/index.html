@@ -113,7 +113,7 @@ body.menu-open .menu-btn .x { display: block; }
 /* ---------- Hero ---------- */
 /* Vertical rhythm measured off Cluely's hero at 1280: headline starts 128px down at 80px/500, and about
    120px of air is shared between headline, button and demo. */
-.hero { position: relative; padding: 128px 0 0; text-align: center; }
+.hero { position: relative; padding: 164px 0 0; text-align: center; }
 .hero .scene { position: absolute; inset: 0 0 240px; z-index: 0; background: url(assets/dawn.svg) center bottom / cover no-repeat, linear-gradient(180deg, #15357c 0%, #3769bd 55%, #fff 100%); }
 .hero .scene::after { content: ""; position: absolute; inset: auto 0 0; height: 16%; background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fff); }
 .hero > .wrap, .hero .demo { position: relative; z-index: 1; }
@@ -123,7 +123,7 @@ body.menu-open .menu-btn .x { display: block; }
 /* The one phrase the headline turns on, in the product's amber. */
 .hero .h1 em { font-style: normal; color: #ffc163; white-space: nowrap; }
 @media (min-width: 900px) { .hero .h1 { font-size: clamp(2.75rem, 5.3vw, 4.5rem); } .hero .h1 br { display: none; } }
-.hero .cta { margin-top: clamp(32px, 3.75vw, 48px); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.hero .cta { margin-top: clamp(48px, 5.625vw, 72px); display: flex; flex-direction: column; align-items: center; gap: 14px; }
 /* The main action, kept quiet: a small pane of dark glass with a hairline, the only button in the hero. */
 .btn-quiet { height: 40px; padding: 0 20px; font-size: 0.9375rem; font-weight: 500; color: #fff; background: rgba(9, 22, 62, 0.44); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .btn-quiet:hover { background: rgba(9, 22, 62, 0.62); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
@@ -140,7 +140,7 @@ body.menu-open .menu-btn .x { display: block; }
    the app's dark panel turns it into a master prompt, it is sent, and the desktop splits into two chats, the
    same request without the tool and with it. Without scripts or with reduced motion it rests on that last
    frame, which holds the rough line, the master prompt and the result. */
-.demo { margin: clamp(40px, 4.4vw, 56px) auto 0; width: min(100% - 2 * var(--gut), 1120px); text-align: left; }
+.demo { margin: clamp(60px, 6.6vw, 84px) auto 0; width: min(100% - 2 * var(--gut), 1120px); text-align: left; }
 .desk { position: relative; height: 930px; border-radius: 20px; overflow: hidden; font-size: 0.875rem; line-height: 1.45; color: #101623;
   background:
     radial-gradient(70% 60% at 82% 108%, #ffb25e 0%, rgba(255, 178, 94, 0) 70%),
@@ -572,7 +572,7 @@ body.menu-open .menu-btn .x { display: block; }
 .legal { margin-top: 56px; padding-top: 20px; border-top: 1px solid #d2d2d7; color: var(--ink-2); font-size: 0.875rem; }
 
 @media (max-width: 767px) {
-  .hero { padding-top: 96px; }
+  .hero { padding-top: 116px; }
   .app-bar span { transform: translateX(-18px); }
 }
 /* ---------- Phones (up to 599px) ----------
@@ -605,10 +605,10 @@ body.menu-open .menu-btn .x { display: block; }
      whole story fits on one phone screen under the button. */
   /* Headline spacing measured off Cluely's hero at 390px: it starts 40px under the header, fills about
      nine tenths of the screen's width, sets its two lines tight, and leaves 48px before the button. */
-  .hero { padding-top: 80px; }
+  .hero { padding-top: 100px; }
   .hero .h1 { font-size: 10.9vw; line-height: 1; }
-  .hero .cta { margin-top: 48px; gap: 10px; }
-  .demo { margin-top: 12px; }
+  .hero .cta { margin-top: 72px; gap: 10px; }
+  .demo { margin-top: 18px; }
   .desk { height: 480px; }
   .menubar, .dock { display: none; }
   .app { inset: 10px; height: auto; }
