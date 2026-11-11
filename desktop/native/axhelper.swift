@@ -195,19 +195,27 @@ func keyCode(for character: String, fallback: CGKeyCode) -> CGKeyCode {
 /// Waits (briefly) until ⌘ ⌥ ⌃ ⇧ are all up: a shortcut key still held down would turn ⌘V into ⌥⇧⌘V.
 func waitForModifiersReleased(timeout: TimeInterval) -> Bool {
     let held: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+    // The hardware state: what fingers are holding. The session state also remembers the ⌘ of keys
+    // we posted ourselves, which would make every later paste wait out the full timeout.
     let deadline = Date().addingTimeInterval(timeout)
     while Date() < deadline {
-        if CGEventSource.flagsState(.combinedSessionState).intersection(held).isEmpty { return true }
+        if CGEventSource.flagsState(.hidSystemState).intersection(held).isEmpty { return true }
         usleep(25_000)
     }
-    return CGEventSource.flagsState(.combinedSessionState).intersection(held).isEmpty
+    return CGEventSource.flagsState(.hidSystemState).intersection(held).isEmpty
 }
 
 func pressCommand(_ key: CGKeyCode) {
-    let source = CGEventSource(stateID: .combinedSessionState)
-    for down in [true, false] {
-        guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { continue }
-        event.flags = .maskCommand
+    // A private source: the posted ⌘ does not leak into the session's idea of which keys are down.
+    let source = CGEventSource(stateID: .privateState)
+    let commandKey: CGKeyCode = 55
+    // The whole chord as a keyboard would send it: ⌘ down, key down, key up, ⌘ up. Posting only the
+    // letter with a ⌘ flag leaves the system believing ⌘ is still held, and the next paste then
+    // waits for a release that never comes.
+    let steps: [(CGKeyCode, Bool, CGEventFlags)] = [(commandKey, true, .maskCommand), (key, true, .maskCommand), (key, false, .maskCommand), (commandKey, false, [])]
+    for (code, down, flags) in steps {
+        guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down) else { continue }
+        event.flags = flags
         event.post(tap: .cghidEventTap)
         usleep(12_000)
     }
@@ -344,7 +352,7 @@ case "copy":
         pressCommand(keyCode(for: "c", fallback: 8))
         usleep(120_000)
         // → drops the selection and leaves the caret at the end, so the next key typed cannot wipe the text.
-        if let source = CGEventSource(stateID: .combinedSessionState) {
+        if let source = CGEventSource(stateID: .privateState) {
             for down in [true, false] {
                 CGEvent(keyboardEventSource: source, virtualKey: 124, keyDown: down)?.post(tap: .cghidEventTap)
                 usleep(12_000)
@@ -357,7 +365,7 @@ case "copy":
     }
 
 case "focusfield":
-    // Test support (scripts/paste-test.ts): put the keyboard into the app's first text area, as a click would.
+    // Test support (scripts/paste-test.ts): put the keyboard into the app's message box, as a click would.
     guard args.count > 2, let pid = pid_t(args[2]) else { exit(1) }
     let target = AXUIElementCreateApplication(pid)
     _ = setFlag(target, "AXManualAccessibility", true)
@@ -366,11 +374,12 @@ case "focusfield":
         var queue: [AXUIElement] = [window]
         var visited = 0
         var fallback: AXUIElement?
-        while !queue.isEmpty && visited < 6000 && found == nil {
+        while !queue.isEmpty && visited < 6000 {
             let element = queue.removeFirst()
             visited += 1
             let role = string(element, kAXRoleAttribute as String) ?? ""
-            if role == "AXTextArea" { found = element }
+            // The last text area in reading order: a chat's message box sits below its content.
+            if role == "AXTextArea" { fallback = element }
             else if role == "AXTextField" && fallback == nil { fallback = element }
             if let children = attribute(element, kAXChildrenAttribute as String) as? [AXUIElement] { queue.append(contentsOf: children) }
         }
@@ -382,6 +391,22 @@ case "focusfield":
     }
     let result = setFlag(field, kAXFocusedAttribute as String, true)
     emit(["focused": result == .success, "role": string(field, kAXRoleAttribute as String) ?? ""])
+
+case "clearfield":
+    // Test support: empty the app's message box (⌘A, Delete) after a paste test. Never sends anything.
+    guard args.count > 2, let pid = pid_t(args[2]), bringToFront(pid, timeout: 1.5), frontmostPid() == pid else {
+        emit(["error": "target_not_frontmost"])
+        exit(1)
+    }
+    pressCommand(keyCode(for: "a", fallback: 0))
+    usleep(90_000)
+    if let source = CGEventSource(stateID: .privateState) {
+        for down in [true, false] {
+            CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: down)?.post(tap: .cghidEventTap)
+            usleep(12_000)
+        }
+    }
+    emit(["cleared": true])
 
 case "dump":
     // Debug: breadth-first listing of the frontmost window's tree (role, subrole, focused, value length).

@@ -35,7 +35,8 @@ function isChatLikeField(capture: Capture): boolean {
 
 /** The app reports the field's text, so a paste can be checked by reading it back. */
 function isReadable(capture: Capture): boolean {
-  return capture.method === 'ax' && /^(AXText(Area|Field)|AXComboBox|Edit|Document)$/.test(capture.role);
+  // The role is what counts: an empty box has no draft (method 'none') but can still be read back.
+  return !capture.blind && capture.method !== 'applescript' && /^(AXText(Area|Field)|AXComboBox|Edit|Document)$/.test(capture.role);
 }
 
 /** Brings the target to the front; resolves only once it is frontmost, otherwise throws target_not_frontmost / app_not_running. */
