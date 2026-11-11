@@ -10,6 +10,8 @@ import { hit } from './limits.mts';
 import { MailUnavailable } from './mail.mts';
 import { accountView } from './plans.mts';
 import { proxyMessages } from './proxy.mts';
+import { timingSafeEqual } from 'node:crypto';
+import { MAX_PAIR_CHARS, outcomes, pairs, parseOutcome } from './feedback.mts';
 
 async function route(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://local');
@@ -52,6 +54,15 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse): Promi
     return json(res, 200, { token: result.token, account: accountView(result.user) });
   }
 
+  // The knowledge-base tool reads what has come in. Off unless PMP_ADMIN_TOKEN is set (32+ characters).
+  if (method === 'GET' && path === '/api/admin/feedback') {
+    const given = Buffer.from(String(req.headers['x-admin-token'] ?? ''));
+    const wanted = Buffer.from(config.adminToken);
+    if (wanted.length < 32 || given.length !== wanted.length || !timingSafeEqual(given, wanted)) return json(res, 404, { error: 'Not found.' });
+    const since = /^\d{4}-\d{2}-\d{2}/.test(url.searchParams.get('since') ?? '') ? url.searchParams.get('since')! : '1970-01-01';
+    return json(res, 200, { outcomes: outcomes.since(since), pairs: pairs.since(since) });
+  }
+
   // Everything below needs a signed-in user.
   const auth = userFromHeaders(req.headers);
   if (path === '/api/v1/messages' && method === 'POST') {
@@ -62,6 +73,26 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse): Promi
     return proxyMessages(req, res, auth.user, await readBody(req, config.maxBodyBytes), url.search.slice(1));
   }
   if (!auth) return json(res, 401, { error: 'Sign in again.' });
+
+  // How a rewrite fared: technique ids and a signal, never text. Stored without the user.
+  if (method === 'POST' && path === '/api/outcome') {
+    if (!hit(`outcome:${auth.user.id}`, 240, 60 * 60_000).ok) return json(res, 429, { error: 'Too many reports.' });
+    const outcome = parseOutcome(JSON.parse((await readBody(req, 4096)).toString() || '{}'));
+    if (!outcome) return json(res, 400, { error: 'Not an outcome.' });
+    outcomes.add(outcome);
+    return json(res, 200, { ok: true });
+  }
+  // A before/after pair, only from people who switched sharing on in the app.
+  if (method === 'POST' && path === '/api/pair') {
+    if (!hit(`pair:${auth.user.id}`, 40, 24 * 60 * 60_000).ok) return json(res, 429, { error: 'Too many reports.' });
+    const body = JSON.parse((await readBody(req, 64 * 1024)).toString() || '{}');
+    const outcome = parseOutcome({ ...body, signal: 'inserted' });
+    const text = (v: unknown) => (typeof v === 'string' && v.trim().length > 0 && v.length <= MAX_PAIR_CHARS * 2 ? v : null);
+    const draft = text(body.draft), rewritten = text(body.rewritten);
+    if (body.consent !== true || !outcome || !draft || !rewritten) return json(res, 400, { error: 'Not a pair, or sharing is not switched on.' });
+    pairs.add({ draft, rewritten, domain: outcome.domain, techniques: outcome.techniques });
+    return json(res, 200, { ok: true });
+  }
 
   if (method === 'GET' && path === '/api/account') return json(res, 200, { account: accountView(auth.user) });
   if (method === 'POST' && path === '/api/auth/signout') {

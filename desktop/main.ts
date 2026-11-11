@@ -12,6 +12,8 @@ import { toResult } from '../src/llm/errors';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { suggestReplies } from '../src/llm/reply';
 import { rewritePrompt } from '../src/llm/rewrite';
+import { lengthGuide } from '../src/llm/context';
+import { KB_VERSION, familyOf, planTechniques } from '../src/llm/kb';
 import { discussPrompt } from '../src/llm/discuss';
 import { interpretVoice } from '../src/llm/voice';
 import type { ChatTurn, GapReport, ImproveInput, Result, RewriteOptions, UserAnswer, VoiceContext, VoiceIntent } from '../src/messaging';
@@ -50,9 +52,25 @@ interface Run {
   chat?: ChatTurn[];
   /** The message the editor argued against, kept for "Change it anyway". */
   contested?: string;
+  /** The knowledge-base techniques this rewrite used, and the one left out to measure it. Ids only. */
+  kb?: RunTechniques;
+}
+interface RunTechniques {
+  techniques: string[];
+  heldOut: string | null;
+  domain: string;
+  scale: string;
+  family: string;
 }
 let current: Run | null = null;
-let lastInsert: { capture: Capture; original: string; text: string } | null = null;
+let lastInsert: { capture: Capture; original: string; text: string; kb?: RunTechniques; at: number; rated?: boolean } | null = null;
+
+/** The rating question is asked once, between 20 seconds and 30 minutes after an insert: long enough for an answer to arrive, short enough to remember it. */
+function ratingDue(): boolean {
+  if (!lastInsert?.kb || lastInsert.rated || !settings.shareOutcomes || !settings.account) return false;
+  const age = Date.now() - lastInsert.at;
+  return age > 20_000 && age < 30 * 60_000;
+}
 let noticeTimer: NodeJS.Timeout | undefined;
 
 /** The last finished run, so re-opening on unchanged input costs no tokens. */
@@ -97,7 +115,7 @@ function cachedRun(capture: Capture): typeof lastRun {
 
 function setState(patch: Partial<PanelState>) {
   const previous = state.phase;
-  state = { ...state, ...patch, hotkey: hotkeyLabel() };
+  state = { ...state, ...patch, hotkey: hotkeyLabel(), rate: ratingDue() };
   if (state.phase !== previous) {
     const detail =
       state.phase === 'asking' && state.report
@@ -327,7 +345,7 @@ function createWindow() {
     },
   });
   win.setAlwaysOnTop(true, 'screen-saver');
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  win.setVisibleOnAllWorkspaces(true, FLOAT_EVERYWHERE);
   win.setContentProtection(settings.hideFromCapture);
   void win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.on('closed', () => (win = null));
@@ -395,8 +413,19 @@ function fitPanel(height: number) {
 function assertLayering() {
   if (!win) return;
   win.setAlwaysOnTop(true, 'screen-saver');
-  if (IS_MAC) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  if (IS_MAC) win.setVisibleOnAllWorkspaces(true, FLOAT_EVERYWHERE);
 }
+
+/**
+ * Over every Space and over full-screen apps. Without skipTransformProcessType Electron switches the
+ * whole app between a Dock app and a menu-bar app on every call, and "this will hide the window and
+ * dock for a short time every time it is called" (Electron docs). This runs before every show, so the
+ * panel blinked out mid-run, could come back on a different Space than the app in use (it vanished
+ * over full-screen VS Code and reappeared after switching away), and lost the keyboard for a moment,
+ * so ↵ did nothing until it had it back. The app is already a menu-bar app (LSUIElement, and
+ * app.dock.hide() in development), so there is nothing to switch.
+ */
+const FLOAT_EVERYWHERE = { visibleOnFullScreen: true, skipTransformProcessType: true } as const;
 
 function rebuildHiddenWindow(reason: string) {
   if (!win || win.isVisible()) return;
@@ -410,8 +439,13 @@ function showPanel(takeFocus: boolean) {
   if (!win) createWindow();
   positionPanel();
   assertLayering();
-  if (takeFocus) win!.show();
-  else win!.showInactive();
+  if (takeFocus) {
+    win!.show();
+    // show() on a panel that is already on screen (shown without focus while it worked) does not
+    // always make it key; ask for the keyboard outright so ↵ lands in the box.
+    win!.focus();
+    win!.webContents.focus();
+  } else win!.showInactive();
   win!.moveTop();
 }
 
@@ -764,6 +798,15 @@ async function rewrite(answers: UserAnswer[], revision?: { previous: string; req
       options.previous = revision.previous;
       options.revision = revision.request;
     }
+    // Which knowledge-base techniques go in. A revision keeps the first rewrite's choice, so the report describes one prompt.
+    const full = lengthGuide(current.input.draft.length + answers.reduce((n, a) => n + a.answer.length, 0), options).kind === 'master';
+    if (full && options.domain) {
+      const plan = revision && current.kb ? { used: current.kb.techniques, heldOut: current.kb.heldOut } : planTechniques({ domain: options.domain, mode: options.mode, scale: options.scale, site: current.input.site, draft: current.input.draft });
+      options.kbHoldout = plan.heldOut ?? undefined;
+      current.kb = { techniques: plan.used, heldOut: plan.heldOut, domain: options.domain, scale: options.scale ?? 'deliverable', family: familyOf(current.input.site) };
+    } else {
+      current.kb = undefined;
+    }
     const text = await rewritePrompt(
       client(),
       current.input,
@@ -835,6 +878,22 @@ function reportInsert(result: InsertResult, appName: string, chars: number): boo
   return false;
 }
 
+/** Tells the server how a rewrite fared: technique ids and a signal, never text. Silent on failure: feedback must not get in the way. */
+function reportOutcome(signal: 'inserted' | 'undone' | 'rated_up' | 'rated_down', kb: RunTechniques | undefined) {
+  if (!kb || !settings.shareOutcomes || !settings.account) return;
+  void accountApi('/outcome', { auth: true, body: { signal, techniques: kb.techniques, heldOut: kb.heldOut, domain: kb.domain, scale: kb.scale, family: kb.family, kb: KB_VERSION } }).catch(() => {});
+}
+
+/** The prompt is in the app: remember it for Undo and the rating question, and report it. The pair is sent only when the user switched sharing on; the server scrubs it before storing. */
+function recordInsert(capture: Capture, text: string) {
+  const kb = current?.kb;
+  lastInsert = { capture, original: capture.draft, text, kb, at: Date.now() };
+  reportOutcome('inserted', kb);
+  if (kb && settings.sharePairs && settings.account && capture.draft.trim()) {
+    void accountApi('/pair', { auth: true, body: { consent: true, draft: capture.draft, rewritten: text, techniques: kb.techniques, heldOut: kb.heldOut, domain: kb.domain, scale: kb.scale, family: kb.family, kb: KB_VERSION } }).catch(() => {});
+  }
+}
+
 async function accept(text: string) {
   if (!current) return;
   const { capture } = current;
@@ -843,7 +902,7 @@ async function accept(text: string) {
   win?.hide();
   try {
     const result = await insertText(capture, text);
-    if (reportInsert(result, capture.appName, text.length)) lastInsert = { capture, original: capture.draft, text };
+    if (reportInsert(result, capture.appName, text.length)) recordInsert(capture, text);
   } catch (error) {
     await clipboard.writeText(text);
     reportInsert({ outcome: 'copied', reason: 'failed', detail: message(error) }, capture.appName, text.length);
@@ -887,11 +946,18 @@ async function handleAction(action: RendererAction) {
           if (result.reason === 'no_permission') return needAccessibility();
           return notice(insertMessage(result, capture.appName), { ttl: 9000 });
         }
-        if (reportInsert(result, capture.appName, text.length)) lastInsert = { capture, original: capture.draft, text };
+        if (reportInsert(result, capture.appName, text.length)) recordInsert(capture, text);
       }
       return;
     case 'cancel':
       return hidePanel();
+    case 'rate':
+      if (lastInsert && !lastInsert.rated) {
+        reportOutcome(action.up ? 'rated_up' : 'rated_down', lastInsert.kb);
+        lastInsert.rated = true;
+        setState({});
+      }
+      return;
     case 'dictate':
       if (!action.on) return stopDictation();
       // The panel must be key for the mic prompt and for typing to land in the field afterwards.
@@ -940,6 +1006,8 @@ async function handleAction(action: RendererAction) {
 
 async function undo() {
   if (!lastInsert) return;
+  reportOutcome('undone', lastInsert.kb);
+  lastInsert.rated = true; // an undo is its own answer; do not also ask
   try {
     const result = await insertText(lastInsert.capture, lastInsert.original);
     if (result.outcome === 'copied') notice(`Could not put your draft back by itself. It is on the clipboard: press ${PASTE_KEYS}.`, { ttl: 6000 });

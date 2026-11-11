@@ -34,6 +34,9 @@ export const config = {
   userPerMinute: num('USER_PER_MINUTE', 30),
   userConcurrent: num('USER_CONCURRENT', 4),
 
+  /** Lets the knowledge-base tool download outcomes. Unset = the export route does not exist. */
+  adminToken: env.PMP_ADMIN_TOKEN ?? '',
+
   mail: {
     resendKey: env.RESEND_API_KEY ?? '',
     from: env.MAIL_FROM ?? 'Pimp My Prompt <signin@pimpmypromt.ai>',

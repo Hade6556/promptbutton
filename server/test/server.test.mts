@@ -54,6 +54,7 @@ before(async () => {
   Object.assign(process.env, {
     ANTHROPIC_API_KEY: 'server-key', ANTHROPIC_BASE_URL: `http://127.0.0.1:${aPort}`,
     CODE_SECRET: 'x'.repeat(40), MAIL_LOG_CODES: '1', TRIAL_MICROS: '30000', PRO_MICROS: '100000',
+    PMP_ADMIN_TOKEN: 'a'.repeat(40),
     STRIPE_SECRET_KEY: 'sk_test_fake', STRIPE_WEBHOOK_SECRET: WHSEC, STRIPE_PRICE_ID: 'price_123', STRIPE_API_BASE: `http://127.0.0.1:${sPort}`,
   });
   const log = console.log;
@@ -148,6 +149,30 @@ test('checkout, then a signed webhook turns the account into Pro', async () => {
   assert.equal(a.canManage, true);
   const client = new Anthropic({ apiKey: null, authToken: token, baseURL: base, maxRetries: 0 });
   await client.messages.create({ model: 'claude-opus-5-5', max_tokens: 100, messages: [{ role: 'user', content: 'hi' }] });
+});
+
+test('outcomes: ids and a signal are stored, free text is refused, and nothing ties them to the user', async () => {
+  const good = { signal: 'inserted', techniques: ['writing-for-stated-reader', 'writing-match-users-voice'], heldOut: 'mkt-state-audience', domain: 'writing', scale: 'deliverable', family: 'claude', kb: '2026-11-11' };
+  assert.equal((await post('/outcome', good)).status, 401, 'signed-in users only');
+  assert.equal((await post('/outcome', good, token)).status, 200);
+  assert.equal((await post('/outcome', { ...good, signal: 'undone', heldOut: null }, token)).status, 200);
+  for (const bad of [{ ...good, signal: 'liked it a lot' }, { ...good, techniques: ['my email is ada@example.com'] }, { ...good, domain: 'a long sentence about me' }, { ...good, techniques: Array(13).fill('x-y') }, { ...good, heldOut: 'Not A Slug' }])
+    assert.equal((await post('/outcome', bad, token)).status, 400);
+
+  const pair = { ...good, consent: true, draft: 'email ada@example.com about invoice 4471993, call +370 612 34567, see https://example.com/x', rewritten: 'Write to @ada_l about the invoice.' };
+  assert.equal((await post('/pair', { ...pair, consent: false }, token)).status, 400, 'no consent, no pair');
+  assert.equal((await post('/pair', pair, token)).status, 200);
+
+  const get = (headers: Record<string, string>) => fetch(`${base}/admin/feedback?since=2020-01-01`, { headers });
+  assert.equal((await get({})).status, 404);
+  assert.equal((await get({ 'x-admin-token': 'b'.repeat(40) })).status, 404);
+  const data = await (await get({ 'x-admin-token': 'a'.repeat(40) })).json();
+  assert.equal(data.outcomes.length, 2);
+  assert.deepEqual(Object.keys(data.outcomes[0]).sort(), ['at', 'domain', 'family', 'held_out', 'kb', 'scale', 'signal', 'techniques']);
+  assert.equal(data.outcomes[0].held_out, 'mkt-state-audience');
+  assert.equal(data.pairs.length, 1);
+  assert.equal(data.pairs[0].draft, 'email [email] about invoice [number], call [number], see [link]');
+  assert.equal(data.pairs[0].rewritten, 'Write to [handle] about the invoice.');
 });
 
 test('signing out revokes the token', async () => {

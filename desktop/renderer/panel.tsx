@@ -271,6 +271,7 @@ export function Panel() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const busyRef = useRef(false);
 
   // Voice input. While listening, the live transcript shows in the field (after anything typed
   // before the mic went on). When listening ends — on a pause, the mic button or ↵ — the words are
@@ -381,7 +382,15 @@ export function Panel() {
         if (mic === 'starting' || mic === 'listening') return toggleMic();
         send({ type: 'cancel' });
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      // ⌘↵ anywhere. Plain ↵ too when the field does not have the cursor (it loses it while the box
+      // is working, because a disabled field cannot hold focus), unless a button or link has it.
+      const on = e.target instanceof HTMLElement ? e.target : null;
+      const control = on?.closest('input, textarea, button, a, [role="button"]');
+      // Not on an error or a passing notice, where plain ↵ never did anything and should not start to.
+      const now = stateRef.current;
+      const plain = !control && !busyRef.current && now.phase !== 'error' && (now.phase !== 'notice' || Boolean(now.offerForcePaste));
+      if (e.metaKey || e.ctrlKey || plain) {
         e.preventDefault();
         finish();
       }
@@ -390,10 +399,17 @@ export function Panel() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // The field is disabled while the box works, and a disabled field drops the cursor. Put it back as
+  // soon as nothing else holds it, so typing and ↵ go to the box without a click.
+  useEffect(() => {
+    if (!busyRef.current && document.activeElement === document.body) inputRef.current?.focus();
+  });
+
   if (state.phase === 'hidden') return null;
 
   const busy =
     state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting' || understanding || Boolean(state.talking) || (state.phase === 'settings' && Boolean(state.accountScreen?.working));
+  busyRef.current = busy;
   const questions = state.report?.questions ?? [];
   const question = state.phase === 'asking' ? questions[qIndex] : undefined;
   const replies = state.phase === 'replies' ? (state.assist?.replies ?? []) : [];
@@ -684,6 +700,17 @@ export function Panel() {
           </div>
         )}
         {/* What voice just did, with a way back. Sits on the composer's top edge, same inset. */}
+        {state.rate && (
+          <div class="heard" role="group" aria-label="Rate the last prompt">
+            <span class="heard-text">Did the last prompt get you a better answer?</span>
+            <button type="button" class="heard-undo" onClick={() => send({ type: 'rate', up: true })}>
+              Yes
+            </button>
+            <button type="button" class="heard-undo" onClick={() => send({ type: 'rate', up: false })}>
+              No
+            </button>
+          </div>
+        )}
         {heard && (
           <div class="heard" role="status">
             <Icon d={MIC} size={12} />

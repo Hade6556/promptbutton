@@ -13,6 +13,8 @@ export const DEFAULTS: Settings = {
   shortcut: null,
   lastPane: 'general',
   lastVersion: null,
+  shareOutcomes: true,
+  sharePairs: false,
 };
 
 function file(): string {

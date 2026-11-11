@@ -56,6 +56,27 @@ export function openDb(file = config.dbPath): DatabaseSync {
       requests INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (user_id, period)
     );
+    -- What a rewrite used and how it fared. No text and no user id: it cannot be traced to a person.
+    CREATE TABLE IF NOT EXISTS outcomes (
+      id INTEGER PRIMARY KEY,
+      signal TEXT NOT NULL,
+      techniques TEXT NOT NULL,
+      held_out TEXT,
+      domain TEXT NOT NULL,
+      scale TEXT NOT NULL,
+      family TEXT NOT NULL,
+      kb TEXT NOT NULL,
+      at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
+    -- Before/after prompts from people who switched sharing on. Scrubbed, and stored without a user id.
+    CREATE TABLE IF NOT EXISTS pairs (
+      id INTEGER PRIMARY KEY,
+      draft TEXT NOT NULL,
+      rewritten TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      techniques TEXT NOT NULL,
+      at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
     CREATE TABLE IF NOT EXISTS stripe_events (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,
@@ -65,6 +86,9 @@ export function openDb(file = config.dbPath): DatabaseSync {
   `);
   return db;
 }
+
+/** The open database, for modules that keep their own queries. */
+export const handle = (): DatabaseSync => db;
 
 export const users = {
   byEmail: (email: string) => db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined,

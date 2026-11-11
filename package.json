@@ -1,7 +1,7 @@
 {
   "name": "promptbutton",
   "productName": "Pimp My Prompt",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
   "author": "Pimp My Prompt",
@@ -13,6 +13,9 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p web && tsc --noEmit -p desktop",
     "postinstall": "wxt prepare",
     "eval": "node --env-file-if-exists=.env --import tsx eval/run.mts && node --env-file-if-exists=.env --import tsx eval/judge.mts",
+    "eval:ablate": "node --env-file-if-exists=.env --import tsx eval/ablate.mts",
+    "eval:gen": "node --env-file-if-exists=.env --import tsx eval/gen-cases.mts",
+    "kb": "node --env-file-if-exists=.env --no-warnings=ExperimentalWarning --import tsx kb/cli.mts",
     "web:dev": "vite --config web/vite.config.ts",
     "web:build": "vite build --config web/vite.config.ts",
     "web:preview": "vite preview --config web/vite.config.ts",

@@ -1,4 +1,5 @@
 import type { HistoryMessage } from '../src/messaging';
+import { GENERATED } from './cases.generated';
 
 export type CaseTag = 'ambiguous' | 'clear';
 
@@ -16,6 +17,7 @@ export interface EvalCase {
 const u = (text: string): HistoryMessage => ({ role: 'user', text });
 const a = (text: string): HistoryMessage => ({ role: 'assistant', text });
 
+/** The hand-written cases. ALL_CASES adds the model-written ones from cases.generated.ts. */
 export const CASES: EvalCase[] = [
   // ─── Cold starts, underspecified ─────────────────────────────────────────────
   {
@@ -427,4 +429,53 @@ export const CASES: EvalCase[] = [
     intent:
       'Implement the MVP as agreed: Manifest V3 Chrome extension in TypeScript with Vite + CRXJS; content script adds a "Summarise thread" button in Gmail, reads the visible thread, calls claude-opus-5-5 with the key from chrome.storage.local (entered via a popup), shows five bullets in the side panel; no backend; include manifest, all source files, build steps and a short README.',
   },
+  // ─── Added for the knowledge-base ablation: more domains, more deliverables ───────────────────
+  { id: 'kb-landing-page', tag: 'ambiguous', site: 'claude', history: [], draft: 'make a landing page for my app',
+    intent: 'A single-file HTML landing page for "Tidywork", a to-do app for freelancers on Mac. One primary action: join the waitlist with an email. Sections: hero, three benefits, one screenshot placeholder, FAQ. Calm, minimal, dark-on-cream. Placeholder copy clearly marked.' },
+  { id: 'kb-pricing-page', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'design a pricing page',
+    intent: 'A responsive pricing section in React with Tailwind for a B2B analytics tool: three tiers (Starter €29, Team €99, Enterprise "talk to us"), monthly/yearly toggle with 2 months free yearly, the Team tier highlighted, a comparison table underneath. Accessible toggle.' },
+  { id: 'kb-dashboard-ui', tag: 'clear', site: 'claude', history: [], draft: 'Build a single HTML file with a sales dashboard: four KPI tiles (revenue, orders, average order value, refund rate), a line chart of daily revenue for 30 days drawn in inline SVG with made-up data, and a table of the top 10 products. Light theme, system font, works at 375 px.',
+    intent: 'Exactly what was asked: one HTML file, four KPI tiles, an inline-SVG 30-day revenue line chart with sample data, a top-10 products table, light theme, responsive to 375 px. No external libraries.' },
+  { id: 'kb-cold-email', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'write a cold email to get customers',
+    intent: 'A cold email under 110 words to heads of support at 50–200 person SaaS companies, offering a 20-minute demo of a tool that drafts replies to support tickets. One specific pain (backlog after launches), one proof point as a [placeholder], one clear ask. Plain, no hype. Plus two subject lines.' },
+  { id: 'kb-ad-copy', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'need ad copy for instagram',
+    intent: 'Five Instagram ad variations for a reusable coffee cup brand aimed at commuters aged 25–40: each with a hook under 8 words, a caption under 40 words and a call to action to shop the autumn colours. Warm and a little dry, no emojis, no environmental guilt.' },
+  { id: 'kb-positioning', tag: 'clear', site: 'claude', history: [], draft: 'Write a one-paragraph positioning statement for a password manager aimed at families (parents managing accounts for kids and grandparents). Competitors are 1Password and Bitwarden. Our difference: one adult can recover any family member\'s vault. Then give three taglines under six words.',
+    intent: 'One positioning paragraph for a family password manager built around the recovery difference versus 1Password and Bitwarden, then three taglines under six words each. Nothing else.' },
+  { id: 'kb-churn-analysis', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'analyze why customers are leaving',
+    intent: 'A plan for a churn analysis of a subscription meal-kit business using a CSV export with columns signup_date, cancel_date, plan, deliveries, support_tickets, discount_used. Wants: the questions to answer, the cuts to make, the pandas code for cohort retention, and how to tell discount-driven churn from service-driven churn. Feeds a decision on whether to end first-box discounts.' },
+  { id: 'kb-sql-report', tag: 'clear', site: 'claude', history: [], draft: 'Postgres. Tables: orders(id, customer_id, created_at, total_cents, status), customers(id, country). Write a query for monthly revenue per country for 2026, completed orders only, with each month\'s share of that country\'s yearly total. Explain the window function in two lines.',
+    intent: 'One Postgres query: monthly revenue per country for 2026, status = completed, plus the month\'s share of the country\'s yearly total via a window function, and a two-line explanation of the window function.' },
+  { id: 'kb-ab-test', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'did my a/b test work? 4.1% vs 4.6%',
+    intent: 'Whether a checkout-button test is conclusive: control 4.1% conversion on 9,800 visitors, variant 4.6% on 9,750 visitors, ran 14 days. Wants the significance test worked through, the confidence interval for the difference, a plain-language verdict and whether to keep running. Decision: ship the variant or not.' },
+  { id: 'kb-roadmap', tag: 'ambiguous', site: 'claude', history: [], draft: 'help me plan next quarter',
+    intent: 'A Q1 plan for a three-person startup building a scheduling tool for dental clinics: one goal (reach 40 paying clinics from 22), two engineers and one founder doing sales, fixed constraint of an integration promised to a partner by 15 February. Wants three priorities, what to cut, and a week-by-week outline. The founder decides.' },
+  { id: 'kb-hire-decision', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'should i hire a contractor or full time',
+    intent: 'A recommendation for a 10-person agency deciding between a contract designer (€450 a day, about 8 days a month) and a full-time designer (€52k a year plus costs), with design demand uneven and two retainers ending in June. Wants a cost comparison over 12 months, the risks of each, and a recommendation with the reasoning and what was ruled out.' },
+  { id: 'kb-launch-plan', tag: 'clear', site: 'claude', history: [], draft: 'Make a 4-week launch checklist for a paid iOS habit-tracker app, solo developer, launch date 2 March, budget €500. Group tasks by week, mark the three that cannot slip, and add one line on how to measure launch-week success.',
+    intent: 'A four-week launch checklist grouped by week for a solo developer launching a paid iOS habit tracker on 2 March with €500, the three tasks that cannot slip marked, and one line on measuring launch-week success.' },
+  { id: 'kb-product-names', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'names for my candle brand',
+    intent: 'Fifteen name ideas for a small-batch candle brand with scents inspired by Baltic coast places (pine forest, amber, sea fog). Short, pronounceable in English, not twee, .com unlikely to matter. Grouped by idea (place, material, feeling) with one line of reasoning per group.' },
+  { id: 'kb-short-story', tag: 'ambiguous', site: 'claude', history: [], draft: 'write a short story',
+    intent: 'A 600-word story for a nine-year-old about a lighthouse keeper\'s daughter who finds the light has gone out on the night her father is at sea. Gentle tension, no villain, ends with her solving it herself. Third person, past tense, to read aloud at bedtime.' },
+  { id: 'kb-video-script', tag: 'clear', site: 'chatgpt', history: [], draft: 'Write a 45-second voiceover script for a product video about a bike light that turns on automatically at dusk. Audience: city commuters. Three beats: the problem (forgetting your lights), the product, the call to action (pre-order at half price until Friday). Conversational, no superlatives. Give the word count.',
+    intent: 'A 45-second voiceover script (about 110 words) in three beats for an automatic bike light aimed at city commuters, conversational, ending on the half-price pre-order until Friday, with the word count stated.' },
+  { id: 'kb-meal-plan', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'meal plan for the week',
+    intent: 'A Monday–Friday dinner plan for two adults and a six-year-old, vegetarian, each dinner under 35 minutes, budget about €60, no mushrooms. Wants a table of dinners, one combined shopping list grouped by aisle, and which two dinners can be cooked ahead on Sunday.' },
+  { id: 'kb-budget', tag: 'ambiguous', site: 'claude', history: [], draft: 'help me save money',
+    intent: 'A monthly budget for a single renter in Vilnius earning €2,100 net with rent €650, a €180 car loan and no savings, who wants a €3,000 emergency fund within 12 months. Wants amounts per category, the monthly saving needed, and the two cuts that matter most.' },
+  { id: 'kb-running-plan', tag: 'clear', site: 'chatgpt', history: [], draft: 'I can run 5 km in 32 minutes and run twice a week. Give me an 8-week plan to run 10 km without stopping, three runs a week (Tue, Thu, Sun), as a table with distance and pace guidance per run, and one line on what to do if I miss a week.',
+    intent: 'An 8-week, three-runs-a-week table (Tue, Thu, Sun) taking a 32-minute 5 km runner to a continuous 10 km, with distance and pace guidance per run and one line on missing a week.' },
+  { id: 'kb-explain-vectors', tag: 'ambiguous', site: 'claude', history: [], draft: 'explain embeddings',
+    intent: 'An explanation of text embeddings for a backend developer who knows SQL but no machine learning, in about 400 words, with one concrete example (finding similar support tickets), how similarity is measured, and three practice questions at the end without the answers.' },
+  { id: 'kb-compare-db', tag: 'clear', site: 'chatgpt', history: [], draft: 'Compare SQLite and Postgres for a single-server web app with about 2,000 daily users and one writer process. A table with five rows (concurrency, backups, operations, features, migration cost) and a two-sentence recommendation.',
+    intent: 'A five-row comparison table of SQLite and Postgres (concurrency, backups, operations, features, migration cost) for a single-server app with about 2,000 daily users and one writer, then a two-sentence recommendation.' },
+  { id: 'kb-api-endpoint', tag: 'ambiguous', site: 'claude', history: [], draft: 'add rate limiting to my api',
+    intent: 'Rate limiting for an Express 5 API in TypeScript on Node 22, single server, no Redis: 60 requests a minute per API key on all routes and 5 a minute per IP on POST /login, returning 429 with Retry-After. Wants the middleware code, where to mount it, and tests with node:test.' },
+  { id: 'kb-bug-flaky', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'my test fails sometimes',
+    intent: 'Help finding why a Jest test for a React hook that debounces search input fails about one run in five in CI but never locally. Uses fake timers and @testing-library/react. Wants the likely causes ranked, how to confirm each, and a corrected test.' },
+  { id: 'kb-speech', tag: 'ambiguous', site: 'chatgpt', history: [], draft: 'write a speech for my friends wedding',
+    intent: 'A three-minute best-man speech for Tomas, a friend of 15 years, marrying Greta. One story (the camping trip where he forgot the tent), warm and lightly funny, nothing embarrassing in front of grandparents, ends with a toast. Placeholders where a detail is missing.' },
 ];
+
+export const ALL_CASES: EvalCase[] = [...CASES, ...GENERATED];

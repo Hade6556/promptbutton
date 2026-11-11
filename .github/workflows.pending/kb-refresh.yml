@@ -1,0 +1,47 @@
+# Weekly knowledge-base refresh. In workflows.pending until the repository has the two secrets below;
+# move it to .github/workflows/ to switch it on.
+#
+#   ANTHROPIC_API_KEY   reads changed pages into claims
+#   PMP_ADMIN_TOKEN     optional: downloads outcomes from the server and recomputes measured lift
+#
+# It never makes a technique active. New advice arrives as candidates in a pull request, and a person
+# approves them with `npm run kb -- approve <slug>` before merging.
+name: Knowledge base refresh
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run kb -- refresh
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PMP_ADMIN_TOKEN: ${{ secrets.PMP_ADMIN_TOKEN }}
+      - run: npm run kb -- review > kb-review.txt
+      - run: node --import tsx --test test/kb.test.mts
+      - name: Open a pull request when something changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- kb/kb.db src/llm/kb.generated.ts site/sources.html; then
+            echo "Nothing changed."; exit 0
+          fi
+          branch="kb-refresh-$(date +%F)"
+          git config user.name "kb-refresh"
+          git config user.email "kb-refresh@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add kb/kb.db src/llm/kb.generated.ts site/sources.html
+          git commit -m "Knowledge base refresh $(date +%F)"
+          git push origin "$branch"
+          gh pr create --title "Knowledge base refresh $(date +%F)" --body-file kb-review.txt

@@ -1,7 +1,8 @@
 // Per-domain playbooks: what a top practitioner pins down before starting, what excellent looks
-// like, and phrasing vendors have shown to lift output quality. The gap analysis classifies the
-// domain; the rewriter gets the matching playbook in the user turn and must cover every checklist
-// item — from the draft, the conversation or the user's answers, otherwise as an "(assumed)" default.
+// like. The gap analysis classifies the domain; the rewriter gets the matching playbook in the user turn
+// and must cover every checklist item — from the draft, the conversation or the user's answers, otherwise
+// as an "(assumed)" default. The proven phrasing that used to live here is now in the knowledge base
+// (kb/, compiled to kb.generated.ts): each line there carries its sources and an evidence score.
 //
 // Why checklists rather than a bigger word budget: in the 2026 structured-prompting comparison the
 // checklist-improved prompts scored 7.50 vs 5.67 raw while using fewer tokens (arXiv 2605.20149).
@@ -9,6 +10,7 @@
 // while the generic "imagine you are an expert" changed nothing (ExpertPrompting, arXiv 2305.14688).
 // Sources for the individual lines: docs/master-prompt-playbook.md.
 import type { Domain } from '../messaging';
+import { KB_VERSION, selectTechniques, type KbQuery, type KbTechnique } from './kb';
 
 export interface DomainPlaybook {
   /** The kind of practitioner the role line should describe. */
@@ -17,8 +19,6 @@ export interface DomainPlaybook {
   checklist: string[];
   /** What excellent looks like — concrete and checkable. */
   qualityBar: string[];
-  /** Phrasing shown to lift output quality for this kind of task. */
-  modifiers: string[];
   /** The deliverable when the user did not say. */
   defaultOutput: string;
   /** The questions whose answers change the master prompt most; the gap analysis asks these first. */
@@ -76,10 +76,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Real states included: hover, focus, loading, empty and error, plus a working mobile menu',
       'Valid, commented, runnable code with no missing assets',
     ],
-    modifiers: [
-      'Include as many relevant features and interactions as possible. Go beyond the basics to create a fully-featured implementation.',
-      'Avoid the generic AI aesthetic: overused fonts (Inter, Roboto, Arial, system fonts), purple-gradient-on-white colour schemes, identical rounded cards, predictable layouts. Commit to one cohesive aesthetic with dominant colours and sharp accents.',
-    ],
     defaultOutput: 'A single HTML file with embedded CSS and JavaScript, responsive, with placeholder copy marked for replacement',
     askFirst: ['What is the page for, and what should a visitor do on it?', 'Who lands on it?', 'A single HTML file, or your framework?'],
   },
@@ -104,10 +100,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Each non-obvious decision explained in one line, trade-offs named',
       'Tests cover the change, and a short "how to verify" is included',
     ],
-    modifiers: [
-      'Implement the change rather than describing it; when something is ambiguous, state the assumption and continue.',
-      'Solve the general case: do not special-case tests or hard-code expected values to make them pass.',
-    ],
     defaultOutput: 'Working code in the user’s language plus a short explanation of the approach and how to verify it',
     askFirst: ['Which language or framework, and which version?', 'What exactly should happen, and what happens now?', 'Full file, diff, or a plan first?'],
   },
@@ -131,10 +123,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Length within 10% of the target; format matches the venue',
       'Nothing invented about the user’s facts — gaps stay as [placeholders]',
     ],
-    modifiers: [
-      'Write for the stated reader and build on what they already know.',
-      'Match the user’s own voice and wording where it is given.',
-    ],
     defaultOutput: 'The finished text, ready to send or publish, with [placeholders] for facts only the user has',
     askFirst: ['Who is it for?', 'What should they do or feel after reading it?', 'Tone and length?'],
   },
@@ -157,10 +145,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'One clear call to action per piece',
       'Variants differ in one meaningful dimension so a test is readable',
       'In the brand’s voice, and passes the "would a real person say this" test',
-    ],
-    modifiers: [
-      'State the audience explicitly and write for them.',
-      'Give the one-line reasoning behind each recommendation so it can be challenged.',
     ],
     defaultOutput: 'The copy or plan itself, plus a short rationale and the metric to watch',
     askFirst: ['Who is the customer and what problem are we solving?', 'How will the result be measured?', 'Channel and format?'],
@@ -186,7 +170,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Charts use the right type, labelled axes, and a title that states the finding',
       'Ends with a recommended next step or decision, not just a description',
     ],
-    modifiers: ['State the reasoning behind the main conclusion in two or three lines so it can be checked.'],
     defaultOutput: 'A short findings memo (answer first, evidence, caveats, next step) plus the code or query used',
     askFirst: ['What decision will this inform?', 'What data do you have (source, columns, period)?', 'A query, a chart, or written findings?'],
   },
@@ -209,10 +192,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Claims are current and sourced where it matters; uncertainty is stated',
       'Ends with a way to practise or verify understanding',
       'Length fits the time the learner has',
-    ],
-    modifiers: [
-      'Explain at the stated level: adjust depth, never accuracy.',
-      'Teach, then test: include a short self-check without giving the answers up front.',
     ],
     defaultOutput: 'A structured explanation with examples, followed by a short self-check',
     askFirst: ['What do you already know about this?', 'What do you need it for, and how deep?', 'An explanation, exercises, or a plan?'],
@@ -237,7 +216,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Assumptions are listed so they can be checked',
       'Fits the requested length; nothing generic that could apply to any plan',
     ],
-    modifiers: ['Give the reasoning behind the recommended option in two or three lines, including what was ruled out.'],
     defaultOutput: 'A one-page plan: goal, recommendation, phased steps with owners and dates, risks, open questions',
     askFirst: ['What is the goal and the deadline?', 'Which constraints are fixed (budget, people, tech)?', 'Who decides, and how detailed should it be?'],
   },
@@ -260,7 +238,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Length and count exactly as asked',
       'If ranked, each ranking states its reason in one line',
     ],
-    modifiers: ['Produce distinct alternatives and name the idea behind each in a few words.'],
     defaultOutput: 'Several distinct options (five unless told otherwise) with one line on the idea behind each',
     askFirst: ['Who is it for, and what should it make them feel?', 'Tone and references?', 'How many options, and how long?'],
   },
@@ -282,7 +259,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Flags real risks and when to see a professional, without hedging everything',
       'Fits the time and budget stated',
     ],
-    modifiers: ['Be specific: amounts, durations and schedules, not general advice.'],
     defaultOutput: 'A concrete plan or list the user can follow this week',
     askFirst: ['What is your situation and goal?', 'Any limits (health, budget, time, equipment)?', 'What have you tried?'],
   },
@@ -304,7 +280,6 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
       'Constraints respected; stated format and length',
       'Nothing invented — gaps stay as [placeholders] or (assumed) defaults',
     ],
-    modifiers: ['Be specific about the output wanted; when more than the minimum is wanted, ask for it explicitly.'],
     defaultOutput: 'The deliverable in the format that fits the task, with assumptions listed',
     askFirst: ['What should the result achieve?', 'Who is it for?', 'What format and length?'],
   },
@@ -312,17 +287,23 @@ export const DOMAIN_PLAYBOOKS: Record<Domain, DomainPlaybook> = {
 
 const bullets = (items: string[]) => items.map((item) => `- ${item}`).join('\n');
 
-/** The playbook as a block for the rewrite's user turn. */
-export function playbookBlock(domain: Domain): string {
+/**
+ * The playbook as a block for the rewrite's user turn. The "proven phrasing" lines come from the
+ * knowledge base, matched to the domain, scale and the model being written for; their ids are named in
+ * the block so a rewrite can be traced to the techniques that shaped it. `techniques: []` leaves them
+ * out, which is how the eval measures what the knowledge base adds.
+ */
+export function playbookBlock(domain: Domain, query: Omit<KbQuery, 'domain'> = {}, techniques: KbTechnique[] = selectTechniques({ domain, ...query })): string {
   const p = DOMAIN_PLAYBOOKS[domain];
+  const phrasing = techniques.length
+    ? `\nProven phrasing to include where it fits the task (knowledge base ${KB_VERSION}: ${techniques.map((t) => t.id).join(', ')}):\n${bullets(techniques.map((t) => t.instruction))}`
+    : '';
   return `<domain_playbook domain="${domain}">
 Expert to describe in the Role line: ${p.expertHint}.
 Pin down (cover every item: from the draft, the conversation or the answers when known, otherwise as a one-line default marked (assumed)):
 ${bullets(p.checklist)}
 Excellent looks like (turn into the Quality bar, specific to this case):
-${bullets(p.qualityBar)}
-Proven phrasing to include where it fits the task:
-${bullets(p.modifiers)}
+${bullets(p.qualityBar)}${phrasing}
 Default deliverable when the user did not say: ${p.defaultOutput} (assumed)
 </domain_playbook>`;
 }

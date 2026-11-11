@@ -1,6 +1,7 @@
 import type { Depth, DraftMode, HistoryMessage, ImproveInput, RewriteOptions, Scale, UserAnswer } from '../messaging';
 import { clampText } from '../adapters/editable';
 import { playbookBlock } from './domains';
+import { selectTechniques } from './kb';
 
 export const MAX_HISTORY_MESSAGES = 12;
 export const MAX_CHARS_PER_MESSAGE = 2500;
@@ -95,7 +96,10 @@ export function serializeInput(input: ImproveInput, answers: UserAnswer[] = [], 
       parts.push(
         `<length_guide kind="master" min_chars="${guide.min}" max_chars="${guide.max}">Write the full master prompt: aim for ${guide.min}–${guide.max} characters. Cover every item of the playbook; every line concrete. Go above the maximum only when the user asked for copy, examples or code to be included.</length_guide>`,
       );
-      parts.push(playbookBlock(options.domain ?? 'other'));
+      const domain = options.domain ?? 'other';
+      const query = { mode: options.mode, scale: options.scale, site: input.site, draft: input.draft };
+      const techniques = options.kb === false ? [] : selectTechniques({ domain, ...query }).filter((t) => t.id !== options.kbHoldout);
+      parts.push(playbookBlock(domain, query, techniques));
     } else {
       parts.push(
         `<length_guide kind="concise" max_chars="${guide.max}">Stay under this unless the user explicitly asked for copy, examples or code. Every line must change the answer.</length_guide>`,

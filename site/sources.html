@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sources · Pimp My Prompt</title>
+<meta name="description" content="Every prompting technique Pimp My Prompt applies, the evidence for it and where that evidence comes from." />
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/assets/doc.css" />
+</head>
+<body>
+<header><a href="/"><img src="/assets/logo.svg" alt="" />Pimp My Prompt</a></header>
+<main>
+<h1>Sources</h1>
+<p class="updated">Knowledge base of 2026-11-11 · 28 techniques in use · 0 retired</p>
+
+<p>When Pimp My Prompt rewrites your draft it applies the techniques on this page and no others. Each one lists where it comes from. The score is a formula, not an opinion: it starts from the strongest source (our own tests 0.90, a research paper 0.70, a vendor's guide 0.60, a house rule 0.45, a community source 0.30), rises by 0.10 for each further independent publisher, falls by 0.20 for each source that contradicts it, and is not used below 0.40.</p>
+<p>We keep findings in our own words with a short quotation and a link. We do not copy source documents.</p>
+
+<h2>Wording added for the kind of task</h2>
+<article id="ask-explicitly-for-more">
+<h3>Be specific about the output wanted; when more than the minimum is wanted, ask for it explicitly.</h3>
+<p class="updated">Evidence: Strong (0.80) · other · any model</p>
+<ul>
+<li><a href="https://github.com/danielmiessler/fabric/blob/main/data/patterns/improve_prompt/system.md">fabric (community), <em>improve_prompt pattern</em></a> (community) <q>In order to get a highly relevant response, make sure that requests provide any important details or context.</q></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/prompting-strategies">Google, <em>Prompt design strategies (Gemini API)</em></a> (vendor guide) <q>If you need a more conversational or detailed response, you must explicitly request it in your instructions.</q></li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide). Advises asking explicitly when more than the task strictly requires is wanted.</li>
+</ul>
+</article>
+<article id="creative-distinct-alternatives">
+<h3>Produce distinct alternatives and name the idea behind each in a few words.</h3>
+<p class="updated">Evidence: Limited (0.45) · creative · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#house-rules">Pimp My Prompt, <em>Pimp My Prompt house rule (no outside source yet)</em></a> (house rule)</li>
+</ul>
+</article>
+<article id="data-reasoning-behind-conclusion">
+<h3>State the reasoning behind the main conclusion in two or three lines so it can be checked.</h3>
+<p class="updated">Evidence: Limited (0.45) · data_analysis · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#house-rules">Pimp My Prompt, <em>Pimp My Prompt house rule (no outside source yet)</em></a> (house rule)</li>
+</ul>
+</article>
+<article id="fe-ask-for-full-features">
+<h3>Include as many relevant features and interactions as possible. Go beyond the basics to create a fully-featured implementation.</h3>
+<p class="updated">Evidence: Good (0.60) · frontend_design · any model</p>
+<ul>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide) <q>Include as many relevant features and interactions as possible. Go beyond the basics</q></li>
+</ul>
+</article>
+<article id="fe-avoid-generic-ai-aesthetic">
+<h3>Avoid the generic AI aesthetic: overused fonts (Inter, Roboto, Arial, system fonts), purple-gradient-on-white colour schemes, identical rounded cards, predictable layouts. Commit to one cohesive aesthetic with dominant colours and sharp accents.</h3>
+<p class="updated">Evidence: Good (0.60) · frontend_design · any model</p>
+<ul>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide). The frontend design section names these defaults and asks for one committed aesthetic.</li>
+</ul>
+</article>
+<article id="learn-explain-at-stated-level">
+<h3>Explain at the stated level: adjust depth, never accuracy.</h3>
+<p class="updated">Evidence: Good (0.70) · research_learning · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principle 5: ask for an explanation at a stated level of the reader.</li>
+</ul>
+</article>
+<article id="learn-teach-then-test">
+<h3>Teach, then test: include a short self-check without giving the answers up front.</h3>
+<p class="updated">Evidence: Good (0.70) · research_learning · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principle 15: teach the topic and include a test, without giving the answers first.</li>
+</ul>
+</article>
+<article id="life-amounts-not-general-advice">
+<h3>Be specific: amounts, durations and schedules, not general advice.</h3>
+<p class="updated">Evidence: Limited (0.45) · personal_life · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#house-rules">Pimp My Prompt, <em>Pimp My Prompt house rule (no outside source yet)</em></a> (house rule)</li>
+</ul>
+</article>
+<article id="mkt-reason-per-recommendation">
+<h3>Give the one-line reasoning behind each recommendation so it can be challenged.</h3>
+<p class="updated">Evidence: Limited (0.45) · marketing_sales · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#house-rules">Pimp My Prompt, <em>Pimp My Prompt house rule (no outside source yet)</em></a> (house rule)</li>
+</ul>
+</article>
+<article id="mkt-state-audience">
+<h3>State the audience explicitly and write for them.</h3>
+<p class="updated">Evidence: Good (0.70) · marketing_sales · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principle 2: integrate the intended audience in the prompt.</li>
+<li><a href="https://arxiv.org/abs/2605.20149">arXiv, <em>Less Back-and-Forth: A Comparative Study of Structured Prompting</em></a> (research paper). Audience was one of three checklist items in prompts that scored 7.50 against 5.67 raw (0–8 rubric).</li>
+</ul>
+</article>
+<article id="plan-reasoning-and-ruled-out">
+<h3>Give the reasoning behind the recommended option in two or three lines, including what was ruled out.</h3>
+<p class="updated">Evidence: Limited (0.45) · planning_strategy · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#house-rules">Pimp My Prompt, <em>Pimp My Prompt house rule (no outside source yet)</em></a> (house rule)</li>
+</ul>
+</article>
+<article id="sw-implement-not-describe">
+<h3>Implement the change rather than describing it; when something is ambiguous, state the assumption and continue.</h3>
+<p class="updated">Evidence: Good (0.70) · software · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#house-rules">Pimp My Prompt, <em>Pimp My Prompt house rule (no outside source yet)</em></a> (house rule)</li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide) <q>Change this function to improve its performance.</q></li>
+</ul>
+</article>
+<article id="sw-solve-general-case">
+<h3>Solve the general case: do not special-case tests or hard-code expected values to make them pass.</h3>
+<p class="updated">Evidence: Good (0.70) · software · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#house-rules">Pimp My Prompt, <em>Pimp My Prompt house rule (no outside source yet)</em></a> (house rule)</li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide) <q>Implement a solution that works correctly for all valid inputs, not just the test cases.</q></li>
+</ul>
+</article>
+<article id="writing-for-stated-reader">
+<h3>Write for the stated reader and build on what they already know.</h3>
+<p class="updated">Evidence: Good (0.70) · writing · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principle 2: integrate the intended audience in the prompt. The authors report +57.7% quality on GPT-4 across the 26 principles together.</li>
+</ul>
+</article>
+<article id="writing-match-users-voice">
+<h3>Match the user’s own voice and wording where it is given.</h3>
+<p class="updated">Evidence: Good (0.70) · writing · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principle 26: match the language and style of a provided sample.</li>
+</ul>
+</article>
+
+<h2>Rules built into every rewrite</h2>
+<article id="affirmative-constraints">
+<h3>Phrase constraints as what to do, not what to avoid.</h3>
+<p class="updated">Evidence: Strong (0.80) · any task · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principle 4: use affirmative directives.</li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide). Advises telling the model what to do instead of what not to do.</li>
+</ul>
+</article>
+<article id="checklist-quality-bar">
+<h3>Give four to eight checkable quality criteria drawn from the checklist for this kind of task.</h3>
+<p class="updated">Evidence: Good (0.70) · any task · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principle 25: clearly state the requirements the model must follow.</li>
+<li><a href="https://arxiv.org/abs/2605.20149">arXiv, <em>Less Back-and-Forth: A Comparative Study of Structured Prompting</em></a> (research paper). Checklist-improved prompts scored highest (7.50 of 8) and used the fewest tokens.</li>
+</ul>
+</article>
+<article id="clarify-only-when-ambiguous">
+<h3>Ask a clarifying question only when the draft is ambiguous; never on a clear one.</h3>
+<p class="updated">Evidence: Strong (0.95) · any task · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#our-eval">Pimp My Prompt, <em>Pimp My Prompt eval, 37 conversations, 9 November 2026</em></a> (our own test). The gate asked on 60% of ambiguous drafts and on 0% of clear ones (37 cases).</li>
+<li><a href="https://arxiv.org/abs/2212.07769">arXiv, <em>CLAM: Selective Clarification for Ambiguous Questions (Kuhn et al.)</em></a> (research paper). Clarification helps on ambiguous inputs and penalises unambiguous ones.</li>
+<li><a href="https://arxiv.org/abs/2605.20149">arXiv, <em>Less Back-and-Forth: A Comparative Study of Structured Prompting</em></a> (research paper). Clarifying-question prompts scored 6.67/8 vs 7.50 for checklist prompts, and used more tokens. <q>Checklist prompts also produced the best quality-effort tradeoff, using fewer average tokens than both raw and clarifying prompts.</q></li>
+</ul>
+</article>
+<article id="context-and-audience">
+<h3>Say who the result is for and carry over the relevant facts from the conversation.</h3>
+<p class="updated">Evidence: Strong (0.80) · any task · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principle 2: integrate the intended audience.</li>
+<li><a href="https://arxiv.org/abs/2503.16789">arXiv, <em>Conversational User-AI Intervention: A Study on Prompt Rewriting (Sarkar et al.)</em></a> (research paper). Rewriting with conversation history improves responses, more so in longer conversations.</li>
+<li><a href="https://arxiv.org/abs/2605.20149">arXiv, <em>Less Back-and-Forth: A Comparative Study of Structured Prompting</em></a> (research paper). Checklist prompts covering context and audience scored 7.50 against 5.67 raw (0–8 rubric). Small study, single rater.</li>
+<li><a href="https://developers.openai.com/api/docs/guides/prompt-engineering">OpenAI, <em>Prompt engineering guide</em></a> (vendor guide) <q>It is often useful to include additional context information the model can use to generate a response within the prompt you give the model.</q></li>
+</ul>
+</article>
+<article id="done-when-criteria">
+<h3>End with two to four checkable criteria for when the work is done.</h3>
+<p class="updated">Evidence: Good (0.70) · any task · any model</p>
+<ul>
+<li><a href="https://developers.openai.com/api/docs/guides/prompt-generation">OpenAI, <em>Prompt generation</em></a> (vendor guide). Steps and explicit requirements keep multi-step work from skipping parts.</li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview">Anthropic, <em>Prompt engineering overview</em></a> (vendor guide). Success criteria are set before prompt engineering starts.</li>
+</ul>
+</article>
+<article id="exact-output-format">
+<h3>Name the exact output: format, length, language and deliverable.</h3>
+<p class="updated">Evidence: Good (0.70) · any task · any model</p>
+<ul>
+<li><a href="https://developers.openai.com/api/docs/guides/prompt-generation">OpenAI, <em>Prompt generation</em></a> (vendor guide). The meta-prompt always carries an Output Format section.</li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide). Advises being specific about the output format and constraints.</li>
+<li><a href="https://www.anthropic.com/news/prompt-improver">Anthropic, <em>Improve your prompts in the developer console</em></a> (vendor guide). Vendor-reported: 100% word-count adherence on summaries and +30% accuracy on a multilabel classification test after the improver enforced format.</li>
+</ul>
+</article>
+<article id="goal-with-reason">
+<h3>State the goal in one sentence and say why it matters.</h3>
+<p class="updated">Evidence: Good (0.60) · any task · any model</p>
+<ul>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide). Clear, explicit instructions and the motivation behind them give more targeted responses.</li>
+</ul>
+</article>
+<article id="labelled-sections">
+<h3>Split a long prompt into labelled sections or tags.</h3>
+<p class="updated">Evidence: Strong (0.90) · any task · any model</p>
+<ul>
+<li><a href="https://github.com/danielmiessler/fabric/blob/main/data/patterns/improve_prompt/system.md">fabric (community), <em>improve_prompt pattern</em></a> (community) <q>Delimiters like triple quotation marks, XML tags, section titles, etc. can help demarcate sections of text to be treated differently.</q></li>
+<li><a href="https://arxiv.org/abs/2312.16171">arXiv, <em>Principled Instructions Are All You Need (Bsharat, Myrzakhan &amp; Shen)</em></a> (research paper). Principles 8 and 17: sections and delimiters.</li>
+<li><a href="https://ai.google.dev/gemini-api/docs/prompting-strategies">Google, <em>Prompt design strategies (Gemini API)</em></a> (vendor guide) <q>Employ clear delimiters to separate different parts of your prompt.</q></li>
+<li><a href="https://developers.openai.com/api/docs/guides/prompt-engineering">OpenAI, <em>Prompt engineering guide</em></a> (vendor guide). Recommends Markdown or XML delimiters and an order of identity, instructions, examples, context.</li>
+<li><a href="https://developers.openai.com/api/docs/guides/prompt-generation">OpenAI, <em>Prompt generation</em></a> (vendor guide) <q>[Optional sections with headings or bullet points for detailed steps.]</q></li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide). XML tags help the model parse complex prompts unambiguously.</li>
+</ul>
+</article>
+<article id="mark-assumptions-never-invent">
+<h3>Never turn a gap into an invented fact: mark each default (assumed), list the assumptions once, and leave unknowns as [placeholders].</h3>
+<p class="updated">Evidence: Strong (0.90) · any task · any model</p>
+<ul>
+<li><a href="https://pimpmypromt.ai/sources.html#house-rules">Pimp My Prompt, <em>Pimp My Prompt house rule (no outside source yet)</em></a> (house rule)</li>
+<li><a href="https://arxiv.org/abs/2503.16789">arXiv, <em>Conversational User-AI Intervention: A Study on Prompt Rewriting (Sarkar et al.)</em></a> (research paper) <q>LLMs often need to -- and inherently do -- make \emph{plausible} assumptions about a user's intentions and goals when interpreting prompts</q></li>
+<li><a href="https://developers.openai.com/api/docs/guides/prompt-generation">OpenAI, <em>Prompt generation</em></a> (vendor guide). The meta-prompt preserves user content and does not add facts.</li>
+</ul>
+</article>
+<article id="no-forced-step-by-step">
+<h3>Do not add &quot;think step by step&quot;; ask instead for the reasoning behind the main recommendation.</h3>
+<p class="updated">Evidence: Strong (0.90) · any task · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2308.07702">arXiv, <em>Better Zero-Shot Reasoning with Role-Play Prompting (Kong et al.)</em></a> (research paper) <q>role-play prompting acts as a more effective trigger for the CoT process</q></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/prompting-strategies">Google, <em>Prompt design strategies (Gemini API)</em></a> (vendor guide) <q>it's generally not necessary to have the model outline, plan, or detail reasoning steps in the returned response itself.</q></li>
+<li><a href="https://developers.openai.com/api/docs/guides/prompt-engineering">OpenAI, <em>Prompt engineering guide</em></a> (vendor guide). Reasoning models do better with high-level goals than with prescribed thinking steps.</li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide) <q>A prompt such as “think thoroughly” often produces better reasoning than a hand-written step-by-step plan.</q></li>
+</ul>
+</article>
+<article id="only-the-users-own-examples">
+<h3>Include examples only when the user supplied them, clearly delimited; otherwise ask for one with a placeholder.</h3>
+<p class="updated">Evidence: Strong (0.80) · any task · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2406.06608">arXiv, <em>The Prompt Report (Schulhoff et al.)</em></a> (research paper). Few-shot prompting was among the most consistently effective of 58 techniques surveyed.</li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide). Calls examples one of the most reliable ways to steer format, tone and structure.</li>
+</ul>
+</article>
+<article id="role-specific-expert">
+<h3>Open with one or two sentences naming the specific practitioner for this task: specialty, what they are known for, what they judge by.</h3>
+<p class="updated">Evidence: Limited (0.40) · any task · any model · Not for: Factual lookups and follow-ups: personas do not improve factual accuracy.</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2305.14688">arXiv, <em>ExpertPrompting (Xu et al.)</em></a> (research paper). Answers from a task-specific expert identity were preferred 48.5% against 23% for vanilla prompting (GPT-4 judge, 500 samples); a generic &quot;imagine you are an expert&quot; line gave no gain.</li>
+<li><a href="https://arxiv.org/abs/2308.07702">arXiv, <em>Better Zero-Shot Reasoning with Role-Play Prompting (Kong et al.)</em></a> (research paper). Role-play lifted ChatGPT on 12 reasoning benchmarks, e.g. AQuA 53.5% to 63.8%.</li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Anthropic, <em>Prompting best practices</em></a> (vendor guide). Recommends giving the model a role.</li>
+<li><strong>Against:</strong> <a href="https://arxiv.org/abs/2311.10054">arXiv, <em>Is &quot;A Helpful Assistant&quot; the Best Role for Large Language Models? (Zheng et al.)</em></a> (research paper). 162 roles across 2,410 factual questions: no or slightly negative effect on accuracy.</li>
+<li><strong>Against:</strong> <a href="https://arxiv.org/abs/2512.05858">arXiv, <em>Prompting Science Report 4: Playing Pretend (Wharton Generative AI Labs)</em></a> (research paper). In-domain expert personas had no significant impact on GPQA Diamond and MMLU-Pro accuracy across six models (except Gemini 2.0 Flash). <q>Expert personas showed no consistent benefit across models, with few exceptions.</q></li>
+</ul>
+</article>
+<article id="specific-over-long">
+<h3>Every line must be checkable or change the answer; do not repeat context.</h3>
+<p class="updated">Evidence: Strong (0.80) · any task · any model</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2406.06608">arXiv, <em>The Prompt Report (Schulhoff et al.)</em></a> (research paper). Duplicated context hurt accuracy in a case study.</li>
+<li><a href="https://arxiv.org/abs/2605.20149">arXiv, <em>Less Back-and-Forth: A Comparative Study of Structured Prompting</em></a> (research paper). The highest-scoring prompts were also the shortest.</li>
+<li><a href="https://developers.openai.com/api/docs/guides/prompt-generation">OpenAI, <em>Prompt generation</em></a> (vendor guide) <q>Clarity and Conciseness: Use clear, specific language. Avoid unnecessary instructions or bland statements.</q></li>
+</ul>
+</article>
+
+<h2 id="house-rules">House rules</h2>
+<p>Entries marked "house rule" come from our own practice and have no outside source yet. They carry the lowest score that is still used, and they are the first candidates for testing.</p>
+
+<h2 id="our-eval">Our own test</h2>
+<p>We send the same requests to an AI twice, once as typed and once rewritten, and a separate judge compares the two answers without knowing which is which. The current figures are on the <a href="/#proof">home page</a>.</p>
+
+<h2>Retired</h2>
+<p>Nothing has been retired yet. When advice is contradicted, goes out of date or lowers results in our own test, it moves here with the reason.</p>
+</main>
+<footer><a href="/">Home</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><span>© 2026 Pimp My Prompt</span></footer>
+</body>
+</html>

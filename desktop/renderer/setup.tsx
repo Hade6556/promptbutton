@@ -447,6 +447,12 @@ function PromptsPane({ state }: { state: SetupState }) {
           onChange={(depth) => send({ type: 'prefs', prefs: { depth } })}
         />
       </Row>
+      <Row label="Help improve rewrites" hint="Reports which techniques a rewrite used and whether you kept it, undid it or rated it. Never your text. Needs an account.">
+        <Switch label="Help improve rewrites" checked={s.shareOutcomes} onChange={(on) => send({ type: 'prefs', prefs: { shareOutcomes: on } })} />
+      </Row>
+      <Row label="Share before and after prompts" hint="Also sends your draft and its rewrite so we can test changes on real requests. Emails, links and numbers are removed first; names may remain. Not linked to your account.">
+        <Switch label="Share before and after prompts" checked={s.sharePairs} onChange={(on) => send({ type: 'prefs', prefs: { sharePairs: on } })} />
+      </Row>
     </Group>
   );
 }

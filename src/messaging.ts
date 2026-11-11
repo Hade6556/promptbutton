@@ -177,6 +177,10 @@ export interface RewriteOptions {
   previous?: string;
   /** What to change about `previous`. */
   revision?: string;
+  /** false leaves the knowledge-base techniques out of the rewrite. Only the eval sets it, to measure what they add. */
+  kb?: boolean;
+  /** The id of one technique to leave out of this rewrite, so its own effect can be measured. */
+  kbHoldout?: string;
 }
 
 export interface UserAnswer {

@@ -20,6 +20,10 @@ export interface Settings {
   lastPane: SetupPane;
   /** The app version that ran last, to notice an update (macOS may want permissions granted again). */
   lastVersion: string | null;
+  /** Report which techniques a rewrite used and whether it was kept, undone or rated. No text is sent. */
+  shareOutcomes: boolean;
+  /** Also send the draft and its rewrite, scrubbed, to improve rewrites. Off unless the user switches it on. */
+  sharePairs: boolean;
 }
 
 /** Settings window panes, in toolbar order. */
@@ -63,7 +67,7 @@ export type SetupAction =
   /** Clear macOS's record for this app (a stale switch that looks on but is not) and ask again. */
   | { type: 'resetPermission'; permission: PermissionKind }
   | { type: 'relaunch' }
-  | { type: 'prefs'; prefs: Partial<Pick<Settings, 'askMode' | 'depth' | 'hideFromCapture'>> }
+  | { type: 'prefs'; prefs: Partial<Pick<Settings, 'askMode' | 'depth' | 'hideFromCapture' | 'shareOutcomes' | 'sharePairs'>> }
   | { type: 'openAtLogin'; on: boolean }
   | { type: 'recordShortcut'; on: boolean }
   | { type: 'setShortcut'; accelerator: string | null }
@@ -142,6 +146,8 @@ export interface PanelState {
   settings?: Settings;
   accountScreen?: AccountScreen;
   hotkey?: string;
+  /** Ask, once, whether the last inserted prompt got a better answer. */
+  rate?: boolean;
 }
 
 export type RendererAction =
@@ -161,6 +167,8 @@ export type RendererAction =
   /** Phase 'ready': rewrite although the prompt is already good, optionally with what to change. */
   | { type: 'improveAnyway'; note?: string }
   | { type: 'cancel' }
+  /** The answer to "did the last prompt get you a better answer?" */
+  | { type: 'rate'; up: boolean }
   /** Re-read the screen and run again, ignoring the cached result. */
   | { type: 'refresh' }
   | { type: 'openSettings' }

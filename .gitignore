@@ -15,3 +15,4 @@ desktop/bin-win/
 desktop/native/win/bin/
 desktop/native/win/obj/
 desktop/native/win/out/
+kb/cache/
