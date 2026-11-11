@@ -1,36 +1,38 @@
 /* One box on a native macOS HUD material. The window supplies blur, shadow and corner radius; this
    file paints a translucent fill, a hairline, system type, and the few colours the content needs.
 
-   Palette "Ember": warm basalt glass, one amber accent, one ice-blue secondary. The product turns a
+   Palette "Ember": cool graphite glass, one amber accent, one ice-blue secondary. The glass has no
+   warmth of its own (a brown base shared amber's hue and turned both to mud), so amber is the only
+   saturated colour on screen. The product turns a
    rough draft into a finished prompt, so the accent is the colour of a heated filament: it lights
    the primary action (the arrow) and status (the loader comet, the caret) and nothing else. Ice is
    the sharp opposite of amber and marks what needs the user: [placeholders] and keyboard focus.
-   Labels are warm white at three levels. Every text pair is ≥ 4.5:1 on both the dark glass and the
+   Labels are cool white at three levels. Every text pair is ≥ 4.5:1 on both the dark glass and the
    light worst case (glass over bright content); see the contrast table in the commit message. */
 :root {
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Helvetica Neue', sans-serif;
 
   /* Background layers (the window material sits behind all of these). */
-  --bg-deep: #0e0b09; /* opaque fallback base */
-  --surface: rgba(23, 18, 15, 0.62); /* the glass fill: basalt #17120f */
-  --surface-solid: #17120f; /* Reduce Transparency / Increase Contrast */
-  --fill: rgba(255, 236, 214, 0.08); /* pills, tokens, kbd */
-  --fill-2: rgba(255, 236, 214, 0.05); /* icon-button hover */
-  --fill-hover: rgba(255, 236, 214, 0.14); /* pill hover */
-  --highlight: rgba(255, 228, 196, 0.16); /* top inner edge of the glass */
-  --hairline: rgba(255, 228, 196, 0.08); /* inner border of the glass */
-  --separator: rgba(247, 239, 230, 0.16);
-  --scrollbar: rgba(247, 239, 230, 0.2);
+  --bg-deep: #0b0c0f; /* opaque fallback base */
+  --surface: rgba(20, 22, 27, 0.66); /* the glass fill: graphite #15171c */
+  --surface-solid: #15171c; /* Reduce Transparency / Increase Contrast */
+  --fill: rgba(226, 232, 244, 0.08); /* pills, tokens, kbd */
+  --fill-2: rgba(226, 232, 244, 0.05); /* icon-button hover */
+  --fill-hover: rgba(226, 232, 244, 0.14); /* pill hover */
+  --highlight: rgba(255, 255, 255, 0.16); /* top inner edge of the glass */
+  --hairline: rgba(255, 255, 255, 0.08); /* inner border of the glass */
+  --separator: rgba(242, 244, 247, 0.16);
+  --scrollbar: rgba(242, 244, 247, 0.2);
 
-  /* Text: warm white at three levels. */
-  --label: #f7efe6; /* 16.5:1 dark glass · 12.0:1 light worst case */
-  --label-2: rgba(247, 239, 230, 0.72); /* 8.9 · 7.0 */
-  --label-3: rgba(247, 239, 230, 0.58); /* 6.1 · 5.1 — placeholders, hints */
+  /* Text: cool white at three levels. */
+  --label: #f2f4f7; /* 16.5:1 dark glass · 12.0:1 light worst case */
+  --label-2: rgba(242, 244, 247, 0.72); /* 8.9 · 7.0 */
+  --label-3: rgba(242, 244, 247, 0.58); /* 6.1 · 5.1 — placeholders, hints */
 
   /* Accent: amber. Primary action and status only. */
   --accent: #ffb547; /* 10.7 · 7.8 */
   --accent-deep: #e8892a; /* lower stop of the button gradient */
-  --on-accent: #1f1408; /* arrow on the button: 6.9:1 on the deep stop */
+  --on-accent: #14161a; /* arrow on the button: 7.0:1 on the deep stop */
   --accent-glow: rgba(255, 181, 71, 0.55); /* loader head */
   --accent-hover: #ffc76e; /* upper stop on hover: the filament brightens */
   --accent-pressed: #c9711f; /* lower stop while pressed; the arrow on it is still 5.1:1 */
@@ -58,10 +60,10 @@
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   :root {
     --surface: var(--surface-solid);
-    --separator: rgba(247, 239, 230, 0.26);
-    --fill: rgba(255, 236, 214, 0.14);
-    --label-2: rgba(247, 239, 230, 0.82);
-    --label-3: rgba(247, 239, 230, 0.7);
+    --separator: rgba(242, 244, 247, 0.26);
+    --fill: rgba(226, 232, 244, 0.14);
+    --label-2: rgba(242, 244, 247, 0.82);
+    --label-3: rgba(242, 244, 247, 0.7);
   }
 }
 
@@ -712,5 +714,5 @@ kbd {
 
 /* Windows: no system blur behind the window, so the glass becomes a near-solid fill to stay legible. */
 :root[data-platform='win32'] {
-  --surface: rgba(23, 18, 15, 0.97);
+  --surface: rgba(21, 23, 28, 0.97);
 }

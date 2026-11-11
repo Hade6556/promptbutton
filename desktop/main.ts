@@ -1140,8 +1140,8 @@ function createSetupWindow() {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    // Basalt underneath so nothing flashes white before the page paints.
-    backgroundColor: IS_MAC ? '#00000000' : '#17120f',
+    // Graphite underneath so nothing flashes white before the page paints.
+    backgroundColor: IS_MAC ? '#00000000' : '#15171c',
     ...(IS_MAC
       ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 14, y: 14 }, vibrancy: 'hud' as const, visualEffectState: 'active' as const }
       : { autoHideMenuBar: true }),

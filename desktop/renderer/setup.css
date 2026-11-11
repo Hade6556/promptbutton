@@ -1,16 +1,16 @@
-/* The settings and first-run window. Same Ember tokens as the panel (styles.css): basalt glass, warm
+/* The settings and first-run window. Same Ember tokens as the panel (styles.css): graphite glass, cool
    white labels, amber only for the primary action and for status (a lit keycap, a switch that is on),
    ice for what needs the user (recording a shortcut) and keyboard focus. Everything else is quiet:
    grouped rows like System Settings, so it reads as a Mac window, not a web page. */
 
 :root[data-view='setup'] {
-  --surface-window: rgba(23, 18, 15, 0.84);
-  --group: rgba(255, 236, 214, 0.045);
+  --surface-window: rgba(18, 20, 25, 0.86);
+  --group: rgba(226, 232, 244, 0.05);
   --gutter: 24px;
-  /* Keycaps: basalt body, the darker side below it, and the amber cap's side when lit (= the app icon's). */
-  --cap-top: #3a302a;
-  --cap-bottom: #2b231e;
-  --cap-side: #120e0b;
+  /* Keycaps: graphite body, the darker side below it, and the amber cap's side when lit (= the app icon's). */
+  --cap-top: #2f343e;
+  --cap-bottom: #23272f;
+  --cap-side: #0b0c0f;
   --cap-side-lit: var(--cap-side-lit);
   --cap-shadow: rgba(0, 0, 0, 0.35);
   --input-well: rgba(0, 0, 0, 0.22);
@@ -21,7 +21,7 @@
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   :root[data-view='setup'] {
     --surface-window: var(--surface-solid);
-    --group: rgba(255, 236, 214, 0.08);
+    --group: rgba(226, 232, 244, 0.09);
   }
 }
 :root[data-view='setup'] body {
