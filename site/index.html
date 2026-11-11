@@ -585,24 +585,32 @@ body.menu-open .menu-btn .x { display: block; }
 
   /* Hero: the button grows to a full tap target; the note under it is plain text with the link on its own line. */
   .btn-quiet { height: 44px; font-size: 1rem; }
-  .hero .cta { gap: 10px; }
   .hero .meta { padding: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; font-size: 1rem; }
   .hero .meta span { display: grid; justify-items: center; }
   .hero .meta a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; }
   .dl-info { font-size: 1rem; }
 
-  /* The demo is the chat window and nothing else: 560px instead of 930, no menu bar, no dock. */
-  .demo { margin-top: 20px; }
-  .desk { height: 560px; }
+  /* The demo is the chat window and nothing else: 480px instead of 930, no menu bar, no dock, so the
+     whole story fits on one phone screen under the button. */
+  .hero { padding-top: 88px; }
+  .hero .cta { margin-top: 24px; gap: 10px; }
+  .demo { margin-top: 12px; }
+  .desk { height: 480px; }
   .menubar, .dock { display: none; }
   .app { inset: 10px; height: auto; }
   /* 96px keeps the panel just above the chat box, as 476px did in the taller frame. Solid, because a
      28px blur over a moving page is the most expensive thing here on a phone. */
   .pmp { bottom: 96px; background: #15171c; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .pmp .text { max-height: 288px; }
+  /* The keys sit clear of a two-line draft in the chat box. */
+  .strokes { bottom: 108px; }
   /* The ending: "without" shrinks to its title and its token count, "with" gets the room. */
   .versus { inset: 10px; grid-template-rows: auto minmax(0, 1fr); }
   .pane.lose { grid-template-rows: 38px auto; }
   .pane.lose .body { display: none; }
+  /* Four lines of the prompt leave room for the page it produced; the badge sits in the gap, not on the bubble. */
+  .pane .master .sec:nth-child(n+5) { display: none !important; }
+  .pane.win .page { margin-top: 8px; }
 
   /* What happens: the keycaps are already in the hero. */
   .duo { margin-top: 32px; }
@@ -635,6 +643,8 @@ body.menu-open .menu-btn .x { display: block; }
   .tsheet .grid { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
   .tsheet .grid i { border-radius: 5px; }
   .tsheet .cap, .tsheet .legend { font-size: 1rem; }
+  .tsheet .legend li { align-items: flex-start; }
+  .tsheet .legend i { margin-top: 6px; }
   .row { padding: 20px 0; }
   .row p, .apps { font-size: 1rem; }
   .apps { margin-top: 28px; }
@@ -1132,7 +1142,10 @@ body.menu-open .menu-btn .x { display: block; }
 
   /* The story sections each play once, the first time a quarter of them is on screen. With reduced motion
      they cross-fade instead (see the stylesheet) and the numbers do not count. */
-  if ('IntersectionObserver' in window) {
+  /* Not on phones: there a section scrolls past in a flick, and a graphic that waits to build itself is
+     an empty box when the reader arrives. Phones get every graphic finished, like the no-script page. */
+  const phone = matchMedia('(max-width: 599px)').matches;
+  if ('IntersectionObserver' in window && !phone) {
     document.documentElement.classList.add('anim');
     const countUp = (el) => {
       const to = Number(el.dataset.count), t0 = performance.now() + 300;
@@ -1193,8 +1206,9 @@ body.menu-open .menu-btn .x { display: block; }
   };
   if (!reduce) {
     demo.classList.add('anim');
-    // Start when the demo is actually on screen, so nobody arrives in the middle of the story.
-    const seen = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) { seen.disconnect(); cycle(); } }, { threshold: 0.3 });
+    // Start when the demo is actually on screen, so nobody arrives in the middle of the story. On a phone
+    // that means nearly all of it: the typing happens at the bottom of the frame.
+    const seen = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) { seen.disconnect(); cycle(); } }, { threshold: phone ? 0.8 : 0.3 });
     demo.dataset.state = 'out';
     seen.observe(demo);
   }
