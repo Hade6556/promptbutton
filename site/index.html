@@ -592,8 +592,11 @@ body.menu-open .menu-btn .x { display: block; }
 
   /* The demo is the chat window and nothing else: 480px instead of 930, no menu bar, no dock, so the
      whole story fits on one phone screen under the button. */
-  .hero { padding-top: 88px; }
-  .hero .cta { margin-top: 24px; gap: 10px; }
+  /* Headline spacing measured off Cluely's hero at 390px: it starts 40px under the header, fills about
+     nine tenths of the screen's width, sets its two lines tight, and leaves 48px before the button. */
+  .hero { padding-top: 96px; }
+  .hero .h1 { font-size: 10.9vw; line-height: 1; }
+  .hero .cta { margin-top: 48px; gap: 10px; }
   .demo { margin-top: 12px; }
   .desk { height: 480px; }
   .menubar, .dock { display: none; }
