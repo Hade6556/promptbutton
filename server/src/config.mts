@@ -39,7 +39,7 @@ export const config = {
 
   mail: {
     resendKey: env.RESEND_API_KEY ?? '',
-    from: env.MAIL_FROM ?? 'Firstry <signin@firstry.ai>',
+    from: env.MAIL_FROM ?? 'First Try <signin@firstry.ai>',
     /** Development only: write sign-in codes to the log instead of sending them. */
     logCodes: env.MAIL_LOG_CODES === '1',
   },

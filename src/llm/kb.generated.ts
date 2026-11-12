@@ -49,7 +49,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.45,
     "sources": [
       {
-        "title": "Firstry: Firstry house rule (no outside source yet)",
+        "title": "First Try: First Try house rule (no outside source yet)",
         "url": "https://firstry.ai/sources.html#house-rules"
       }
     ]
@@ -70,7 +70,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.45,
     "sources": [
       {
-        "title": "Firstry: Firstry house rule (no outside source yet)",
+        "title": "First Try: First Try house rule (no outside source yet)",
         "url": "https://firstry.ai/sources.html#house-rules"
       }
     ]
@@ -175,7 +175,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.45,
     "sources": [
       {
-        "title": "Firstry: Firstry house rule (no outside source yet)",
+        "title": "First Try: First Try house rule (no outside source yet)",
         "url": "https://firstry.ai/sources.html#house-rules"
       }
     ]
@@ -196,7 +196,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.45,
     "sources": [
       {
-        "title": "Firstry: Firstry house rule (no outside source yet)",
+        "title": "First Try: First Try house rule (no outside source yet)",
         "url": "https://firstry.ai/sources.html#house-rules"
       }
     ]
@@ -242,7 +242,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.45,
     "sources": [
       {
-        "title": "Firstry: Firstry house rule (no outside source yet)",
+        "title": "First Try: First Try house rule (no outside source yet)",
         "url": "https://firstry.ai/sources.html#house-rules"
       }
     ]
@@ -263,7 +263,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.7,
     "sources": [
       {
-        "title": "Firstry: Firstry house rule (no outside source yet)",
+        "title": "First Try: First Try house rule (no outside source yet)",
         "url": "https://firstry.ai/sources.html#house-rules"
       },
       {
@@ -288,7 +288,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.7,
     "sources": [
       {
-        "title": "Firstry: Firstry house rule (no outside source yet)",
+        "title": "First Try: First Try house rule (no outside source yet)",
         "url": "https://firstry.ai/sources.html#house-rules"
       },
       {
@@ -405,7 +405,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.95,
     "sources": [
       {
-        "title": "Firstry: Firstry eval, 37 conversations, 9 November 2026",
+        "title": "First Try: First Try eval, 37 conversations, 9 November 2026",
         "url": "https://firstry.ai/sources.html#our-eval"
       },
       {
@@ -583,7 +583,7 @@ export const KB: KbTechnique[] = [
     "confidence": 0.9,
     "sources": [
       {
-        "title": "Firstry: Firstry house rule (no outside source yet)",
+        "title": "First Try: First Try house rule (no outside source yet)",
         "url": "https://firstry.ai/sources.html#house-rules"
       },
       {

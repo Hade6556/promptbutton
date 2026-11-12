@@ -1,10 +1,10 @@
 {
   "name": "promptbutton",
-  "productName": "Firstry",
-  "version": "0.4.0",
+  "productName": "First Try",
+  "version": "0.4.1",
   "private": true,
   "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
-  "author": "Firstry",
+  "author": "First Try",
   "type": "module",
   "scripts": {
     "dev": "wxt",
@@ -61,8 +61,8 @@
   "main": "desktop/dist/main.cjs",
   "build": {
     "appId": "ai.firstry.mac",
-    "productName": "Firstry",
-    "copyright": "© 2026 Firstry",
+    "productName": "First Try",
+    "copyright": "© 2026 First Try",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -108,7 +108,7 @@
     },
     "dmg": {
       "artifactName": "Firstry-${version}-universal.${ext}",
-      "title": "Firstry ${version}",
+      "title": "First Try ${version}",
       "writeUpdateInfo": false
     },
     "afterPack": "build/after-pack.cjs",
@@ -134,7 +134,7 @@
       "allowElevation": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Firstry",
+      "shortcutName": "First Try",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
       "artifactName": "Firstry-Setup-${version}.${ext}"

@@ -30,7 +30,7 @@ DB_PATH=/var/lib/pimpmyprompt/app.db
 CODE_SECRET=$(openssl rand -hex 32)
 # ANTHROPIC_API_KEY=
 # RESEND_API_KEY=
-# MAIL_FROM=Firstry <signin@firstry.ai>
+# MAIL_FROM=First Try <signin@firstry.ai>
 # STRIPE_SECRET_KEY=rk_live_...
 # STRIPE_WEBHOOK_SECRET=whsec_...
 # STRIPE_PRICE_ID=price_...
@@ -39,7 +39,7 @@ ENV
 fi
 cat > /etc/systemd/system/pimpmyprompt.service <<'UNIT'
 [Unit]
-Description=Firstry account server
+Description=First Try account server
 After=network-online.target
 Wants=network-online.target
 

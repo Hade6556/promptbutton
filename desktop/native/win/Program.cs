@@ -1,4 +1,4 @@
-// Firstry's Windows helper: the counterpart of axhelper.swift.
+// First Try's Windows helper: the counterpart of axhelper.swift.
 //
 //   winhelper focused                 the foreground app, its window and the focused field (JSON)
 //   winhelper activate <hwnd>         bring that window back to the foreground

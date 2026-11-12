@@ -20,7 +20,7 @@ const LOOKUP = `pmp_pro_monthly_${currency}_${cents}`;
 const existing = (await stripe.prices.list({ lookup_keys: [LOOKUP], active: true, limit: 1 })).data[0];
 let price = existing;
 if (!price) {
-  const product = await stripe.products.create({ name: 'Firstry Pro', description: 'Monthly allowance of prompt rewrites in the Firstry Mac app.' });
+  const product = await stripe.products.create({ name: 'First Try Pro', description: 'Monthly allowance of prompt rewrites in the First Try Mac app.' });
   price = await stripe.prices.create({ product: product.id, currency, unit_amount: cents, recurring: { interval: 'month' }, lookup_key: LOOKUP });
   console.error(`created ${product.id} and ${price.id}`);
 } else console.error(`found existing price ${price.id}`);

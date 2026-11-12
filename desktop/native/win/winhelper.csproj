@@ -12,9 +12,9 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Product>Firstry</Product>
-    <AssemblyTitle>Firstry text field helper</AssemblyTitle>
-    <Company>Firstry</Company>
+    <Product>First Try</Product>
+    <AssemblyTitle>First Try text field helper</AssemblyTitle>
+    <Company>First Try</Company>
     <Version>1.0.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>

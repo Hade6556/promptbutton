@@ -205,7 +205,7 @@ async function accountApi<T>(path: string, options: { method?: 'GET' | 'POST'; b
       signal: AbortSignal.timeout(20_000),
     });
   } catch {
-    throw new Error('Could not reach Firstry. Check your connection and try again.');
+    throw new Error('Could not reach First Try. Check your connection and try again.');
   }
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (res.status === 401 && options.auth) throw new SessionEnded('Your session ended. Sign in again.');
@@ -1463,12 +1463,15 @@ function buildAppMenu() {
 // Testing: PMP_USER_DATA=/some/dir runs with its own settings, as a fresh install would, beside the installed app.
 if (process.env.PMP_USER_DATA) app.setPath('userData', path.resolve(process.env.PMP_USER_DATA));
 else {
-  // The app used to be called Pimp My Prompt and kept its settings in a folder of that name. Bring them
+  // The app has had other names and kept its settings in a folder of each. Bring them
   // over once, so a renamed install still knows its shortcut, its account and that setup is done.
   try {
     const current = path.join(app.getPath('userData'), 'settings.json');
-    const legacy = path.join(app.getPath('appData'), ['Pimp', 'My', 'Prompt'].join(' '), 'settings.json');
-    if (!fs.existsSync(current) && fs.existsSync(legacy)) {
+    // Newest first: it was briefly "Firstry" (one word) between the two.
+    const legacy = [['Firs', 'try'].join(''), ['Pimp', 'My', 'Prompt'].join(' ')]
+      .map((name) => path.join(app.getPath('appData'), name, 'settings.json'))
+      .find((file) => fs.existsSync(file));
+    if (!fs.existsSync(current) && legacy) {
       fs.mkdirSync(path.dirname(current), { recursive: true });
       fs.copyFileSync(legacy, current);
     }

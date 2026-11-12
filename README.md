@@ -17,7 +17,7 @@ two Claude calls on a conversation you paste in (bring your own Anthropic key; i
 Ember tokens. `npm run site` serves it at <http://localhost:5500>; it needs no backend, so it can be copied to any
 static host as is. `npm run site:deploy` copies `index.html` and `assets/` to the VPS at 72.61.138.63, where Caddy serves
 `/var/www/promptbutton` as <https://firstry.ai> (config in `/etc/caddy/Caddyfile`). The product is called
-Firstry (it launched as Pimp My Prompt, and pimpmypromt.ai still answers for old installs); the repo and the
+First Try (it launched as Pimp My Prompt, and pimpmypromt.ai still answers for old installs); the repo and the
 code's internal names are still PromptButton. The download buttons point at `/download/Firstry.dmg`; the page reads `/download/latest.json` to show the
 version and size, and shows an error instead of a dead link when it is missing. `npm run dev:staging` serves `site/`
 locally, staging pages included.
@@ -61,7 +61,7 @@ npm run release:upload:win    # publishes it as /download/Firstry-Setup.exe and 
 The installer is per-user, needs no administrator rights, adds Start menu and desktop shortcuts and opens the app.
 It is unsigned, so Windows shows "Windows protected your PC" until it has a code-signing certificate: users click
 More info, then Run anyway. To see what the helper reads on a given PC, run
-`"%LOCALAPPDATA%\Programs\Firstry\resources\app.asar.unpacked\desktop\bin-win\winhelper.exe" selftest`
+`"%LOCALAPPDATA%\Programs\First Try\resources\app.asar.unpacked\desktop\bin-win\winhelper.exe" selftest`
 and click into a text field within three seconds.
 
 ## Accounts, limits and billing (server/)

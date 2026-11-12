@@ -11,7 +11,7 @@ root="${DEPLOY_ROOT:-/var/www/promptbutton}"
 version="$(node -p "require('./package.json').version")"
 file="Firstry-$version-universal.dmg"
 dmg="release/$file"
-app="release/mac-universal/Firstry.app"
+app="release/mac-universal/First Try.app"
 [[ -f "$dmg" ]] || { echo "Missing $dmg. Run: npm run desktop:dist" >&2; exit 1; }
 bytes="$(stat -f %z "$dmg")"
 sha="$(shasum -a 256 "$dmg" | cut -d' ' -f1)"

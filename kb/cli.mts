@@ -301,18 +301,18 @@ ${lines}
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Sources · Firstry</title>
-<meta name="description" content="Every prompting technique Firstry applies, the evidence for it and where that evidence comes from." />
+<title>Sources · First Try</title>
+<meta name="description" content="Every prompting technique First Try applies, the evidence for it and where that evidence comes from." />
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/assets/doc.css" />
 </head>
 <body>
-<header><a href="/"><img src="/assets/logo.svg" alt="" />Firstry</a></header>
+<header><a href="/"><img src="/assets/logo.svg" alt="" />First Try</a></header>
 <main>
 <h1>Sources</h1>
 <p class="updated">Knowledge base of ${today()} · ${active.length} techniques in use · ${retired.length} retired</p>
 
-<p>When Firstry rewrites your draft it applies the techniques on this page and no others. Each one lists where it comes from. The score is a formula, not an opinion: it starts from the strongest source (our own tests 0.90, a research paper 0.70, a vendor's guide 0.60, a house rule 0.45, a community source 0.30), rises by 0.10 for each further independent publisher, falls by 0.20 for each source that contradicts it, and is not used below ${INJECT_FLOOR.toFixed(2)}.</p>
+<p>When First Try rewrites your draft it applies the techniques on this page and no others. Each one lists where it comes from. The score is a formula, not an opinion: it starts from the strongest source (our own tests 0.90, a research paper 0.70, a vendor's guide 0.60, a house rule 0.45, a community source 0.30), rises by 0.10 for each further independent publisher, falls by 0.20 for each source that contradicts it, and is not used below ${INJECT_FLOOR.toFixed(2)}.</p>
 <p>We keep findings in our own words with a short quotation and a link. We do not copy source documents.</p>
 
 <h2>Wording added for the kind of task</h2>
@@ -330,7 +330,7 @@ ${structural.map(item).join('\n')}
 <h2>Retired</h2>
 ${retired.length ? retired.map(item).join('\n') : '<p>Nothing has been retired yet. When advice is contradicted, goes out of date or lowers results in our own test, it moves here with the reason.</p>'}
 </main>
-<footer><a href="/">Home</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><span>© 2026 Firstry</span></footer>
+<footer><a href="/">Home</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><span>© 2026 First Try</span></footer>
 </body>
 </html>
 `;
