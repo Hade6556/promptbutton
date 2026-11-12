@@ -1,4 +1,4 @@
-// Pimp My Prompt account server. Caddy forwards https://pimpmypromt.ai/api/* here.
+// Firstry account server. Caddy forwards https://firstry.ai/api/* here.
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { checkConfig, config } from './config.mts';
@@ -68,7 +68,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse): Promi
   if (path === '/api/v1/messages' && method === 'POST') {
     if (!auth) {
       hit(`anon:${ip}`, 60, 60_000);
-      return apiError(res, 401, 'authentication_error', 'Sign in again to keep using Pimp My Prompt.');
+      return apiError(res, 401, 'authentication_error', 'Sign in again to keep using Firstry.');
     }
     return proxyMessages(req, res, auth.user, await readBody(req, config.maxBodyBytes), url.search.slice(1));
   }

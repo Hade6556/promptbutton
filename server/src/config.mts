@@ -6,7 +6,7 @@ export const config = {
   port: num('PORT', 8787),
   host: env.HOST ?? '127.0.0.1',
   /** Public address of the site, for Stripe return pages and emails. */
-  siteUrl: (env.SITE_URL ?? 'https://pimpmypromt.ai').replace(/\/$/, ''),
+  siteUrl: (env.SITE_URL ?? 'https://firstry.ai').replace(/\/$/, ''),
   dbPath: env.DB_PATH ?? '/var/lib/pimpmyprompt/app.db',
   /** HMAC secret for sign-in codes. Required in production. */
   codeSecret: env.CODE_SECRET ?? '',
@@ -39,7 +39,7 @@ export const config = {
 
   mail: {
     resendKey: env.RESEND_API_KEY ?? '',
-    from: env.MAIL_FROM ?? 'Pimp My Prompt <signin@pimpmypromt.ai>',
+    from: env.MAIL_FROM ?? 'Firstry <signin@firstry.ai>',
     /** Development only: write sign-in codes to the log instead of sending them. */
     logCodes: env.MAIL_LOG_CODES === '1',
   },

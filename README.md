@@ -16,16 +16,17 @@ two Claude calls on a conversation you paste in (bring your own Anthropic key; i
 **Landing page for the Mac app:** `site/` is a single static `index.html` plus `assets/`, built on the app's own
 Ember tokens. `npm run site` serves it at <http://localhost:5500>; it needs no backend, so it can be copied to any
 static host as is. `npm run site:deploy` copies `index.html` and `assets/` to the VPS at 72.61.138.63, where Caddy serves
-`/var/www/promptbutton` as <https://pimpmypromt.ai> (config in `/etc/caddy/Caddyfile`). The page carries the launch name,
-Pimp My Prompt; the app and repo are still PromptButton. The download buttons point at `/download/PimpMyPrompt.dmg`; the page reads `/download/latest.json` to show the
+`/var/www/promptbutton` as <https://firstry.ai> (config in `/etc/caddy/Caddyfile`). The product is called
+Firstry (it launched as Pimp My Prompt, and pimpmypromt.ai still answers for old installs); the repo and the
+code's internal names are still PromptButton. The download buttons point at `/download/Firstry.dmg`; the page reads `/download/latest.json` to show the
 version and size, and shows an error instead of a dead link when it is missing. `npm run dev:staging` serves `site/`
 locally, staging pages included.
 
 **Mac download.** One universal DMG (Apple Silicon and Intel, macOS 13 or later):
 
 ```bash
-npm run desktop:dist     # release/PimpMyPrompt-<version>-universal.dmg: universal Swift helpers, electron-builder, signing
-npm run release:upload   # uploads it, repoints /download/PimpMyPrompt.dmg, then writes /download/latest.json
+npm run desktop:dist     # release/Firstry-<version>-universal.dmg: universal Swift helpers, electron-builder, signing
+npm run release:upload   # uploads it, repoints /download/Firstry.dmg, then writes /download/latest.json
 ```
 
 With a "Developer ID Application" certificate in the keychain the build is signed with it, and notarized when
@@ -53,20 +54,20 @@ The same app runs on Windows 10 and 11 (x64 and ARM64). Only the system layer di
 The helper targets .NET Framework 4.7.2, which ships with Windows, so users install nothing extra. It compiles on a Mac with the .NET SDK.
 
 ```bash
-npm run desktop:dist:win      # release/PimpMyPrompt-Setup-<version>.exe, one installer for x64 and ARM64
-npm run release:upload:win    # publishes it as /download/PimpMyPrompt-Setup.exe and adds it to latest.json
+npm run desktop:dist:win      # release/Firstry-Setup-<version>.exe, one installer for x64 and ARM64
+npm run release:upload:win    # publishes it as /download/Firstry-Setup.exe and adds it to latest.json
 ```
 
 The installer is per-user, needs no administrator rights, adds Start menu and desktop shortcuts and opens the app.
 It is unsigned, so Windows shows "Windows protected your PC" until it has a code-signing certificate: users click
 More info, then Run anyway. To see what the helper reads on a given PC, run
-`"%LOCALAPPDATA%\Programs\Pimp My Prompt\resources\app.asar.unpacked\desktop\bin-win\winhelper.exe" selftest`
+`"%LOCALAPPDATA%\Programs\Firstry\resources\app.asar.unpacked\desktop\bin-win\winhelper.exe" selftest`
 and click into a text field within three seconds.
 
 ## Accounts, limits and billing (server/)
 
 Consumers sign in instead of bringing a key. `server/` is a small Node 24 service on the VPS (systemd unit
-`pimpmyprompt`, behind Caddy at `https://pimpmypromt.ai/api/`). It:
+`pimpmyprompt`, behind Caddy at `https://firstry.ai/api/`). It:
 
 - **signs people in** with a 6-digit code emailed through Resend, and keeps only hashes of codes and tokens;
 - **relays the app's Claude calls** with the server's Anthropic key. Only the app's model, its one beta and a capped

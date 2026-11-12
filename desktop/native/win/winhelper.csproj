@@ -8,13 +8,13 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
     <AssemblyName>winhelper</AssemblyName>
-    <RootNamespace>PimpMyPrompt</RootNamespace>
+    <RootNamespace>Firstry</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Product>Pimp My Prompt</Product>
-    <AssemblyTitle>Pimp My Prompt text field helper</AssemblyTitle>
-    <Company>Pimp My Prompt</Company>
+    <Product>Firstry</Product>
+    <AssemblyTitle>Firstry text field helper</AssemblyTitle>
+    <Company>Firstry</Company>
     <Version>1.0.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>

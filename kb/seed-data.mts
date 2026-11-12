@@ -25,8 +25,8 @@ export interface SeedTechnique {
 
 export const EXTRA_REFS: Record<string, { url: string; title: string; publisher: string; type: SourceType; published: string }> = {
   'anthropic-prompt-improver': { url: 'https://www.anthropic.com/news/prompt-improver', title: 'Improve your prompts in the developer console', publisher: 'Anthropic', type: 'vendor_doc', published: '2024-11' },
-  'own-playbook': { url: 'https://pimpmypromt.ai/sources.html#house-rules', title: 'Pimp My Prompt house rule (no outside source yet)', publisher: 'Pimp My Prompt', type: 'own_playbook', published: '2026-11' },
-  'own-eval-2026-11-09': { url: 'https://pimpmypromt.ai/sources.html#our-eval', title: 'Pimp My Prompt eval, 37 conversations, 9 November 2026', publisher: 'Pimp My Prompt', type: 'own_eval', published: '2026-11' },
+  'own-playbook': { url: 'https://firstry.ai/sources.html#house-rules', title: 'Firstry house rule (no outside source yet)', publisher: 'Firstry', type: 'own_playbook', published: '2026-11' },
+  'own-eval-2026-11-09': { url: 'https://firstry.ai/sources.html#our-eval', title: 'Firstry eval, 37 conversations, 9 November 2026', publisher: 'Firstry', type: 'own_eval', published: '2026-11' },
 };
 
 const HOUSE: SeedEvidence = { ref: 'own-playbook' };

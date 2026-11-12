@@ -1,4 +1,4 @@
-// Pimp My Prompt's Windows helper: the counterpart of axhelper.swift.
+// Firstry's Windows helper: the counterpart of axhelper.swift.
 //
 //   winhelper focused                 the foreground app, its window and the focused field (JSON)
 //   winhelper activate <hwnd>         bring that window back to the foreground
@@ -21,7 +21,7 @@ using System.Threading;
 using System.Windows.Automation;
 using System.Windows.Automation.Text;
 
-namespace PimpMyPrompt
+namespace Firstry
 {
     internal static class Program
     {

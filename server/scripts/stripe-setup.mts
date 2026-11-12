@@ -13,14 +13,14 @@ const key = process.env.STRIPE_SECRET_KEY;
 if (!key) throw new Error('Set STRIPE_SECRET_KEY.');
 const cents = Number(process.env.PRO_PRICE_CENTS ?? 1200);
 const currency = (process.env.PRO_CURRENCY ?? 'usd').toLowerCase();
-const webhookUrl = process.env.WEBHOOK_URL ?? 'https://pimpmypromt.ai/api/stripe/webhook';
+const webhookUrl = process.env.WEBHOOK_URL ?? 'https://firstry.ai/api/stripe/webhook';
 const stripe = new Stripe(key, { apiVersion: '2026-10-28.endive' as Stripe.StripeConfig['apiVersion'] });
 const LOOKUP = `pmp_pro_monthly_${currency}_${cents}`;
 
 const existing = (await stripe.prices.list({ lookup_keys: [LOOKUP], active: true, limit: 1 })).data[0];
 let price = existing;
 if (!price) {
-  const product = await stripe.products.create({ name: 'Pimp My Prompt Pro', description: 'Monthly allowance of prompt rewrites in the Pimp My Prompt Mac app.' });
+  const product = await stripe.products.create({ name: 'Firstry Pro', description: 'Monthly allowance of prompt rewrites in the Firstry Mac app.' });
   price = await stripe.prices.create({ product: product.id, currency, unit_amount: cents, recurring: { interval: 'month' }, lookup_key: LOOKUP });
   console.error(`created ${product.id} and ${price.id}`);
 } else console.error(`found existing price ${price.id}`);

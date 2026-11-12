@@ -25,12 +25,12 @@ install -d -o root -g pmp -m 750 /etc/pimpmyprompt
 if [[ ! -f /etc/pimpmyprompt/env ]]; then
   umask 027
   cat > /etc/pimpmyprompt/env <<ENV
-SITE_URL=https://pimpmypromt.ai
+SITE_URL=https://firstry.ai
 DB_PATH=/var/lib/pimpmyprompt/app.db
 CODE_SECRET=$(openssl rand -hex 32)
 # ANTHROPIC_API_KEY=
 # RESEND_API_KEY=
-# MAIL_FROM=Pimp My Prompt <signin@pimpmypromt.ai>
+# MAIL_FROM=Firstry <signin@firstry.ai>
 # STRIPE_SECRET_KEY=rk_live_...
 # STRIPE_WEBHOOK_SECRET=whsec_...
 # STRIPE_PRICE_ID=price_...
@@ -39,7 +39,7 @@ ENV
 fi
 cat > /etc/systemd/system/pimpmyprompt.service <<'UNIT'
 [Unit]
-Description=Pimp My Prompt account server
+Description=Firstry account server
 After=network-online.target
 Wants=network-online.target
 

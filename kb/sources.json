@@ -1,5 +1,5 @@
 {
-  "userAgent": "PimpMyPromptKB/0.1 (+https://pimpmypromt.ai/sources.html)",
+  "userAgent": "FirstryKB/0.1 (+https://firstry.ai/sources.html)",
   "sources": [
     { "id": "anthropic-best-practices", "publisher": "Anthropic", "title": "Prompting best practices", "type": "vendor_doc", "models": ["claude"],
       "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices", "fetch": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices.md",

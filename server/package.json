@@ -1,8 +1,8 @@
 {
-  "name": "pimpmyprompt-server",
+  "name": "firstry-server",
   "private": true,
   "type": "module",
-  "description": "Account, usage-limit and billing server for the Pimp My Prompt Mac app. Proxies Claude calls with the server's key.",
+  "description": "Account, usage-limit and billing server for the Firstry Mac app. Proxies Claude calls with the server's key.",
   "engines": { "node": ">=24" },
   "scripts": {
     "start": "node src/server.mts",

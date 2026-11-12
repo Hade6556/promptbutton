@@ -1,6 +1,6 @@
 // The knowledge base at run time: which evidence-backed techniques apply to this draft. The rows are
 // compiled from kb/kb.db into kb.generated.ts, so a lookup is a filter over a small array in memory.
-// Every technique has an id that traces to its sources on https://pimpmypromt.ai/sources.html.
+// Every technique has an id that traces to its sources on https://firstry.ai/sources.html.
 import type { Domain, DraftMode, Scale } from '../messaging';
 import { KB, KB_VERSION } from './kb.generated';
 

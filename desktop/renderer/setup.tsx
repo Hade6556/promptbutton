@@ -148,7 +148,7 @@ function PermissionRows({ state }: { state: SetupState }) {
               <div class="row-hint">{why}</div>
               {showHint && (
                 <div class="row-hint fix">
-                  In System Settings, turn on Pimp My Prompt. This screen updates by itself. If the switch already looks on, macOS is holding a record for an older copy:{' '}
+                  In System Settings, turn on Firstry. This screen updates by itself. If the switch already looks on, macOS is holding a record for an older copy:{' '}
                   <button type="button" class="link" onClick={() => send({ type: 'resetPermission', permission: kind })}>
                     reset it and ask again
                   </button>
@@ -463,7 +463,7 @@ function PermissionsPane({ state }: { state: SetupState }) {
     <>
       {lostAccess && (
         <div class="banner" role="alert">
-          <strong>Pimp My Prompt can’t read or write text boxes right now.</strong>{' '}
+          <strong>Firstry can’t read or write text boxes right now.</strong>{' '}
           {state.updatedFrom
             ? `You updated from ${state.updatedFrom} to ${state.version}, and macOS wants Accessibility allowed again for the new version. Turn it on below.`
             : 'Accessibility is off for this copy of the app. That happens after an update, or when it is switched off in System Settings. Turn it back on below.'}
@@ -485,7 +485,7 @@ function AboutPane({ state }: { state: SetupState }) {
           <kbd class="cap lit-static">P</kbd>
         </span>
         <div>
-          <div class="about-name">Pimp My Prompt</div>
+          <div class="about-name">Firstry</div>
           <div class="hint">Version {state.version}</div>
         </div>
       </div>
@@ -511,7 +511,7 @@ function AboutPane({ state }: { state: SetupState }) {
         </Row>
       </Group>
       <div class="actions end">
-        <Btn onClick={() => send({ type: 'quit' })}>Quit Pimp My Prompt</Btn>
+        <Btn onClick={() => send({ type: 'quit' })}>Quit Firstry</Btn>
       </div>
     </>
   );
@@ -567,7 +567,7 @@ function Onboarding({ state }: { state: SetupState }) {
   const pressed = state.shortcutPressedAt !== null;
   const keys = state.shortcut.keys[0] ?? [];
   useEffect(() => {
-    document.title = 'Set up Pimp My Prompt';
+    document.title = 'Set up Firstry';
   }, []);
 
   let title = '';
@@ -579,7 +579,7 @@ function Onboarding({ state }: { state: SetupState }) {
   switch (step) {
     case 'welcome':
       title = 'Better prompts, one shortcut away';
-      body = 'Write a rough prompt in any app: ChatGPT, Claude, Cursor, Mail. Press the shortcut, and Pimp My Prompt reads the conversation, asks what is missing, and rewrites the prompt in place.';
+      body = 'Write a rough prompt in any app: ChatGPT, Claude, Cursor, Mail. Press the shortcut, and Firstry reads the conversation, asks what is missing, and rewrites the prompt in place.';
       content = (
         <div class="hero-keys">
           <Keys keys={keys} size="lg" />
@@ -645,7 +645,7 @@ function Onboarding({ state }: { state: SetupState }) {
           </li>
         </ul>
       );
-      primary = { label: 'Start using Pimp My Prompt', disabled: false };
+      primary = { label: 'Start using Firstry', disabled: false };
       break;
   }
 

@@ -1,10 +1,10 @@
 {
   "name": "promptbutton",
-  "productName": "Pimp My Prompt",
-  "version": "0.3.3",
+  "productName": "Firstry",
+  "version": "0.4.0",
   "private": true,
   "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
-  "author": "Pimp My Prompt",
+  "author": "Firstry",
   "type": "module",
   "scripts": {
     "dev": "wxt",
@@ -60,9 +60,9 @@
   },
   "main": "desktop/dist/main.cjs",
   "build": {
-    "appId": "ai.pimpmypromt.mac",
-    "productName": "Pimp My Prompt",
-    "copyright": "© 2026 Pimp My Prompt",
+    "appId": "ai.firstry.mac",
+    "productName": "Firstry",
+    "copyright": "© 2026 Firstry",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -107,8 +107,8 @@
       ]
     },
     "dmg": {
-      "artifactName": "PimpMyPrompt-${version}-universal.${ext}",
-      "title": "Pimp My Prompt ${version}",
+      "artifactName": "Firstry-${version}-universal.${ext}",
+      "title": "Firstry ${version}",
       "writeUpdateInfo": false
     },
     "afterPack": "build/after-pack.cjs",
@@ -134,10 +134,10 @@
       "allowElevation": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Pimp My Prompt",
+      "shortcutName": "Firstry",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "artifactName": "PimpMyPrompt-Setup-${version}.${ext}"
+      "artifactName": "Firstry-Setup-${version}.${ext}"
     }
   }
 }

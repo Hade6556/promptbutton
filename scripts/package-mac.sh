@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds release/PimpMyPrompt-<version>-universal.dmg (Apple Silicon and Intel in one file).
+# Builds release/Firstry-<version>-universal.dmg (Apple Silicon and Intel in one file).
 # With a "Developer ID Application" certificate in the keychain it signs with it, and it also notarizes
 # when APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID are set. Without one it signs ad hoc,
 # which Apple Silicon requires to launch at all; Gatekeeper then asks users to approve the first launch.

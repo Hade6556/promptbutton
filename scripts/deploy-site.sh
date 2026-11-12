@@ -12,4 +12,4 @@ rsync -rltz --delete \
   --include='/index.html' --include='/privacy.html' --include='/terms.html' --include='/sources.html' \
   --include='/assets/' --include='/assets/**' --include='/billing/' --include='/billing/**' --exclude='*' \
   site/ "$host:$root/"
-echo "Deployed to https://pimpmypromt.ai/ (http://${host#*@}/)"
+echo "Deployed to https://firstry.ai/ (http://${host#*@}/)"

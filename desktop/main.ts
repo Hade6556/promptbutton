@@ -135,7 +135,7 @@ function setState(patch: Partial<PanelState>) {
 let resumeAfterSettings = false;
 
 /** The account server. PMP_API_BASE points a development build at a local one. */
-const API_BASE = (process.env.PMP_API_BASE ?? 'https://pimpmypromt.ai/api').replace(/\/$/, '');
+const API_BASE = (process.env.PMP_API_BASE ?? 'https://firstry.ai/api').replace(/\/$/, '');
 
 function client(): Anthropic {
   // In order: an own key saved in the app, the signed-in account, then a developer's env or .env key.
@@ -205,7 +205,7 @@ async function accountApi<T>(path: string, options: { method?: 'GET' | 'POST'; b
       signal: AbortSignal.timeout(20_000),
     });
   } catch {
-    throw new Error('Could not reach Pimp My Prompt. Check your connection and try again.');
+    throw new Error('Could not reach Firstry. Check your connection and try again.');
   }
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (res.status === 401 && options.auth) throw new SessionEnded('Your session ended. Sign in again.');
@@ -1244,10 +1244,10 @@ const setup = {
 };
 const SETUP_WIDTH = 640;
 const LINKS = {
-  site: 'https://pimpmypromt.ai',
-  privacy: 'https://pimpmypromt.ai/privacy.html',
-  terms: 'https://pimpmypromt.ai/terms.html',
-  support: 'mailto:hello@pimpmypromt.ai',
+  site: 'https://firstry.ai',
+  privacy: 'https://firstry.ai/privacy.html',
+  terms: 'https://firstry.ai/terms.html',
+  support: 'mailto:hello@firstry.ai',
 } as const;
 
 function setupState(): SetupState {
@@ -1462,8 +1462,22 @@ function buildAppMenu() {
 
 // Testing: PMP_USER_DATA=/some/dir runs with its own settings, as a fresh install would, beside the installed app.
 if (process.env.PMP_USER_DATA) app.setPath('userData', path.resolve(process.env.PMP_USER_DATA));
+else {
+  // The app used to be called Pimp My Prompt and kept its settings in a folder of that name. Bring them
+  // over once, so a renamed install still knows its shortcut, its account and that setup is done.
+  try {
+    const current = path.join(app.getPath('userData'), 'settings.json');
+    const legacy = path.join(app.getPath('appData'), ['Pimp', 'My', 'Prompt'].join(' '), 'settings.json');
+    if (!fs.existsSync(current) && fs.existsSync(legacy)) {
+      fs.mkdirSync(path.dirname(current), { recursive: true });
+      fs.copyFileSync(legacy, current);
+    }
+  } catch {
+    // a fresh start is the worst case
+  }
+}
 
-const BUNDLE_ID = 'ai.pimpmypromt.mac';
+const BUNDLE_ID = 'ai.firstry.mac';
 /** The .app this process runs from (macOS), or the executable elsewhere. */
 const OWN_BUNDLE = IS_MAC ? app.getPath('exe').replace(/\/Contents\/MacOS\/[^/]+$/, '') : app.getPath('exe');
 
