@@ -22,7 +22,7 @@
     "site": "vite site --port 5500 --strictPort",
     "dev:staging": "vite site --port 5500 --strictPort --open /stage/avatar/preview.html",
     "site:deploy": "bash scripts/deploy-site.sh",
-    "dash:build": "esbuild src/mascot/dash.ts --bundle --format=esm --minify --target=es2020 --outfile=site/assets/dash.js",
+    "dash:build": "esbuild src/mascot/dash.ts --bundle --format=esm --minify --target=es2020 --outfile=site/assets/dash.js && node scripts/stamp-dash.mjs",
     "dash:assets": "npm run dash:build && node scripts/make-dash-assets.mjs",
     "test": "node --import tsx --test test/*.test.mts && npm run server:test",
     "server:test": "cd server && node --test test/*.test.mts",

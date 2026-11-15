@@ -13,6 +13,8 @@
 // Loops: idle's breath and thinking only. Everything else is one move of at most 0.9 s, then still.
 // With prefers-reduced-motion nothing moves; the eyes and pose still change with the mood.
 
+import { BLEED, createDash3D, type Dash3D } from './dash3d';
+
 export const MOODS = ['idle', 'watching', 'thinking', 'curious', 'done', 'oops', 'asleep'] as const;
 export type Mood = (typeof MOODS)[number];
 
@@ -133,6 +135,11 @@ export interface DashOptions extends DashArt {
   follow?: boolean;
   /** Dash in from the left when created. */
   arrive?: boolean;
+  /**
+   * `auto` (the default) draws Dash in 3D when it stands alone (no tile), is larger than 32 px, the
+   * browser has WebGL 2 and motion is allowed; otherwise it is the flat drawing. `svg` forces the flat one.
+   */
+  render?: 'auto' | 'svg';
 }
 export interface DashHandle {
   el: HTMLElement;
@@ -144,6 +151,7 @@ export interface DashHandle {
 
 // One pointer listener for every Dash on the page, applied once per frame.
 const followers = new Set<{ svg: SVGSVGElement; eyes: SVGGElement }>();
+const solids = new Set<{ box: HTMLElement; dash: Dash3D }>();
 let pointer: { x: number; y: number } | null = null;
 let queued = false;
 function onPointer(e: PointerEvent) {
@@ -160,11 +168,16 @@ function onPointer(e: PointerEvent) {
       const clamp = (v: number) => Math.max(-1, Math.min(1, v * 2.4));
       eyes.style.transform = `translate(${(clamp(dx) * 7).toFixed(1)}px,${(clamp(dy) * 5).toFixed(1)}px)`;
     }
+    for (const { box, dash } of solids) {
+      const r = box.getBoundingClientRect();
+      const clamp = (v: number) => Math.max(-1, Math.min(1, v * 2.4));
+      dash.look([clamp((pointer.x - (r.left + r.width / 2)) / window.innerWidth), -clamp((pointer.y - (r.top + r.height / 2)) / window.innerHeight)]);
+    }
   });
 }
 
 /** A live Dash inside `target`. Setting `done` hops once and `oops` shakes once. */
-export function createDash(target: string | HTMLElement, { size = 96, follow = true, arrive = false, ...art }: DashOptions = {}): DashHandle {
+export function createDash(target: string | HTMLElement, { size = 96, follow = true, arrive = false, render = 'auto', ...art }: DashOptions = {}): DashHandle {
   const host = typeof target === 'string' ? document.querySelector<HTMLElement>(target) : target;
   if (!host) throw new Error('createDash: no such element');
   if (!document.getElementById('dash-css')) {
@@ -175,11 +188,44 @@ export function createDash(target: string | HTMLElement, { size = 96, follow = t
   }
   const box = document.createElement('span');
   box.style.cssText = `display:inline-block;width:${size}px;line-height:0;vertical-align:middle`;
-  box.innerHTML = dashSVG({ simple: size <= 32, ...art });
   host.append(box);
+  const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const listen = () => { if (!followers.size && !solids.size) window.addEventListener('pointermove', onPointer, { passive: true }); };
+  const unlisten = () => { if (!followers.size && !solids.size) window.removeEventListener('pointermove', onPointer); };
+
+  // In 3D: the same box on the page, with a larger canvas centred on it so that no move is cut off.
+  // Where there is a pointer to follow, Dash also faces the side it is on.
+  const solid = render === 'auto' && !art.tile && art.tile !== undefined && size > 32 && !calm ? createDash3D(Math.round(size * BLEED), art.mood ?? 'idle', follow && (window.matchMedia?.('(hover: hover)').matches ?? false)) : null;
+  if (solid) {
+    const label = art.label ?? 'Dash, the First Try mascot';
+    box.style.cssText += `;position:relative;height:${Math.round((size * 164) / 176)}px`;
+    if (label) { box.setAttribute('role', 'img'); box.setAttribute('aria-label', label); } else box.setAttribute('aria-hidden', 'true');
+    box.dataset.mood = art.mood ?? 'idle';
+    box.dataset.render = '3d';
+    box.append(solid.canvas);
+    const entry3 = { box, dash: solid };
+    if (follow) { listen(); solids.add(entry3); }
+    if (arrive) solid.arrive();
+    let flat: DashHandle | null = null;
+    // If the browser takes the context away, the flat drawing takes over in the same place.
+    solid.onLost = () => {
+      solids.delete(entry3); unlisten(); solid.destroy();
+      const mood = (box.dataset.mood ?? 'idle') as Mood;
+      box.remove();
+      flat = createDash(host, { size, follow, render: 'svg', ...art, mood });
+    };
+    return {
+      get el() { return flat ? flat.el : box; },
+      setMood(mood) { if (flat) return flat.setMood(mood); if (!MOODS.includes(mood)) return; box.dataset.mood = mood; solid.setMood(mood); },
+      hop: () => (flat ? flat.hop() : solid.hop()),
+      arrive: () => (flat ? flat.arrive() : solid.arrive()),
+      destroy() { if (flat) return flat.destroy(); solids.delete(entry3); unlisten(); solid.destroy(); box.remove(); },
+    };
+  }
+
+  box.innerHTML = dashSVG({ simple: size <= 32, ...art });
   const svg = box.firstElementChild as SVGSVGElement;
   const entry = { svg, eyes: svg.querySelector('.d-eyes') as SVGGElement };
-  const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   let timer = 0;
   let alive = true;
   const once = (cls: string) => {
@@ -203,7 +249,7 @@ export function createDash(target: string | HTMLElement, { size = 96, follow = t
   if (!calm) {
     timer = window.setTimeout(blink, 1200 + Math.random() * 2000);
     if (follow) {
-      if (!followers.size) window.addEventListener('pointermove', onPointer, { passive: true });
+      listen();
       followers.add(entry);
     }
     if (arrive) once('is-arrive');
@@ -222,7 +268,7 @@ export function createDash(target: string | HTMLElement, { size = 96, follow = t
       alive = false;
       window.clearTimeout(timer);
       followers.delete(entry);
-      if (!followers.size) window.removeEventListener('pointermove', onPointer);
+      unlisten();
       box.remove();
     },
   };

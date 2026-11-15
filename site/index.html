@@ -251,13 +251,12 @@ body.menu-open .menu-btn .x { display: block; }
 @property --spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 @keyframes spin { to { --spin: 360deg; } }
 .pmp .read { display: none; align-items: center; gap: 10px; height: 52px; padding: 0 16px; color: rgba(242, 244, 247, 0.72); }
-.pmp .read img { width: 18px; height: 18px; }
 .pmp .text { display: none; flex-direction: column; justify-content: flex-end; max-height: 372px; overflow: hidden; padding: 14px 16px 6px; }
 /* On small screens the prompt is longer than the panel: it stays pinned to its newest line and the top fades out. */
 @media (max-width: 899px) { .pmp .text { -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0), #000 36px); mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0), #000 36px); } }
 @media (min-width: 900px) { .pmp { bottom: 162px; left: calc(50% + 100px); } .pmp .text { max-height: 372px; } }
 .pmp .bar { display: none; align-items: center; gap: 10px; padding: 9px 10px 9px 16px; border-top: 1px solid rgba(242, 244, 247, 0.16); color: rgba(242, 244, 247, 0.66); font-size: 0.8125rem; }
-.pmp .bar span:first-child { margin-right: auto; }
+.pmp .bar span:first-of-type { margin-right: auto; }
 .pmp .go { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; color: #14161a; background: linear-gradient(180deg, #ffb547, #e8892a); box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.45); }
 .strokes { position: absolute; left: 50%; bottom: 84px; z-index: 4; translate: -50% 0; display: flex; gap: 8px; padding: 10px; border-radius: 18px; background: rgba(20, 22, 27, 0.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   opacity: 0; transform: translateY(8px); transition: opacity 300ms var(--ease), transform 300ms var(--ease); }
@@ -730,8 +729,59 @@ html { scroll-snap-type: y proximity; }
 /* Dash appears twice on this page: once above the headline, once beside the last button. The slot above the
    headline has no height of its own, so the mascot sits in the padding over the headline and moves nothing. */
 .hero-dash { height: 0; display: flex; justify-content: center; align-items: flex-end; }
-.hero-dash > span { margin-bottom: clamp(8px, 1.6vh, 18px); filter: drop-shadow(0 10px 24px rgba(8, 20, 60, 0.35)); }
+.hero-dash > span { margin-bottom: clamp(8px, 1.6vh, 18px); }
 .close-dash { height: 72px; margin-bottom: 18px; }
+/* Dash inside the hero demo's panel, where the app has it. */
+.pmp .pd { flex: none; width: 22px; height: 22px; display: grid; place-items: center; }
+/* Dash beside the app's panel: seven states of the app, and the mood that goes with each. The panel is fixed to the
+   bottom of its column and grows upwards, as it does in the app, so nothing around it moves when the state changes. */
+.dd { margin-top: 44px; }
+.dd-night { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px 40px; align-items: center; padding: clamp(20px, 3.4vw, 44px); border-radius: var(--r-xl); color: #f2f4f7; overflow: hidden;
+  background: radial-gradient(120% 100% at 18% 0%, #2a3b74 0%, #172250 46%, #0b1020 100%); }
+.dd-ghost { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.dd-big { display: grid; place-items: center; height: clamp(180px, 20vw, 236px); }
+.dd-say { min-height: 2.9em; max-width: 30ch; font-size: 1.0625rem; line-height: 1.4; color: rgba(242, 244, 247, 0.88); text-wrap: balance; }
+.dd-app { display: flex; align-items: flex-end; justify-content: center; min-width: 0; min-height: 236px; }
+.dd-panel { width: 100%; min-width: 0; max-width: 520px; border-radius: 14px; background: var(--graphite); font-size: 0.875rem; line-height: 1.45; text-align: left;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 30px 60px -28px rgba(0, 0, 0, 0.8); }
+.dd-body > * { display: none; padding: 14px 16px 12px; animation: ddIn 220ms var(--ease); }
+.dd[data-state="asleep"] [data-for~="asleep"], .dd[data-state="thinking"] [data-for~="thinking"], .dd[data-state="curious"] [data-for~="curious"],
+.dd[data-state="watching"] [data-for~="watching"], .dd[data-state="done"] [data-for~="done"], .dd[data-state="oops"] [data-for~="oops"] { display: block; }
+.dd-line { font-size: 0.9375rem; }
+.dd-line .n { margin-left: 4px; font-size: 0.8125rem; color: rgba(242, 244, 247, 0.58); }
+.dd-line.dim { color: rgba(242, 244, 247, 0.72); }
+.dd-line.err { color: #ff8f82; }
+.dd-opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.dd-opts span { padding: 6px 12px; border-radius: 999px; background: rgba(226, 232, 244, 0.1); font-size: 0.8125rem; }
+.dd-rows { display: grid; gap: 8px; margin-top: 10px; }
+.dd-rows:first-child { margin-top: 0; }
+.dd-rows div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: start; }
+.dd-rows b { color: var(--accent); font-weight: 600; font-size: 0.8125rem; line-height: 1.6; }
+.dd-rows span { color: rgba(242, 244, 247, 0.88); }
+.dd-rows i { height: 9px; margin-top: 6px; border-radius: 5px; animation: ddShim 1.4s linear infinite;
+  background: linear-gradient(90deg, rgba(226, 232, 244, 0.1) 0%, rgba(226, 232, 244, 0.26) 50%, rgba(226, 232, 244, 0.1) 100%) 0 0 / 200% 100%; }
+.dd-bar { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 9px 10px 9px 12px; border-top: 1px solid rgba(242, 244, 247, 0.12); }
+.dd[data-state="idle"] .dd-bar { border-top-color: transparent; }
+.dd-mini { flex: none; width: 22px; height: 22px; display: grid; place-items: center; }
+.dd-field { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dd-ph { color: rgba(242, 244, 247, 0.58); }
+.dd-typed:not(:empty) + .dd-ph { display: none; }
+.dd-typed:not(:empty)::after { content: ""; display: inline-block; width: 1px; height: 1.05em; margin-left: 1px; vertical-align: -0.16em; background: var(--accent); animation: ddCaret 1s steps(1) infinite; }
+.dd-icons { display: flex; gap: 12px; color: rgba(242, 244, 247, 0.58); }
+.dd-icons svg, .dd-bar .go svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+.dd-icons svg { width: 15px; height: 15px; stroke-width: 1.8; }
+.dd-bar .go { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; color: #14161a; background: linear-gradient(180deg, #ffb547, #e8892a); box-shadow: inset 0 1px 0 rgba(255, 244, 228, 0.45); transition: opacity var(--t-fast); }
+.dd-bar .go svg { width: 16px; height: 16px; stroke-width: 2.4; }
+.dd[data-state="asleep"] .go, .dd[data-state="thinking"] .go, .dd[data-state="oops"] .go { opacity: 0.35; }
+.dd-states { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 18px; }
+.dd-states button { min-height: 44px; padding: 0 16px; border-radius: 999px; font-size: 0.9375rem; color: var(--ink-2); background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); transition: background var(--t-quick), color var(--t-quick); }
+.dd-states button:hover { color: var(--ink); background: #ececf0; }
+.dd-states button[aria-pressed="true"] { color: #fff; background: var(--ink); box-shadow: none; }
+@media (max-width: 599px) { .dd-icons, .dd-rows .wide { display: none; } }
+@media (min-width: 900px) { .dd-night { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } .dd-app { min-height: 210px; } }
+@keyframes ddIn { from { opacity: 0; transform: translateY(4px); } }
+@keyframes ddShim { to { background-position: -200% 0; } }
+@keyframes ddCaret { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -825,9 +875,9 @@ html { scroll-snap-type: y proximity; }
         </div>
 
         <div class="pmp" aria-hidden="true">
-          <div class="read"><img src="assets/logo.svg" alt="" />Reading your chat…</div>
+          <div class="read"><i class="pd" id="readDash"></i>Reading your chat…</div>
           <div class="text"></div>
-          <div class="bar"><span>Press ↵ to put it in</span><span class="go"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
+          <div class="bar"><i class="pd" id="barDash"></i><span>Press ↵ to put it in</span><span class="go"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
         </div>
 
         <div class="dock" aria-hidden="true">
@@ -940,6 +990,49 @@ html { scroll-snap-type: y proximity; }
             <li style="--i:3"><span class="frag">make it good</span><i class="join"><span class="sr">became</span></i><div class="to"><b>Done when</b><span>A first-time visitor can say what Waggle does and book a walk without scrolling back up.</span></div></li>
             <li style="--i:4"><span class="frag none">You didn't say</span><i class="join"><span class="sr">so it added</span></i><div class="to"><b>Constraints</b><span>Warm, friendly tone. Never invent prices, reviews or numbers.</span></div></li>
           </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="dash">
+    <div class="wrap">
+      <div class="section-head center">
+        <h2 class="h2">Dash shows you what the app is doing</h2>
+        <p class="lead">The ghost in the panel changes with every step, so you always know if it heard you, is still working or needs something.</p>
+      </div>
+      <div class="dd" id="dashDemo" data-state="idle">
+        <div class="dd-night">
+          <div class="dd-ghost">
+            <div class="dd-big" id="ddBig"></div>
+            <p class="dd-say" id="ddSay" aria-live="polite">Waiting for you. Move your pointer and it looks.</p>
+          </div>
+          <div class="dd-app" aria-hidden="true">
+            <div class="dd-panel">
+              <div class="dd-body">
+                <div data-for="asleep"><p class="dd-line">First Try can't read your draft yet.</p><div class="dd-opts"><span>Allow access in System Settings</span></div></div>
+                <div data-for="thinking"><p class="dd-line dim">Reading Chat…</p><div class="dd-rows"><div><b>Role</b><i style="width: 86%"></i></div><div><b>Goal</b><i style="width: 64%"></i></div><div><b>Context</b><i style="width: 78%"></i></div></div></div>
+                <div data-for="curious watching"><p class="dd-line">What should visitors do on the page?<span class="n">1/2</span></p><div class="dd-opts"><span>Book a first walk</span><span>Join a waitlist</span><span>Download the app</span></div></div>
+                <div data-for="done"><div class="dd-rows"><div><b>Role</b><span>A senior web designer who builds landing pages for consumer apps.</span></div><div><b>Goal</b><span>Get dog owners to book their first walk with Waggle.</span></div><div class="wide"><b>Done when</b><span>A first-time visitor can say what Waggle does and book a walk.</span></div></div></div>
+                <div data-for="oops"><p class="dd-line err">Couldn't reach First Try. Check your connection, then press ↵ to try again.</p></div>
+              </div>
+              <div class="dd-bar">
+                <span class="dd-mini" id="ddMini"></span>
+                <span class="dd-field"><span class="dd-typed" id="ddTyped"></span><span class="dd-ph" id="ddPh">Type or say what you want changed</span></span>
+                <span class="dd-icons"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+                <span class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="dd-states" id="ddStates" role="group" aria-label="What the app is doing">
+          <button type="button" data-s="asleep" aria-pressed="false">No access yet</button>
+          <button type="button" data-s="idle" aria-pressed="true">Waiting</button>
+          <button type="button" data-s="thinking" aria-pressed="false">Working</button>
+          <button type="button" data-s="curious" aria-pressed="false">Has a question</button>
+          <button type="button" data-s="watching" aria-pressed="false">You're typing</button>
+          <button type="button" data-s="done" aria-pressed="false">Prompt ready</button>
+          <button type="button" data-s="oops" aria-pressed="false">Something's wrong</button>
         </div>
       </div>
     </div>
@@ -1152,9 +1245,11 @@ html { scroll-snap-type: y proximity; }
 </svg>
 
 <script type="module">
-  // Dash: one entrance in the hero, one quiet bookend at the foot. Nothing here blocks the page.
-  import { createDash } from './assets/dash.js';
+  // Dash: one entrance in the hero, the app's states in the middle of the page, one quiet bookend at the foot.
+  // Nothing here blocks the page.
+  import { createDash } from './assets/dash.js?v=27ef85ce';
   const phone = matchMedia('(max-width: 599px)').matches;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const hero = createDash('#heroDash', { size: phone ? 48 : 96, tile: false, arrive: true });
   // After landing it glances down at the download button, then goes back to watching the pointer.
   setTimeout(() => hero.setMood('watching'), 1100);
@@ -1165,6 +1260,61 @@ html { scroll-snap-type: y proximity; }
     const happy = () => dash.setMood('done'), calm = () => dash.setMood('idle');
     link.addEventListener('pointerenter', happy); link.addEventListener('focus', happy);
     link.addEventListener('pointerleave', calm); link.addEventListener('blur', calm);
+  }
+
+  // The hero demo's panel has Dash where the app has it. Its mood follows the demo's state: the change is read
+  // the moment the state is set, before the browser draws again, so both land in the same frame.
+  const demo = document.getElementById('demo');
+  const DEMO_MOOD = { out: 'idle', typing: 'watching', press: 'watching', reading: 'thinking', writing: 'thinking', ready: 'done', filled: 'done', result: 'idle' };
+  createDash('#readDash', { size: 22, tile: false, follow: false, label: '', mood: 'thinking' });
+  const barDash = createDash('#barDash', { size: 22, tile: false, follow: false, label: '', mood: DEMO_MOOD[demo.dataset.state] ?? 'idle' });
+  new MutationObserver(() => barDash.setMood(DEMO_MOOD[demo.dataset.state] ?? 'idle')).observe(demo, { attributes: true, attributeFilter: ['data-state'] });
+
+  // Dash beside the app's panel. Each state of the app has one mood, and one function sets the panel, the words
+  // and both mascots together, so the mood can never trail the state.
+  const STATES = {
+    asleep: { say: 'Asleep: it can\u2019t read your draft until you allow access.', hint: 'Waiting for access' },
+    idle: { say: 'Waiting for you. Move your pointer and it looks.', hint: 'Type or say what you want changed' },
+    thinking: { say: 'Thinking: it is reading the chat and writing your prompt.', hint: 'Rewriting\u2026' },
+    curious: { say: 'Curious: it asks only what it can\u2019t work out.', hint: 'Type an answer, or pick one above' },
+    watching: { say: 'Watching while you type or talk.', hint: 'Type an answer, or pick one above', typed: 'Book a first walk, and show prices' },
+    done: { say: 'Pleased: your prompt is ready to insert.', hint: 'Tell me what to change, or \u21b5 to insert into Chat' },
+    oops: { say: 'Worried: something went wrong, and it tells you what.', hint: '' },
+  };
+  const dd = document.getElementById('dashDemo'), say = document.getElementById('ddSay'), typed = document.getElementById('ddTyped'), hint = document.getElementById('ddPh');
+  const chips = [...document.querySelectorAll('#ddStates button')];
+  const big = createDash('#ddBig', { size: innerWidth < 600 ? 104 : innerWidth < 900 ? 132 : 168, tile: false, label: '' });
+  const mini = createDash('#ddMini', { size: 22, tile: false, follow: false, label: '' });
+  let typing = [], story = [], tour = null;
+  const stop = (timers) => { timers.forEach(clearTimeout); timers.length = 0; };
+  const show = (name) => {
+    const state = STATES[name];
+    dd.dataset.state = name;
+    big.setMood(name); mini.setMood(name);
+    say.textContent = state.say; hint.textContent = state.hint;
+    chips.forEach((chip) => chip.setAttribute('aria-pressed', String(chip.dataset.s === name)));
+    stop(typing); typed.textContent = '';
+    if (!state.typed) return;
+    if (reduce) { typed.textContent = state.typed; return; }
+    [...state.typed].forEach((_, i) => typing.push(setTimeout(() => { typed.textContent = state.typed.slice(0, i + 1); }, 250 + i * 38)));
+  };
+  document.getElementById('ddStates').addEventListener('click', (event) => {
+    const chip = event.target.closest('button');
+    if (!chip) return;
+    // A choice ends the tour, including one made before the tour has begun.
+    stop(story); tour?.disconnect(); show(chip.dataset.s);
+  });
+  // The first time the panel is on screen it runs through a real session once, then rests on the finished prompt.
+  if (!reduce && 'IntersectionObserver' in window) {
+    tour = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      tour.disconnect();
+      let t = 0;
+      for (const [name, ms] of [['asleep', 2000], ['idle', 1700], ['thinking', 1900], ['curious', 2500], ['watching', 2700], ['thinking', 1900], ['done', 0]]) {
+        story.push(setTimeout(() => show(name), t)); t += ms;
+      }
+    }, { threshold: 0.55 });
+    tour.observe(dd.querySelector('.dd-night'));
   }
 </script>
 <script>
