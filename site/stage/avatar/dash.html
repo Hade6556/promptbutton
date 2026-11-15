@@ -1,0 +1,42 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dash</title>
+<style>
+ :root{--night:#0b1020;--ink:#eef2fb;--ink-2:#a9b3c9;--line:rgba(255,255,255,.1);--amber:#ffc163;--paper:#f6f4ef}
+ *{box-sizing:border-box} body{margin:0;background:var(--night);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+ main{max-width:960px;margin:0 auto;padding:48px 16px 80px}
+ h1{font-size:clamp(2rem,5vw,3rem);line-height:1.05;letter-spacing:-.02em;margin:0 0 10px;font-weight:650}
+ h2{font-size:1.2rem;margin:44px 0 4px;font-weight:600} .note{color:var(--ink-2);margin:0 0 16px;font-size:14px;max-width:68ch}
+ .lead{color:var(--ink-2);max-width:60ch;margin:0 0 28px}
+ .stage{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+ .pane{border:1px solid var(--line);border-radius:24px;padding:28px 16px;display:grid;place-items:center;min-height:300px;background:#11172b;cursor:pointer}
+ .pane.bare{background:radial-gradient(120% 90% at 30% 15%,#243056 0%,#141b30 55%,var(--night) 100%)}
+ .moods{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px} .moods button{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:8px 16px;cursor:pointer}
+ .moods button[aria-pressed=true]{background:var(--amber);border-color:var(--amber);color:#201203} .moods button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+ .row{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;padding:18px;border-radius:18px;border:1px solid var(--line)} .row.light{background:var(--paper);color:#17120f;border-color:var(--paper);margin-top:10px}
+ figure{margin:0;text-align:center;font-size:12px} figure>*:first-child{margin:0 auto 6px;display:block}
+ .files{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px} .files figure{background:rgba(255,255,255,.04);border-radius:14px;padding:14px 10px;word-break:break-all} .files img{max-width:96px;max-height:96px}
+ @media (max-width:700px){.stage{grid-template-columns:1fr}}
+</style></head><body><main>
+<h1>Dash</h1>
+<p class="lead">The First Try mascot. Its eyes follow the pointer, it blinks, and it hops when you click it. The buttons switch its mood.</p>
+<div class="stage"><div class="pane" id="tile"></div><div class="pane bare" id="bare"></div></div>
+<div class="moods" id="moods"></div>
+<h2>Moods</h2><p class="note">Each mood stands for a product state: idle (waiting), watching (you are typing), thinking (working), curious (it has a question), done (prompt ready), oops (an error) and asleep (it cannot work yet).</p><div class="row" id="moodrow"></div>
+<h2>Sizes</h2><p class="note">At 32 px and under it drops the drips and shadow and its eyes grow.</p><div class="row" id="dark"></div><div class="row light" id="light"></div>
+<h2>Exported files</h2><p class="note">Written by <code>npm run dash:assets</code>.</p><div class="files" id="files"></div>
+</main>
+<script type="module">
+import { createDash, stillSVG, MOODS } from '../../assets/dash.js';
+const $ = (id) => document.getElementById(id);
+const big = Math.min(240, window.innerWidth - 96);
+const lives = [createDash('#tile', { size: big }), createDash('#bare', { size: big, tile: false })];
+lives.forEach((d) => d.el.addEventListener('click', () => d.hop()));
+$('moods').innerHTML = MOODS.map((m) => `<button type="button" data-m="${m}" aria-pressed="${m === 'idle'}">${m}</button>`).join('');
+$('moods').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#moods button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); lives.forEach((d) => d.setMood(b.dataset.m)); });
+const fig = (html, label, w) => `<figure><div style="width:${w}px">${html}</div>${label}</figure>`;
+$('moodrow').innerHTML = MOODS.map((m) => fig(stillSVG({ mood: m }), m, 96)).join('');
+for (const id of ['dark', 'light']) $(id).innerHTML = [128, 64, 32, 16].map((s) => fig(stillSVG({ simple: s <= 32 }), `${s} px`, s)).join('') + [64, 32].map((s) => fig(stillSVG({ tile: false, simple: s <= 32 }), `${s} px, no tile`, s)).join('');
+const files = [['../../assets/logo.svg', 'Site logo and favicon'], ['../../assets/apple-touch-icon.png', 'iOS home screen'], ['../../assets/og.png', 'Share image'], ['./export/hero-512.png', 'Hero still'], ['./export/empty-state-512.png', 'Empty state'], ...MOODS.map((m) => [`./export/mood-${m}.svg`, `Mood: ${m}`])];
+$('files').innerHTML = files.map(([src, use]) => `<figure><img src="${src}" alt=""><div>${use}</div></figure>`).join('');
+</script></body></html>

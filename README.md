@@ -179,7 +179,7 @@ npm run build      # extension
 npm run web:build  # playground → web/dist
 npm run eval       # run + judge; see eval/README.md
 ANTHROPIC_API_KEY=sk-ant-… node --import tsx eval/smoke.mts   # quick live check of both Claude calls
-node --import tsx scripts/make-icons.mts                       # regenerate public/icon/*.png
+npm run dash:assets                                            # redraw every icon and picture of Dash, the mascot
 ```
 
 ### “CORS requests are not allowed for this Organization”
@@ -226,7 +226,7 @@ desktop/                    Electron overlay: main.ts (hotkey, panel, tray), cap
 proxy/server.mts            local forwarder for orgs that block browser calls (browser surfaces only)
 eval/                       28 cases with hidden intent, simulated-user answers, position-swapped judge
 hardware/                   CircuitPython firmware for a one-key USB keyboard sending Alt+Shift+P
-scripts/make-icons.mts      renders the keycap icon PNGs with no image dependencies
+scripts/make-dash-assets.mjs renders Dash's icons and pictures (needs Chrome); the drawing is src/mascot/dash.ts
 ```
 
 ## Status

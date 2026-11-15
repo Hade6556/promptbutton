@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { AccountScreen, AccountView, DictationEvent, PanelState, RendererAction } from '../shared';
 import { blocks, inlineRuns, parseSections, type Block } from './format';
+import { Dash } from './dash';
+import type { Mood } from '../../src/mascot/dash';
 
 const send = (action: Parameters<Window['pb']['send']>[0]) => window.pb.send(action);
 
@@ -645,6 +647,21 @@ export function Panel() {
     }
   })();
 
+  // Dash, at the head of the composer, says what the box is doing: thinking while it works, curious
+  // when it has a question, pleased when the prompt is ready, worried on an error, and watching while you
+  // type or talk. An error raised inside Settings counts as an error too.
+  const mood: Mood = busy
+    ? 'thinking'
+    : state.phase === 'error' || Boolean(state.error)
+      ? 'oops'
+      : mic !== 'off' || (text.trim() !== '' && state.phase !== 'done')
+        ? 'watching'
+        : state.phase === 'asking' || state.phase === 'replies' || state.phase === 'notice'
+          ? 'curious'
+          : state.phase === 'done' || state.phase === 'ready'
+            ? 'done'
+            : 'idle';
+
   const showField = state.phase !== 'notice' && state.phase !== 'error' && !(state.phase === 'settings' && state.accountScreen?.mode === 'account');
   // Voice is an input like the keyboard: available wherever the field takes text, except the API-key field.
   // Voice uses macOS speech recognition; other systems get the keyboard only for now.
@@ -754,6 +771,7 @@ export function Panel() {
         )}
         {/* Composer: the field and every control on one row, one baseline. */}
         <div class="composer">
+          <Dash mood={mood} size={26} />
           {showField ? (
             <input
               ref={inputRef}

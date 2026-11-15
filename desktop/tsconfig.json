@@ -17,6 +17,7 @@
     "*.ts",
     "renderer",
     "../src/llm",
+    "../src/mascot",
     "../src/messaging.ts",
     "../src/utils",
     "../src/adapters/editable.ts",

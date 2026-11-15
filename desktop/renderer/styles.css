@@ -440,7 +440,17 @@ p {
   margin-top: 12px;
 }
 
-/* Composer: field on the left, controls on the right, one shared centre line. */
+/* Dash sits at the head of the composer, on the field's centre line. */
+.dash-host {
+  flex: none;
+  display: inline-flex;
+  line-height: 0;
+}
+.composer .dash-host {
+  margin-right: -2px;
+}
+
+/* Composer: Dash, then the field, then the controls on the right, one shared centre line. */
 .composer {
   display: flex;
   align-items: center;

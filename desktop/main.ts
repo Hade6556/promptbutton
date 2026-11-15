@@ -1130,8 +1130,8 @@ async function undo() {
 // ── Menu bar item ─────────────────────────────────────────────────────────────────────────────────
 // macOS draws the idle states from template images (black and clear), tinting them for a light or dark
 // menu bar and for the open menu, as a menu bar extra should look. The colour arrives only with status:
-// the amber keycap while a request runs (Ember: the accent marks the primary action and status). An
-// outline keycap means setup is not finished: the one permission the app needs is missing.
+// Dash in amber while a request runs (Ember: the accent marks the primary action and status). A hollow
+// Dash with closed eyes means setup is not finished: the one permission the app needs is missing.
 
 type TrayMode = 'ready' | 'busy' | 'off';
 let trayModeShown: TrayMode | null = null;

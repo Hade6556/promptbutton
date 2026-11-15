@@ -611,3 +611,15 @@
     transform: none;
   }
 }
+
+/* Dash leads each onboarding step, above the title. */
+.step-dash {
+  display: flex;
+  justify-content: center;
+  height: 68px;
+  margin-bottom: 14px;
+}
+.tips .tray-glyph {
+  display: inline-flex;
+  align-items: center;
+}

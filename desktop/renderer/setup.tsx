@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { AccountScreen, OnboardingStep, PermissionKind, PermissionStatus, SetupAction, SetupPane, SetupState } from '../shared';
+import { Dash } from './dash';
+import type { Mood } from '../../src/mascot/dash';
 import { usageLine } from './panel';
 
 const send = (action: SetupAction) => window.pb.setup.send(action);
@@ -575,6 +577,9 @@ function Onboarding({ state }: { state: SetupState }) {
   let content: ComponentChildren = null;
   let primary = { label: 'Continue', disabled: false };
   let secondary: { label: string; onClick: () => void } | null = null;
+  // Dash leads each step and shows where it stands: asleep until macOS lets it work, watching for the
+  // first press of the shortcut, pleased once a step is finished.
+  let mood: Mood = 'idle';
 
   switch (step) {
     case 'welcome':
@@ -597,6 +602,7 @@ function Onboarding({ state }: { state: SetupState }) {
         </section>
       );
       primary = { label: 'Continue', disabled: !ok };
+      mood = ok ? 'done' : 'asleep';
       if (!ok) secondary = { label: 'Set up later', onClick: () => send({ type: 'close' }) };
       break;
     }
@@ -611,6 +617,7 @@ function Onboarding({ state }: { state: SetupState }) {
         </Group>
       );
       primary = { label: 'Continue', disabled: !signedIn };
+      mood = signedIn ? 'done' : state.accountError ? 'oops' : 'curious';
       if (!signedIn) secondary = { label: 'Skip for now', onClick: next };
       break;
     case 'try':
@@ -624,6 +631,7 @@ function Onboarding({ state }: { state: SetupState }) {
         </div>
       );
       primary = { label: 'Continue', disabled: false };
+      mood = pressed ? 'done' : 'watching';
       if (!pressed) primary.label = 'Skip';
       break;
     case 'done':
@@ -638,14 +646,15 @@ function Onboarding({ state }: { state: SetupState }) {
             <Keys keys={['↵']} /> <span>Puts the new prompt into the app. Esc closes without changing anything.</span>
           </li>
           <li>
-            <svg class="tray-glyph" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-              <path fill="currentColor" d="M1.5 6a3.5 3.5 0 0 1 3.5-3.5h8A3.5 3.5 0 0 1 16.5 6v4.5a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2Z" />
-              <path fill="currentColor" d="M1.5 12.2a3 3 0 0 0 2 1.3h11a3 3 0 0 0 2-1.3v.8a3.5 3.5 0 0 1-3.5 3.5H5A3.5 3.5 0 0 1 1.5 13Z" />
-            </svg> <span>The keycap in the menu bar has Settings, your account and Undo last insert.</span>
+            <span class="tray-glyph">
+              <Dash mood="idle" size={20} />
+            </span>{' '}
+            <span>Dash, the ghost in the menu bar, has Settings, your account and Undo last insert.</span>
           </li>
         </ul>
       );
       primary = { label: 'Start using First Try', disabled: false };
+      mood = 'done';
       break;
   }
 
@@ -653,6 +662,9 @@ function Onboarding({ state }: { state: SetupState }) {
     <div class="onboarding">
       <header class="chrome slim" />
       <main class="step" key={step}>
+        <div class="step-dash">
+          <Dash mood={mood} size={72} arrive={step === 'welcome'} label="Dash, the First Try mascot" />
+        </div>
         <h1>{title}</h1>
         <p class="lede">{body}</p>
         {content}
