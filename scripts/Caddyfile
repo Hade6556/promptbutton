@@ -1,0 +1,48 @@
+# First Try: the website, the downloads and the account server. Copied to /etc/caddy/Caddyfile by
+# scripts/setup-vps.sh. Caddy gets and renews the certificates itself once the domain's A record
+# points at this server.
+(site) {
+	root * /var/www/promptbutton
+	encode zstd gzip
+	file_server
+
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=604800"
+
+	# Downloads: always the current build, saved as a file, never cached past a release.
+	@dmg path /download/*.dmg
+	header @dmg Content-Type application/x-apple-diskimage
+	header @dmg Content-Disposition attachment
+	header @dmg Cache-Control no-cache
+	@exe path /download/*.exe
+	header @exe Content-Type application/vnd.microsoft.portable-executable
+	header @exe Content-Disposition attachment
+	header @exe Cache-Control no-cache
+	@latest path /download/latest.json
+	header @latest Cache-Control no-store
+
+	header -Server
+	header X-Content-Type-Options nosniff
+	header Referrer-Policy strict-origin-when-cross-origin
+}
+
+firstry.ai {
+	# Account server: sign-in, billing, Stripe webhooks and the app's Claude calls. HTTPS only.
+	request_body /api/* {
+		max_size 10MB
+	}
+	reverse_proxy /api/* 127.0.0.1:8787 {
+		flush_interval -1
+	}
+	import site
+	header Strict-Transport-Security "max-age=31536000"
+}
+
+www.firstry.ai {
+	redir https://firstry.ai{uri} permanent
+}
+
+# Bare IP over plain HTTP, kept so the site can be checked before DNS points here.
+:80 {
+	import site
+}

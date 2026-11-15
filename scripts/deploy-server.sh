@@ -4,7 +4,7 @@
 # Secrets live in /etc/pimpmyprompt/env on the server, never in the repo.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-host="${DEPLOY_HOST:-root@72.61.138.63}"
+host="${DEPLOY_HOST:-root@firstry.ai}"
 NODE_VERSION=24.22.1
 
 if [[ "${1:-}" == "--setup" ]]; then

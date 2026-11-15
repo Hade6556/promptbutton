@@ -27,6 +27,7 @@
     "test": "node --import tsx --test test/*.test.mts && npm run server:test",
     "server:test": "cd server && node --test test/*.test.mts",
     "server:deploy": "bash scripts/deploy-server.sh",
+    "vps:setup": "bash scripts/setup-vps.sh",
     "proxy": "node --env-file-if-exists=.env --import tsx proxy/server.mts",
     "desktop:build": "npm run desktop:helper && npm run desktop:bundle",
     "desktop": "npm run desktop:build && env -u ELECTRON_RUN_AS_NODE electron .",

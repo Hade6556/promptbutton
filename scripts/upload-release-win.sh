@@ -4,7 +4,7 @@
 #   npm run release:upload:win
 set -euo pipefail
 cd "$(dirname "$0")/.."
-host="${DEPLOY_HOST:-root@72.61.138.63}"
+host="${DEPLOY_HOST:-root@firstry.ai}"
 root="${DEPLOY_ROOT:-/var/www/promptbutton}"
 version="$(node -p "require('./package.json').version")"
 file="Firstry-Setup-$version.exe"

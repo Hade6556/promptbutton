@@ -15,9 +15,9 @@ two Claude calls on a conversation you paste in (bring your own Anthropic key; i
 
 **Landing page for the Mac app:** `site/` is a single static `index.html` plus `assets/`, built on the app's own
 Ember tokens. `npm run site` serves it at <http://localhost:5500>; it needs no backend, so it can be copied to any
-static host as is. `npm run site:deploy` copies `index.html` and `assets/` to the VPS at 72.61.138.63, where Caddy serves
-`/var/www/promptbutton` as <https://firstry.ai> (config in `/etc/caddy/Caddyfile`). The product is called
-First Try (it launched as Pimp My Prompt, and pimpmypromt.ai still answers for old installs); the repo and the
+static host as is. `npm run site:deploy` copies `index.html` and `assets/` to the VPS behind firstry.ai, where Caddy serves
+`/var/www/promptbutton` as <https://firstry.ai> (config in `scripts/Caddyfile`; `npm run vps:setup` rebuilds the whole server on a fresh VPS). The product is called
+First Try (it launched as Pimp My Prompt; that domain is gone); the repo and the
 code's internal names are still PromptButton. The download buttons point at `/download/Firstry.dmg`; the page reads `/download/latest.json` to show the
 version and size, and shows an error instead of a dead link when it is missing. `npm run dev:staging` serves `site/`
 locally, staging pages included.

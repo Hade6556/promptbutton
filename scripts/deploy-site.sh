@@ -6,7 +6,7 @@
 #   DEPLOY_HOST=root@other.host DEPLOY_ROOT=/var/www/promptbutton npm run site:deploy
 set -euo pipefail
 cd "$(dirname "$0")/.."
-host="${DEPLOY_HOST:-root@72.61.138.63}"
+host="${DEPLOY_HOST:-root@firstry.ai}"
 root="${DEPLOY_ROOT:-/var/www/promptbutton}"
 rsync -rltz --delete \
   --include='/index.html' --include='/privacy.html' --include='/terms.html' --include='/sources.html' \
