@@ -1,35 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice" role="img" aria-label="Blue mountains at dawn with the sun coming up behind them">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice" role="img" aria-label="White mountains at dawn with the sun coming up behind them">
   <defs>
-    <!-- Deep blue where the headline sits (white text stays readable), warming to dawn and ending in the page's white. -->
+    <!-- White where the headline sits, a little warm near the sun, and ending in the page's white. -->
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#15357c"/>
-      <stop offset="0.5" stop-color="#3769bd"/>
-      <stop offset="0.66" stop-color="#8bb8ea"/>
-      <stop offset="0.8" stop-color="#ffd9b0"/>
-      <stop offset="0.92" stop-color="#fff3e4"/>
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#ffffff"/>
+      <stop offset="0.66" stop-color="#fffdf8"/>
+      <stop offset="0.8" stop-color="#fffaf0"/>
+      <stop offset="0.92" stop-color="#fffdfa"/>
       <stop offset="1" stop-color="#ffffff"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#ffd38a" stop-opacity="0.95"/>
-      <stop offset="0.35" stop-color="#ffb866" stop-opacity="0.5"/>
-      <stop offset="1" stop-color="#ffb866" stop-opacity="0"/>
+      <stop offset="0" stop-color="#ffe3a3" stop-opacity="0.8"/>
+      <stop offset="0.35" stop-color="#ffd98a" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#ffd98a" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#5c84cf"/>
-      <stop offset="1" stop-color="#b9cff1"/>
+      <stop offset="0" stop-color="#ebe6e2"/>
+      <stop offset="1" stop-color="#f7f4f2"/>
     </linearGradient>
     <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#86a8e2"/>
-      <stop offset="1" stop-color="#dbe7f9"/>
+      <stop offset="0" stop-color="#f2eeeb"/>
+      <stop offset="1" stop-color="#fbf9f8"/>
     </linearGradient>
     <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#c4d6f3"/>
+      <stop offset="0" stop-color="#f8f6f4"/>
       <stop offset="0.7" stop-color="#ffffff"/>
     </linearGradient>
     <linearGradient id="lit" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#ffe2b8" stop-opacity="0"/>
-      <stop offset="0.6" stop-color="#ffe2b8" stop-opacity="0.95"/>
-      <stop offset="1" stop-color="#ffe2b8" stop-opacity="0.2"/>
+      <stop offset="0" stop-color="#fff0c9" stop-opacity="0"/>
+      <stop offset="0.6" stop-color="#fff0c9" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#fff0c9" stop-opacity="0.2"/>
     </linearGradient>
   </defs>
   <rect width="1600" height="1000" fill="url(#sky)"/>
@@ -37,7 +37,7 @@
     <circle cx="180" cy="90" r="1.3"/><circle cx="420" cy="150" r="1"/><circle cx="760" cy="60" r="1.4"/><circle cx="1010" cy="120" r="1"/><circle cx="1320" cy="70" r="1.2"/><circle cx="1480" cy="190" r="1"/><circle cx="600" cy="230" r="0.9"/><circle cx="1180" cy="34" r="1"/>
   </g>
   <circle cx="1180" cy="640" r="400" fill="url(#glow)"/>
-  <circle cx="1180" cy="640" r="58" fill="#fff8ea"/>
+  <circle cx="1180" cy="640" r="58" fill="#fff3cf"/>
   <!-- far range: tall, so its peaks stand above whatever sits in front -->
   <path d="M0 690 L110 610 L200 650 L330 540 L400 600 L450 570 L540 640 L640 590 L720 630 L810 600 L900 645 L990 615 L1080 650 L1170 625 L1260 655 L1350 610 L1440 650 L1520 620 L1600 650 L1600 1000 L0 1000 Z" fill="url(#far)"/>
   <path d="M330 540 L400 600 L450 570 L462 580 L404 612 L338 556 Z M1350 610 L1440 650 L1520 620 L1528 628 L1442 662 L1354 622 Z" fill="#ffffff" opacity="0.55"/>
