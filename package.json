@@ -1,7 +1,7 @@
 {
   "name": "promptbutton",
   "productName": "First Try",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
   "author": "First Try",

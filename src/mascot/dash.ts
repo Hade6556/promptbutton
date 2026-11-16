@@ -9,14 +9,17 @@
 //   curious   it has a question for you  head tilted, one eye wider
 //   done      the prompt is ready        happy eyes, one hop
 //   oops      something went wrong       small worried eyes, one shake
-//   asleep    it cannot work yet         closed eyes, slow breath (no access, or switched off)
+//   sleepy    nobody has needed it for a while   heavy lids, slow breath (Dash on the desktop)
+//   asleep    it cannot work yet, or it was left alone for long   closed eyes, slow breath
 // Loops: idle's breath and thinking only. Everything else is one move of at most 0.9 s, then still.
 // With prefers-reduced-motion nothing moves; the eyes and pose still change with the mood.
 
 import { BLEED, createDash3D, type Dash3D } from './dash3d';
 
-export const MOODS = ['idle', 'watching', 'thinking', 'curious', 'done', 'oops', 'asleep'] as const;
+export const MOODS = ['idle', 'watching', 'thinking', 'curious', 'done', 'oops', 'sleepy', 'asleep'] as const;
 export type Mood = (typeof MOODS)[number];
+/** One-off moves over the current pose. They are the 3D Dash's (see MOVES in dash3d.ts); the flat drawing blinks or hops for the two it can do. */
+export type Move = 'blink' | 'stretch' | 'look' | 'yawn' | 'puff' | 'startle';
 
 const SHAPE =
   'M114 44C150 44 176 71 176 106C176 142 150 168 114 168C101 168 93 165 85 160C79 156 75 165 66 160C57 155 63 146 54 141C46 137 39 144 33 135C27 126 40 121 44 113C48 104 46 95 52 84C62 60 85 44 114 44Z';
@@ -57,6 +60,10 @@ export const DASH_CSS = `
 .dash[data-mood=oops] .d-eyes{transform:translate(0,3px)!important}
 .dash[data-mood=oops] .d-drip{transform:translateY(5px)}
 .dash[data-mood=oops] .d-pose{transform:scale(1.03,.95)}
+.dash[data-mood=sleepy]:not(.is-blink) .d-eye{transform:scaleY(.45)}
+.dash[data-mood=sleepy] .d-eyes{transform:translate(0,4px)!important}
+.dash[data-mood=sleepy] .d-pose{transform:scale(1.03,.95)}
+.dash[data-mood=sleepy] .d-body{animation-duration:4.4s}
 .dash[data-mood=asleep] .d-shut,.dash[data-mood=asleep] .d-z{opacity:1}
 .dash[data-mood=asleep] .d-open{opacity:0}
 .dash[data-mood=asleep] .d-body{animation-duration:5.2s}
@@ -114,7 +121,7 @@ ${simple ? '' : `<g fill="#000" opacity=".4" transform="translate(5 8)"><path d=
 </g></g></g></svg>`;
 }
 
-const SHOWN: Record<Mood, string> = { idle: 'd-open', watching: 'd-open', thinking: 'd-open', curious: 'd-open', done: 'd-joy', oops: 'd-worry', asleep: 'd-shut' };
+const SHOWN: Record<Mood, string> = { idle: 'd-open', watching: 'd-open', thinking: 'd-open', curious: 'd-open', done: 'd-joy', oops: 'd-worry', sleepy: 'd-open', asleep: 'd-shut' };
 /** A picture that needs no stylesheet: a file, an `<img>`, an export. The mood's eyes are baked in. */
 export function stillSVG(art: DashArt = {}): string {
   const mood = art.mood ?? 'idle';
@@ -122,7 +129,7 @@ export function stillSVG(art: DashArt = {}): string {
   for (const cls of ['d-open', 'd-joy', 'd-shut', 'd-worry']) if (cls !== SHOWN[mood]) svg = svg.replaceAll(`class="${cls}"`, `class="${cls}" display="none"`);
   if (mood !== 'asleep') svg = svg.replace('class="d-z"', 'class="d-z" display="none"');
   const pose: Partial<Record<Mood, string>> = { curious: 'rotate(-8 105 168)', watching: 'rotate(5 105 168)' };
-  const gaze: Partial<Record<Mood, string>> = { watching: 'translate(2 7)', thinking: 'translate(-5 -6)', curious: 'translate(3 -4)', oops: 'translate(0 3)', asleep: 'translate(0 3)' };
+  const gaze: Partial<Record<Mood, string>> = { watching: 'translate(2 7)', thinking: 'translate(-5 -6)', curious: 'translate(3 -4)', oops: 'translate(0 3)', sleepy: 'translate(0 4)', asleep: 'translate(0 3)' };
   if (pose[mood]) svg = svg.replace('class="d-pose"', `class="d-pose" transform="${pose[mood]}"`);
   if (gaze[mood]) svg = svg.replace('class="d-eyes"', `class="d-eyes" transform="${gaze[mood]}"`);
   return svg;
@@ -144,7 +151,10 @@ export interface DashOptions extends DashArt {
 export interface DashHandle {
   el: HTMLElement;
   setMood(mood: Mood): void;
-  hop(): void;
+  /** `size` scales the height in 3D: 1 is the hop for a finished prompt. */
+  hop(size?: number): void;
+  /** A one-off move over the current pose. */
+  play(move: Move): void;
   arrive(): void;
   destroy(): void;
 }
@@ -217,7 +227,8 @@ export function createDash(target: string | HTMLElement, { size = 96, follow = t
     return {
       get el() { return flat ? flat.el : box; },
       setMood(mood) { if (flat) return flat.setMood(mood); if (!MOODS.includes(mood)) return; box.dataset.mood = mood; solid.setMood(mood); },
-      hop: () => (flat ? flat.hop() : solid.hop()),
+      hop: (size) => (flat ? flat.hop() : solid.hop(size)),
+      play: (move) => (flat ? flat.play(move) : solid.play(move)),
       arrive: () => (flat ? flat.arrive() : solid.arrive()),
       destroy() { if (flat) return flat.destroy(); solids.delete(entry3); unlisten(); solid.destroy(); box.remove(); },
     };
@@ -263,6 +274,11 @@ export function createDash(target: string | HTMLElement, { size = 96, follow = t
       if (mood === 'oops') once('is-shake');
     },
     hop: () => once('is-hop'),
+    play(move) {
+      if (calm) return;
+      if (move === 'startle') once('is-hop');
+      else if (move === 'blink') { svg.classList.add('is-blink'); window.setTimeout(() => svg.classList.remove('is-blink'), 130); }
+    },
     arrive: () => once('is-arrive'),
     destroy() {
       alive = false;

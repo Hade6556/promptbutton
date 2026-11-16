@@ -513,7 +513,9 @@ function createPet() {
   created.setVisibleOnAllWorkspaces(true, FLOAT_EVERYWHERE);
   created.setContentProtection(settings.hideFromCapture);
   created.setIgnoreMouseEvents(true, { forward: true });
-  void created.loadFile(path.join(__dirname, 'renderer', 'index.html'), { hash: 'pet' });
+  // FIRSTTRY_IDLE_SPEED=10 makes Dash get sleepy ten times sooner, for trying its idle behaviour (see pet.tsx).
+  const idleSpeed = process.env.FIRSTTRY_IDLE_SPEED;
+  void created.loadFile(path.join(__dirname, 'renderer', 'index.html'), { hash: 'pet', ...(idleSpeed ? { query: { idle: idleSpeed } } : {}) });
   created.webContents.once('did-finish-load', () => {
     if (petWin !== created) return;
     created.showInactive();

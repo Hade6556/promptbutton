@@ -6,7 +6,7 @@
 // nothing ever snaps. Hop, shake and arrive are short moves added on top.
 // The camera has no perspective, so the shape never distorts, and the canvas is larger than the
 // layout box, so no move is clipped. dash.ts falls back to the SVG when WebGL 2 is missing.
-import type { Mood } from './dash';
+import type { Mood, Move } from './dash';
 
 const VIEW = 6.4; // world units across the canvas; the head's radius is 1
 /** How much larger the canvas is than the layout box, so a hop or a drifting bubble is never cut off. */
@@ -156,6 +156,8 @@ void main(){
 type Pose = {
   yaw: number; pitch: number; roll: number; sx: number; sy: number; scale: number;
   open: number; joy: number; shut: number; worry: number; eyeL: number; eyeR: number; gx: number; gy: number;
+  // How far the lids are up: 1 wide open, 0.45 drooping.
+  lid: number;
   glow: number; flow: number; bob: number;
   // Where the two thought dots are, each from 0 to 1: one popped up beside the head, both circling above it, both rising like breath.
   perk: number; orbit: number; rise: number;
@@ -164,13 +166,13 @@ type Pose = {
 };
 const REST: Pose = {
   yaw: 0.41, pitch: 0, roll: 0, sx: 1, sy: 1, scale: 1, open: 1, joy: 0, shut: 0, worry: 0, eyeL: 1, eyeR: 1, gx: 0, gy: 0,
-  glow: 1, flow: 0, bob: 1, perk: 0, orbit: 0, rise: 0,
+  lid: 1, glow: 1, flow: 0, bob: 1, perk: 0, orbit: 0, rise: 0,
   lx: 0, ly: 0, tail: 0, wag: 0.07, wagHz: 1.7, breath: 0, sway: 0,
 };
 // Each mood holds the body differently, so it reads without the eyes:
 // idle floats upright with a lazy tail; watching leans in low with the tail raised and still; thinking stands tall and rocks,
 // tail swishing; curious tips the other way and rises, tail curled up; done hops and wags; oops sags with a limp, trembling
-// tail; asleep spreads flat, slumps and breathes slowly.
+// tail; sleepy sinks a little with heavy lids and a slow breath; asleep spreads flat, slumps and breathes slowly.
 const POSES: Record<Mood, Partial<Pose>> = {
   idle: {},
   watching: { yaw: 0.5, pitch: 0.3, roll: -0.14, sx: 1.04, sy: 0.97, lx: 0.12, ly: -0.05, tail: 0.32, wag: 0, gy: -0.05, bob: 0.5 },
@@ -178,8 +180,17 @@ const POSES: Record<Mood, Partial<Pose>> = {
   curious: { yaw: 0.34, roll: 0.17, scale: 1.05, sx: 0.96, sy: 1.06, ly: 0.07, tail: 0.6, wag: 0.04, wagHz: 2.4, eyeL: 0.86, eyeR: 1.16, gx: 0.02, gy: 0.04, perk: 1, bob: 0.6 },
   done: { open: 0, joy: 1, sy: 1.03, ly: 0.03, tail: 0.3, wag: 0.1, wagHz: 4, glow: 1.25 },
   oops: { open: 0, worry: 1, sx: 1.07, sy: 0.89, ly: -0.08, pitch: 0.1, gy: -0.03, tail: -0.45, wag: 0.03, wagHz: 16, glow: 0.55, bob: 0.3 },
+  sleepy: { lid: 0.45, sx: 1.04, sy: 0.94, ly: -0.05, pitch: 0.09, gy: -0.03, tail: -0.1, wag: 0.03, wagHz: 1.1, breath: 0.7, glow: 0.8, bob: 0.4 },
   asleep: { open: 0, shut: 1, sx: 1.09, sy: 0.87, roll: 0.1, ly: -0.1, pitch: 0.14, yaw: 0.36, gy: -0.03, tail: -0.18, wag: 0, breath: 1, glow: 0.5, rise: 1, bob: 0.15 },
 };
+
+// One-off moves and how long each takes, in seconds. Each starts and ends at rest, so it can be laid over any pose.
+//   blink    two quick blinks                 stretch  up tall, tail raised, and back down
+//   look     a glance to one side, then the other        yawn  eyes squeezed, head tipped back
+//   puff     the two drops rise once, like a "z"         startle  a small jump with wide eyes: woken up
+const MOVES: Record<Move, number> = { blink: 0.5, stretch: 1.5, look: 2.6, yawn: 1.9, puff: 3.2, startle: 0.5 };
+// Fast asleep nothing moves quickly, so the picture is redrawn this many times a second instead of on every frame.
+const ASLEEP_FPS = 15;
 
 // The two thought dots at home: x, y, radius, and how much of the tail tip's swing each one rides.
 const DOTS = [[-1.4, -0.74, 0.09, 1], [-1.05, -1.08, 0.105, 0.6]] as const;
@@ -206,7 +217,10 @@ const ramp = (from: number, to: number, x: number) => { const k = Math.min(1, Ma
 export interface Dash3D {
   canvas: HTMLCanvasElement;
   setMood(mood: Mood): void;
-  hop(): void;
+  /** `size` scales the height: 1 is the hop for a finished prompt. */
+  hop(size?: number): void;
+  /** A one-off move over the current pose (see MOVES). A new one replaces the one in progress. */
+  play(move: Move): void;
   shake(): void;
   arrive(): void;
   /** Where the pointer is, each from -1 to 1 (right and up), or null to look ahead. */
@@ -266,8 +280,9 @@ export function createDash3D(css: number, mood: Mood, sides = false): Dash3D | n
   // Which side Dash is to face (1 is right, as drawn; -1 is left), and how far over it is: 0 facing right, 1 facing left.
   let side = 1, swing = 0, turned = 0;
   let flow = 0, wagAt = 0, cheer = -1, nap = 0, clock = 0, lid = 1, blinkAt = 1.5 + Math.random() * 2, blink = -1;
-  let hop = -1, shake = -1, arrive = -1, pop = -1;
-  let raf = 0, last = 0, visible = true, alive = true;
+  let hop = -1, hopSize = 1, shake = -1, arrive = -1, pop = -1;
+  let act: { move: Move; at: number; blinks: number } | null = null;
+  let raf = 0, slow = 0, last = 0, visible = true, alive = true;
 
   const frame = (ms: number) => {
     raf = 0;
@@ -323,8 +338,8 @@ export function createDash3D(css: number, mood: Mood, sides = false): Dash3D | n
     if (hop >= 0) {
       hop += dt / 0.66;
       const k = Math.min(hop, 1), rise = Math.max(0, (k - 0.1) / 0.9);
-      oy += rise < 0.6 ? 0.42 * Math.sin((rise / 0.6) * Math.PI) : 0.06 * Math.sin(((rise - 0.6) / 0.4) * Math.PI);
-      const squash = 1 - 0.12 * Math.sin(k * Math.PI * 3) * (1 - k);
+      oy += (rise < 0.6 ? 0.42 * Math.sin((rise / 0.6) * Math.PI) : 0.06 * Math.sin(((rise - 0.6) / 0.4) * Math.PI)) * hopSize;
+      const squash = 1 - 0.12 * hopSize * Math.sin(k * Math.PI * 3) * (1 - k);
       sy *= squash; sx /= Math.sqrt(squash);
       if (hop >= 1) hop = -1;
     }
@@ -343,6 +358,31 @@ export function createDash3D(css: number, mood: Mood, sides = false): Dash3D | n
       const a = Math.min(1, Math.max(0, (k - 0.12) / 0.38)); alpha = a * a * (3 - 2 * a);
       if (arrive >= 1) arrive = -1;
     }
+    // The one-off moves. Each adds to the pose by an amount that is nothing at its start and at its end.
+    let turn = 0, peek = 0, nod = 0, tailUp = 0, squeeze = 0, wide = 0, puff = 0;
+    if (act) {
+      act.at += dt / MOVES[act.move];
+      const k = Math.min(act.at, 1), arc = Math.sin(k * Math.PI);
+      if (act.move === 'blink') {
+        if (blink < 0 && act.blinks < 2 && k >= act.blinks * 0.5) { blink = 0; act.blinks++; }
+      } else if (act.move === 'stretch') {
+        const s = arc * arc;
+        sy *= 1 + 0.13 * s; sx *= 1 - 0.07 * s; oy += 0.08 * s; nod = -0.12 * s; tailUp = 0.5 * s;
+      } else if (act.move === 'look') {
+        const sweep = Math.sin(k * Math.PI * 2) * arc; // one way, then the other
+        turn = sweep * 0.5; peek = sweep * 0.07;
+      } else if (act.move === 'yawn') {
+        const s = ramp(0, 0.3, k) * (1 - ramp(0.72, 1, k));
+        squeeze = 0.85 * s; nod = -0.22 * s; sy *= 1 + 0.08 * s; sx *= 1 - 0.04 * s;
+      } else if (act.move === 'puff') {
+        puff = ramp(0, 0.15, k) * (1 - ramp(0.8, 1, k));
+      } else {
+        const s = (1 - k) * (1 - k); // startle: sharp at first, gone by the end
+        oy += 0.2 * Math.sin(Math.min(1, k * 2) * Math.PI); ox += Math.sin(k * Math.PI * 8) * 0.03 * s;
+        sy *= 1 + 0.1 * arc; sx *= 1 - 0.05 * arc; wide = 0.3 * s;
+      }
+      if (act.at >= 1) act = null;
+    }
     let spread = 1;
     if (pop >= 0) { pop += dt / 0.5; spread = 1 + 0.2 * Math.sin(Math.min(pop, 1) * Math.PI); if (pop >= 1) pop = -1; }
 
@@ -350,7 +390,7 @@ export function createDash3D(css: number, mood: Mood, sides = false): Dash3D | n
     // On the way there the eyes stay on that line and nothing turns round: the head slides across behind them (its face
     // turning on it by the little that keeps them still), every lean and tilt changes sides, and the lobes change sides
     // in the shader.
-    const yawB = now.yaw + lookX * 0.3, pitch = now.pitch - look.y * 0.18, glanceB = now.gx + lookX * 0.06, rollB = roll;
+    const yawB = now.yaw + lookX * 0.3 + turn, pitch = now.pitch - look.y * 0.18 + nod, glanceB = now.gx + lookX * 0.06 + peek, rollB = roll;
     const yaw = yawB * face, glance = glanceB * face;
     roll *= face;
     const cy = Math.cos(yaw), sY = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch), cr = Math.cos(roll), sr = Math.sin(roll);
@@ -376,11 +416,11 @@ export function createDash3D(css: number, mood: Mood, sides = false): Dash3D | n
     // the tail's tip as it swings, which keeps their gap to it. When a mood wants them elsewhere (one beside the head,
     // both circling above it, both rising like breath) a dot shrinks away where it is and grows where it is going,
     // so it never crosses the body on the way.
-    const lift = now.tail + wag + lookX * 0.14 - look.y * 0.08;
+    const lift = now.tail + wag + lookX * 0.14 - look.y * 0.08 + tailUp;
     const tc = Math.cos(-lift), ts = Math.sin(-lift);
     const tipX = tc * TIP[0] - ts * TIP[1] - TIP[0], tipY = ts * TIP[0] + tc * TIP[1] - TIP[1];
-    for (const key of ['perk', 'orbit', 'rise'] as const) path[key] += (now[key] - path[key]) * (1 - Math.exp(-dt * 6));
-    if (current === 'asleep') nap += dt;
+    for (const key of ['perk', 'orbit', 'rise'] as const) path[key] += ((key === 'rise' ? Math.max(now.rise, puff) : now[key]) - path[key]) * (1 - Math.exp(-dt * 6));
+    if (current === 'asleep' || puff > 0) nap += dt;
     DOTS.forEach(([homeX, homeY, size, ride], i) => {
       let x = homeX * spread + tipX * ride, y = homeY * spread + tipY * ride, z = 0, r = size * now.scale;
       const move = (w: number, toX: number, toY: number, toZ: number) => {
@@ -403,17 +443,23 @@ export function createDash3D(css: number, mood: Mood, sides = false): Dash3D | n
     gl.uniform2f(u.lobes, 1 - ramp(1 - FACE_OVERLAP, 1, turned), ramp(0, FACE_OVERLAP, turned));
     gl.uniform1f(u.face, face);
     gl.uniform4f(u.eyeW, now.open, now.joy, now.shut, now.worry);
-    gl.uniform4f(u.eye, now.eyeL, now.eyeR, glance, now.gy + look.y * 0.05);
-    gl.uniform1f(u.lid, lid);
+    gl.uniform4f(u.eye, now.eyeL * (1 + wide), now.eyeR * (1 + wide), glance, now.gy + look.y * 0.05);
+    gl.uniform1f(u.lid, lid * now.lid * (1 - squeeze));
     gl.uniform1f(u.glow, now.glow);
     gl.uniform1f(u.flow, flow);
     gl.uniform1f(u.alpha, alpha);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (visible) raf = requestAnimationFrame(frame);
+    if (!visible) return;
+    // Fast asleep and settled, the next picture can wait: only a slow breath and the rising drops are moving.
+    const settled = current === 'asleep' && !act && hop < 0 && shake < 0 && arrive < 0 && pop < 0 && now.shut > 0.99 && swing === over;
+    if (settled) slow = window.setTimeout(() => { slow = 0; if (alive && visible && !raf) raf = requestAnimationFrame(frame); }, 1000 / ASLEEP_FPS - 16);
+    else raf = requestAnimationFrame(frame);
   };
-  const wake = () => { if (alive && visible && !raf) { last = 0; raf = requestAnimationFrame(frame); } };
+  const wake = () => { if (alive && visible && !raf && !slow) { last = 0; raf = requestAnimationFrame(frame); } };
+  /** Something changed: draw now instead of waiting out the slow rate. */
+  const stir = () => { if (!slow) return; window.clearTimeout(slow); slow = 0; if (alive && visible && !raf) raf = requestAnimationFrame(frame); };
   const seen = new IntersectionObserver(([entry]) => { visible = Boolean(entry?.isIntersecting) && !document.hidden; wake(); });
   seen.observe(canvas);
   const onHidden = () => { visible = !document.hidden; wake(); };
@@ -423,19 +469,22 @@ export function createDash3D(css: number, mood: Mood, sides = false): Dash3D | n
     onLost: null,
     setMood(next) {
       if (next === current) return;
+      stir();
       current = next;
       goal = { ...REST, ...POSES[next] };
       if (next === 'asleep' && path.rise < 0.02) nap = 0;
       if (next === 'done') { hop = 0; pop = 0; cheer = 0; }
       if (next === 'oops') shake = 0;
     },
-    hop: () => { hop = 0; },
+    hop: (size = 1) => { hop = 0; hopSize = size; stir(); },
+    play: (move) => { act = { move, at: 0, blinks: 0 }; stir(); },
     shake: () => { shake = 0; },
     arrive: () => { arrive = 0; },
     look: (target) => { gaze = target; },
     destroy() {
       alive = false;
       cancelAnimationFrame(raf);
+      window.clearTimeout(slow);
       seen.disconnect();
       document.removeEventListener('visibilitychange', onHidden);
       gl.getExtension('WEBGL_lose_context')?.loseContext();
