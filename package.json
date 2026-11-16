@@ -1,7 +1,7 @@
 {
   "name": "promptbutton",
   "productName": "First Try",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "description": "One press: reads the conversation, asks what the model still needs, rewrites your prompt.",
   "author": "First Try",
@@ -21,6 +21,7 @@
     "web:preview": "vite preview --config web/vite.config.ts",
     "site": "vite site --port 5500 --strictPort",
     "dev:staging": "vite site --port 5500 --strictPort --open /stage/avatar/preview.html",
+    "site:stamp": "node scripts/stamp-dash.mjs",
     "site:deploy": "bash scripts/deploy-site.sh",
     "dash:build": "esbuild src/mascot/dash.ts --bundle --format=esm --minify --target=es2020 --outfile=site/assets/dash.js && node scripts/stamp-dash.mjs",
     "dash:assets": "npm run dash:build && node scripts/make-dash-assets.mjs",

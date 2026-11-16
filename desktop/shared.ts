@@ -24,6 +24,10 @@ export interface Settings {
   shareOutcomes: boolean;
   /** Also send the draft and its rewrite, scrubbed, to improve rewrites. Off unless the user switches it on. */
   sharePairs: boolean;
+  /** Dash lives on the desktop (macOS). Off: the box opens in the middle of the screen, as before. */
+  showPet: boolean;
+  /** Where the user dropped Dash (screen points, the body's top-left corner), or null for the bottom-right corner. */
+  pet: { x: number; y: number } | null;
 }
 
 /** Settings window panes, in toolbar order. */
@@ -148,6 +152,8 @@ export interface PanelState {
   hotkey?: string;
   /** Ask, once, whether the last inserted prompt got a better answer. */
   rate?: boolean;
+  /** Dash is on the desktop: the box is a small thought beside it, and Dash is not drawn inside the box. */
+  pet?: boolean;
 }
 
 export type RendererAction =
@@ -214,6 +220,21 @@ export interface PbApi {
   resize(height: number): void;
   /** Let clicks fall through to the app underneath when the pointer is off the pill/card. */
   setMouseThrough(ignore: boolean): void;
+  /** The box tells Dash on the desktop what mood it is in. */
+  setMood(mood: string): void;
+  /** Dash's own window. */
+  pet: {
+    /** Where the pointer is from Dash's middle, as a share of the screen (right and down are positive). */
+    onCursor(callback: (at: { x: number; y: number }) => void): () => void;
+    onMood(callback: (mood: string) => void): () => void;
+    /** While Dash is being dragged: how far the pointer moved since the last frame. */
+    onMotion(callback: (motion: { held: boolean; vx: number; vy: number }) => void): () => void;
+    /** The pointer is on Dash's body (clicks count) or off it (clicks go to the app underneath). */
+    hit(over: boolean): void;
+    down(): void;
+    up(): void;
+    menu(): void;
+  };
   /** The settings / setup window. */
   setup: {
     get(): Promise<SetupState>;

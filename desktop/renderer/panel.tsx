@@ -584,13 +584,13 @@ export function Panel() {
       case 'rewriting':
         return 'Rewriting…';
       case 'asking':
-        return question ? 'Type an answer, or pick one above' : '';
+        return question ? (state.pet ? 'Type an answer' : 'Type an answer, or pick one above') : '';
       case 'done':
-        return `Tell me what to change, or ↵ to insert into ${app}`;
+        return state.pet ? 'Change it, or ↵ to insert' : `Tell me what to change, or ↵ to insert into ${app}`;
       case 'ready':
-        return 'Say what to change anyway, or ↵ to close';
+        return state.pet ? 'Change it anyway, or ↵' : 'Say what to change anyway, or ↵ to close';
       case 'replies':
-        return 'Pick a reply above or type your own, ↵ to put it in the box';
+        return state.pet ? 'Pick one or type, then ↵' : 'Pick a reply above or type your own, ↵ to put it in the box';
       case 'settings': {
         const screen = state.accountScreen;
         if (screen?.working) return 'One moment…';
@@ -662,6 +662,11 @@ export function Panel() {
             ? 'done'
             : 'idle';
 
+  // Dash on the desktop wears the same mood.
+  useEffect(() => {
+    window.pb.setMood(mood);
+  }, [mood]);
+
   const showField = state.phase !== 'notice' && state.phase !== 'error' && !(state.phase === 'settings' && state.accountScreen?.mode === 'account');
   // Voice is an input like the keyboard: available wherever the field takes text, except the API-key field.
   // Voice uses macOS speech recognition; other systems get the keyboard only for now.
@@ -697,7 +702,7 @@ export function Panel() {
 
   return (
     <div class="wrap" ref={rootRef}>
-      <div class="box" data-phase={state.phase}>
+      <div class="box" data-phase={state.phase} data-pet={state.pet ? '' : undefined}>
         <svg class={busy ? 'progress on' : 'progress'} role={busy ? 'progressbar' : undefined} aria-label={busy ? 'Working' : undefined} aria-hidden={!busy}>
           {COMET.map((seg, i) => (
             <rect
@@ -771,7 +776,8 @@ export function Panel() {
         )}
         {/* Composer: the field and every control on one row, one baseline. */}
         <div class="composer">
-          <Dash mood={mood} size={26} />
+          {/* With Dash on the desktop the box is its thought: Dash is outside, not in here. */}
+          {!state.pet && <Dash mood={mood} size={26} />}
           {showField ? (
             <input
               ref={inputRef}
@@ -813,17 +819,22 @@ export function Panel() {
                 <Icon d={MIC} size={14} />
               </button>
             )}
-            <button type="button" class="icon" aria-label="Settings" title="Settings" onClick={() => send({ type: 'openSettings' })}>
-              <Icon d={DOTS} size={14} />
-            </button>
+            {/* Beside Dash the box keeps to what the prompt needs: Settings is in Dash's menu and the menu bar, and esc, the shortcut or a click on Dash closes it. */}
+            {!state.pet && (
+              <button type="button" class="icon" aria-label="Settings" title="Settings" onClick={() => send({ type: 'openSettings' })}>
+                <Icon d={DOTS} size={14} />
+              </button>
+            )}
             {!busy && state.phase !== 'settings' && (
               <button type="button" class="icon" aria-label="Scan again" title="Scan again (ignore cached result)" onClick={() => send({ type: 'refresh' })}>
                 <Icon d={REFRESH} size={13} />
               </button>
             )}
-            <button type="button" class="icon" aria-label="Close" title="Close (esc)" onClick={() => send({ type: 'cancel' })}>
-              <Icon d={CLOSE} size={13} />
-            </button>
+            {!state.pet && (
+              <button type="button" class="icon" aria-label="Close" title="Close (esc)" onClick={() => send({ type: 'cancel' })}>
+                <Icon d={CLOSE} size={13} />
+              </button>
+            )}
             {!(state.phase === 'settings' && state.accountScreen?.mode === 'account') && (
               <button type="button" class="go" aria-label={state.phase === 'done' && !text.trim() ? `Insert into ${app}` : 'Continue'} title={state.phase === 'done' && !text.trim() ? `Insert into ${app} (↵)` : 'Continue (↵)'} disabled={busy} onClick={finish}>
               <Icon d={ARROW} size={14} />

@@ -15,6 +15,8 @@ export const DEFAULTS: Settings = {
   lastVersion: null,
   shareOutcomes: true,
   sharePairs: false,
+  showPet: true,
+  pet: null,
 };
 
 function file(): string {

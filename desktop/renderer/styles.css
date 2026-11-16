@@ -1,12 +1,9 @@
 /* One box on a native macOS HUD material. The window supplies blur, shadow and corner radius; this
    file paints a translucent fill, a hairline, system type, and the few colours the content needs.
 
-   Palette "Ember": cool graphite glass, one amber accent, one ice-blue secondary. The glass has no
-   warmth of its own (a brown base shared amber's hue and turned both to mud), so amber is the only
-   saturated colour on screen. The product turns a
-   rough draft into a finished prompt, so the accent is the colour of a heated filament: it lights
-   the primary action (the arrow) and status (the loader comet, the caret) and nothing else. Ice is
-   the sharp opposite of amber and marks what needs the user: [placeholders] and keyboard focus.
+   Palette: smoky glass with cream accents, to sit beside Dash, who is white. Cream lights the primary
+   action (the arrow) and status (the loader comet, the caret); a warmer cream marks what needs the
+   user: [placeholders]. Nothing else is coloured.
    Labels are cool white at three levels. Every text pair is ≥ 4.5:1 on both the dark glass and the
    light worst case (glass over bright content); see the contrast table in the commit message. */
 :root {
@@ -30,19 +27,19 @@
   --label-3: rgba(242, 244, 247, 0.58); /* 6.1 · 5.1 — placeholders, hints */
 
   /* Accent: amber. Primary action and status only. */
-  --accent: #ffb547; /* 10.7 · 7.8 */
-  --accent-deep: #e8892a; /* lower stop of the button gradient */
+  --accent: #f6f2ee; /* 10.7 · 7.8 */
+  --accent-deep: #e6dfd7; /* lower stop of the button gradient */
   --on-accent: #14161a; /* arrow on the button: 7.0:1 on the deep stop */
-  --accent-glow: rgba(255, 181, 71, 0.55); /* loader head */
-  --accent-hover: #ffc76e; /* upper stop on hover: the filament brightens */
-  --accent-pressed: #c9711f; /* lower stop while pressed; the arrow on it is still 5.1:1 */
-  --accent-sheen: rgba(255, 244, 228, 0.45); /* top inner edge of an accent control */
-  --accent-fill: rgba(255, 181, 71, 0.16); /* tinted background: Pro badge, lit selection */
+  --accent-glow: rgba(246, 242, 238, 0.5); /* loader head */
+  --accent-hover: #ffffff; /* upper stop on hover: the filament brightens */
+  --accent-pressed: #cfc7be; /* lower stop while pressed; the arrow on it is still 5.1:1 */
+  --accent-sheen: rgba(255, 255, 255, 0.6); /* top inner edge of an accent control */
+  --accent-fill: rgba(246, 242, 238, 0.14); /* tinted background: Pro badge, lit selection */
 
   /* Secondary: ice. What needs the user — [placeholders] and keyboard focus. */
-  --secondary: #8ed8ff; /* 12.0 · 8.7 */
-  --secondary-fill: rgba(142, 216, 255, 0.13);
-  --focus-ring: rgba(142, 216, 255, 0.85); /* ≥ 3:1 as a UI element */
+  --secondary: #ffe9c9; /* 12.0 · 8.7 */
+  --secondary-fill: rgba(255, 233, 201, 0.14);
+  --focus-ring: rgba(246, 242, 238, 0.8); /* ≥ 3:1 as a UI element */
 
   --secondary-halo: rgb(from var(--secondary) r g b / calc(0.12 + var(--level, 0) * 0.18));
 
@@ -100,7 +97,7 @@ p {
 }
 
 .wrap {
-  width: 600px;
+  width: 100%; /* the window sets the width: 600 px alone, 340 px beside Dash */
 }
 
 /* The box fills the window; the window itself is rounded and shadowed by macOS. */
@@ -725,4 +722,71 @@ kbd {
 /* Windows: no system blur behind the window, so the glass becomes a near-solid fill to stay legible. */
 :root[data-platform='win32'] {
   --surface: rgba(21, 23, 28, 0.97);
+}
+
+/* ── Beside Dash on the desktop: the box is a small thought, 340 px wide ─────────────────────────── */
+.box[data-pet] .line.result {
+  max-height: 150px;
+}
+
+/* ── Dash's own window (#pet) ─────────────────────────────────────────────────────────────────────── */
+html[data-view='pet'],
+html[data-view='pet'] body,
+html[data-view='pet'] #app {
+  width: 100%;
+  height: 100%;
+}
+.pet {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  transition: opacity 1.2s;
+}
+.pet.dim:not(:hover) {
+  opacity: 0.72;
+}
+/* 56 px at rest, 72 px while it has something to say or is being carried. */
+.pet-grow {
+  transform: scale(0.78);
+  transform-origin: 50% 60%;
+  transition: transform 0.42s cubic-bezier(0.2, 1.25, 0.4, 1);
+  filter: drop-shadow(0 3px 7px rgba(10, 6, 20, 0.3));
+}
+.pet.awake .pet-grow,
+.pet.held .pet-grow {
+  transform: none;
+}
+.pet-hit {
+  width: 72px;
+  height: 67px;
+  border-radius: 24px;
+  cursor: grab;
+}
+.pet.held .pet-hit {
+  cursor: grabbing;
+}
+.pet-body {
+  display: block;
+  transform-origin: 50% 8%;
+  transform: rotate(var(--tilt, 0deg)) scale(var(--sx, 1), var(--sy, 1));
+}
+.pet.land .pet-body {
+  animation: pet-land 0.5s ease-out;
+}
+@keyframes pet-land {
+  35% {
+    scale: 1.1 0.86;
+  }
+  70% {
+    scale: 0.97 1.04;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pet-grow {
+    transition: none;
+  }
+  .pet.land .pet-body {
+    animation: none;
+  }
 }

@@ -32,6 +32,9 @@ const PASTE_KEYS = IS_MAC ? '⌘V' : 'Ctrl+V';
 const PANEL_WIDTH = 600;
 const PANEL_HEIGHT = 56; // the bare box; the renderer asks for more as content appears
 const PANEL_MAX_HEIGHT = 760;
+// With Dash on the desktop the box is a small thought beside it, not a bar across the screen.
+const PET_PANEL_WIDTH = 340;
+const PET_PANEL_MAX_HEIGHT = 380;
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -116,7 +119,7 @@ function cachedRun(capture: Capture): typeof lastRun {
 
 function setState(patch: Partial<PanelState>) {
   const previous = state.phase;
-  state = { ...state, ...patch, hotkey: hotkeyLabel(), rate: ratingDue() };
+  state = { ...state, ...patch, hotkey: hotkeyLabel(), rate: ratingDue(), pet: petBody() !== null };
   if (state.phase !== previous) {
     const detail =
       state.phase === 'asking' && state.report
@@ -129,6 +132,7 @@ function setState(patch: Partial<PanelState>) {
     console.log(`[PromptButton] ${previous} → ${state.phase}${detail}`);
   }
   win?.webContents.send('pb:state', state);
+  if (state.phase === 'hidden') petMood(restingMood());
   if (trayMode() !== trayModeShown) updateTrayIcon();
 }
 
@@ -379,25 +383,59 @@ function createWindow() {
 /** The box rests a little below the menu bar — about an eighth of the way down the screen — centred, and grows downward. */
 const PANEL_TOP_RATIO = 0.12;
 const PANEL_MARGIN = 16;
+const within = (value: number, low: number, high: number) => Math.min(Math.max(value, low), Math.max(low, high));
 
 function panelOrigin(display: Electron.Display) {
   const { x, y, width, height } = display.workArea;
   return { x: Math.round(x + (width - PANEL_WIDTH) / 2), y: Math.round(y + height * PANEL_TOP_RATIO) };
 }
 
+/**
+ * With Dash on screen the box opens beside it, like a thought: on the side of Dash that has more room,
+ * its corner tucked just inside Dash's, and it grows away from Dash. Near a screen edge it slides back
+ * along Dash, never off the screen.
+ */
+function besidePet(height: number): Electron.Rectangle | null {
+  const body = petBody();
+  if (!body) return null;
+  const area = screen.getDisplayMatching(body).workArea;
+  const leftOfDash = body.x + body.width / 2 >= area.x + area.width / 2;
+  const aboveDash = body.y + body.height / 2 >= area.y + area.height / 2;
+  const x = leftOfDash ? body.x + 6 - PET_PANEL_WIDTH : body.x + body.width - 6;
+  const y = aboveDash ? body.y + 12 - height : body.y + body.height - 12;
+  return {
+    x: Math.round(within(x, area.x + PANEL_MARGIN, area.x + area.width - PANEL_MARGIN - PET_PANEL_WIDTH)),
+    y: Math.round(within(y, area.y + PANEL_MARGIN, area.y + area.height - PANEL_MARGIN - height)),
+    width: PET_PANEL_WIDTH,
+    height,
+  };
+}
+
 function positionPanel() {
   if (!win) return;
+  const [, height = PANEL_HEIGHT] = win.getSize();
+  const beside = besidePet(height);
+  if (beside) return win.setBounds(beside, false);
   const origin = panelOrigin(screen.getDisplayNearestPoint(screen.getCursorScreenPoint()));
-  win.setPosition(origin.x, origin.y);
+  win.setBounds({ x: origin.x, y: origin.y, width: PANEL_WIDTH, height }, false);
 }
 
 /**
  * The renderer reports its content height; keep the window exactly that tall. The box stays anchored at
  * its resting position and grows downward; if it would run off the bottom it slides up, never above the
- * top margin.
+ * top margin. Beside Dash it is anchored to Dash instead (besidePet).
  */
 function fitPanel(height: number) {
   if (!win) return;
+  const body = petBody();
+  if (body) {
+    const area = screen.getDisplayMatching(body).workArea;
+    const next = Math.max(PANEL_HEIGHT, Math.min(PET_PANEL_MAX_HEIGHT, area.height - 2 * PANEL_MARGIN, Math.ceil(height)));
+    const beside = besidePet(next)!;
+    const now = win.getBounds();
+    if (now.x !== beside.x || now.y !== beside.y || now.width !== beside.width || now.height !== beside.height) win.setBounds(beside, false);
+    return;
+  }
   const [x = 0, currentY = 0] = win.getPosition();
   const display = screen.getDisplayNearestPoint({ x: x + PANEL_WIDTH / 2, y: currentY });
   const area = display.workArea;
@@ -407,6 +445,190 @@ function fitPanel(height: number) {
   const y = Math.max(area.y + PANEL_MARGIN, Math.min(resting, bottomLimit - next));
   const [, currentHeight] = win.getSize();
   if (next !== currentHeight || y !== currentY) win.setBounds({ x, y, width: PANEL_WIDTH, height: next }, false);
+}
+
+// ── Dash on the desktop ────────────────────────────────────────────────────────────────────────────
+// A small window of its own that is always there: Dash in 3D, turning towards the pointer. A click on it
+// is the shortcut. It can be dragged anywhere and stays where it is put. The window never takes the
+// keyboard, so the field being improved keeps its focus, and everything around Dash's body lets clicks
+// through to the app underneath. macOS only for now.
+
+const PET_WINDOW = 176; // room around the body for a hop, a swing and the two drops
+const PET_BODY = { width: 72, height: 67 };
+const PET_PAD = { x: (PET_WINDOW - PET_BODY.width) / 2, y: Math.round((PET_WINDOW - PET_BODY.height) / 2) };
+let petWin: BrowserWindow | null = null;
+let petCursorTimer: NodeJS.Timeout | undefined;
+let petBackTimer: NodeJS.Timeout | undefined;
+let petDrag: { offsetX: number; offsetY: number; startX: number; startY: number; lastX: number; lastY: number; moved: boolean; since: number; timer: NodeJS.Timeout } | null = null;
+let lastCursor = '';
+
+/** Where Dash's body is on screen, or null when Dash is not showing. */
+function petBody(): Electron.Rectangle | null {
+  if (!petWin || petWin.isDestroyed() || !petWin.isVisible()) return null;
+  const [x = 0, y = 0] = petWin.getPosition();
+  return { x: x + PET_PAD.x, y: y + PET_PAD.y, ...PET_BODY };
+}
+const restingMood = () => (hasRequired(permissions) ? 'idle' : 'asleep'); // asleep: it cannot work yet
+function petMood(mood: string) {
+  if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pb:pet:mood', mood);
+}
+/** The body's top-left corner, kept inside the screen it is on. */
+function petSpot(wanted: { x: number; y: number } | null): { x: number; y: number } {
+  const home = screen.getPrimaryDisplay().workArea;
+  const spot = wanted ?? { x: home.x + home.width - 16 - PET_BODY.width, y: home.y + home.height - 16 - PET_BODY.height };
+  const area = screen.getDisplayNearestPoint({ x: Math.round(spot.x + PET_BODY.width / 2), y: Math.round(spot.y + PET_BODY.height / 2) }).workArea;
+  return {
+    x: Math.round(within(spot.x, area.x + 4, area.x + area.width - 4 - PET_BODY.width)),
+    y: Math.round(within(spot.y, area.y + 4, area.y + area.height - 4 - PET_BODY.height)),
+  };
+}
+function movePet(spot: { x: number; y: number }) {
+  petWin?.setBounds({ x: spot.x - PET_PAD.x, y: spot.y - PET_PAD.y, width: PET_WINDOW, height: PET_WINDOW }, false);
+}
+
+function createPet() {
+  if (!IS_MAC || !settings.showPet || petWin) return;
+  const spot = petSpot(settings.pet);
+  petWin = new BrowserWindow({
+    x: spot.x - PET_PAD.x,
+    y: spot.y - PET_PAD.y,
+    width: PET_WINDOW,
+    height: PET_WINDOW,
+    show: false,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    focusable: false, // a click on Dash must not take the keyboard from the field being improved
+    alwaysOnTop: true,
+    type: 'panel',
+    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  const created = petWin;
+  created.setAlwaysOnTop(true, 'floating'); // under the box, over ordinary windows
+  created.setVisibleOnAllWorkspaces(true, FLOAT_EVERYWHERE);
+  created.setContentProtection(settings.hideFromCapture);
+  created.setIgnoreMouseEvents(true, { forward: true });
+  void created.loadFile(path.join(__dirname, 'renderer', 'index.html'), { hash: 'pet' });
+  created.webContents.once('did-finish-load', () => {
+    if (petWin !== created) return;
+    created.showInactive();
+    console.log(`[PromptButton] Dash is on the desktop at ${spot.x},${spot.y}`);
+    petMood(state.phase === 'hidden' ? restingMood() : 'thinking');
+    setState({});
+  });
+  created.on('closed', () => {
+    if (petWin === created) petWin = null;
+  });
+  // Dash looks at the pointer wherever it is, so the pointer is read here: the window only hears about
+  // the mouse while it is over the window.
+  clearInterval(petCursorTimer);
+  petCursorTimer = setInterval(() => {
+    const body = petBody();
+    if (!body || petDrag?.moved) return;
+    const point = screen.getCursorScreenPoint();
+    const size = screen.getDisplayNearestPoint(point).size;
+    const x = (point.x - (body.x + body.width / 2)) / size.width, y = (point.y - (body.y + body.height / 2)) / size.height;
+    const key = `${x.toFixed(3)},${y.toFixed(3)}`;
+    if (key === lastCursor) return;
+    lastCursor = key;
+    petWin?.webContents.send('pb:pet:cursor', { x, y });
+  }, 33);
+}
+function destroyPet() {
+  clearInterval(petCursorTimer);
+  clearTimeout(petBackTimer);
+  endPetDrag(false);
+  petWin?.destroy();
+  petWin = null;
+}
+/** After a wake, an unlock or a display change the window can lose its place above other apps, as the box can. */
+function rebuildPet() {
+  if (!petWin) return;
+  const shown = petWin.isVisible();
+  destroyPet();
+  if (shown) createPet();
+}
+function showPet() {
+  clearTimeout(petBackTimer);
+  if (!petWin) return createPet();
+  if (!petWin.isVisible()) {
+    petWin.showInactive();
+    setState({});
+  }
+}
+/** Out of the way for an hour, or until the shortcut is pressed (no timer). */
+function hidePet(forMs?: number) {
+  clearTimeout(petBackTimer);
+  petWin?.hide();
+  setState({});
+  if (state.phase !== 'hidden') positionPanel();
+  if (forMs) petBackTimer = setTimeout(showPet, forMs);
+}
+function setShowPet(on: boolean) {
+  settings = { ...settings, showPet: on };
+  saveSettings(settings);
+  if (on) createPet();
+  else destroyPet();
+  setState({});
+  if (state.phase !== 'hidden') positionPanel();
+  buildTray();
+}
+
+/** Mouse down on Dash: a press that travels less than 5 px is a click, anything more moves Dash. */
+function startPetDrag() {
+  if (!petWin || petDrag) return;
+  const point = screen.getCursorScreenPoint();
+  const [x = 0, y = 0] = petWin.getPosition();
+  const timer = setInterval(() => {
+    const drag = petDrag;
+    if (!drag || !petWin) return;
+    if (Date.now() - drag.since > 60_000) return endPetDrag(false); // the mouse-up never arrived
+    const now = screen.getCursorScreenPoint();
+    if (!drag.moved && Math.hypot(now.x - drag.startX, now.y - drag.startY) < 5) return;
+    drag.moved = true;
+    const spot = petSpot({ x: now.x - drag.offsetX + PET_PAD.x, y: now.y - drag.offsetY + PET_PAD.y });
+    movePet(spot);
+    petWin.webContents.send('pb:pet:motion', { held: true, vx: now.x - drag.lastX, vy: now.y - drag.lastY });
+    drag.lastX = now.x;
+    drag.lastY = now.y;
+    if (state.phase !== 'hidden') positionPanel(); // the thought follows Dash
+  }, 16);
+  petDrag = { offsetX: point.x - x, offsetY: point.y - y, startX: point.x, startY: point.y, lastX: point.x, lastY: point.y, moved: false, since: Date.now(), timer };
+}
+function endPetDrag(act: boolean) {
+  const drag = petDrag;
+  if (!drag) return;
+  clearInterval(drag.timer);
+  petDrag = null;
+  petWin?.webContents.send('pb:pet:motion', { held: false, vx: 0, vy: 0 });
+  if (!drag.moved) {
+    if (act) void trigger(); // a click on Dash is the shortcut
+    return;
+  }
+  const body = petBody();
+  if (body) {
+    settings = { ...settings, pet: { x: body.x, y: body.y } };
+    saveSettings(settings);
+  }
+  if (state.phase !== 'hidden') positionPanel();
+}
+function petMenu() {
+  if (!petWin) return;
+  const ready = hasRequired(permissions);
+  Menu.buildFromTemplate([
+    { label: state.phase === 'hidden' ? `Improve prompt  ${hotkeyLabel()}` : 'Close', enabled: ready || state.phase !== 'hidden', click: () => void trigger() },
+    { type: 'separator' },
+    { label: 'Hide for 1 hour', click: () => hidePet(60 * 60_000) },
+    { label: 'Hide until I press the shortcut', click: () => hidePet() },
+    { label: 'Back to the corner', click: () => { settings = { ...settings, pet: null }; saveSettings(settings); movePet(petSpot(null)); if (state.phase !== 'hidden') positionPanel(); } },
+    { type: 'separator' },
+    { label: 'Settings…', click: () => openSetup('settings') },
+  ]).popup({ window: petWin });
 }
 
 /**
@@ -465,6 +687,7 @@ function present(takeFocus: boolean) {
 }
 
 function showPanel(takeFocus: boolean) {
+  showPet(); // the shortcut brings a hidden Dash back
   if (!win) createWindow();
   positionPanel();
   assertLayering();
@@ -1099,9 +1322,10 @@ async function handleAction(action: RendererAction) {
       return openSetup('settings');
     case 'saveSettings':
       // Preferences only: the key and the session are changed through the account actions.
-      settings = { ...action.settings, apiKey: settings.apiKey, account: settings.account };
+      settings = { ...action.settings, apiKey: settings.apiKey, account: settings.account, pet: settings.pet, showPet: settings.showPet };
       saveSettings(settings);
       win?.setContentProtection(settings.hideFromCapture);
+      petWin?.setContentProtection(settings.hideFromCapture);
       buildTray();
       pushSetup();
       if (resumeAfterSettings && current) {
@@ -1177,6 +1401,7 @@ function buildTray() {
       { label: `Improve prompt  ${hotkeyLabel()}`, enabled: ready, click: () => void trigger() },
       { label: 'Undo last insert', click: () => void undo(), enabled: lastInsert !== null },
       { type: 'separator' },
+      ...(IS_MAC ? ([{ label: 'Show Dash on screen', type: 'checkbox', checked: settings.showPet, click: (item) => setShowPet(item.checked) }] as Electron.MenuItemConstructorOptions[]) : []),
       { label: 'Settings…', accelerator: 'CommandOrControl+,', click: () => openSetup('settings') },
       { label: 'Account…', click: () => openSetup('settings', { pane: 'account' }) },
       { type: 'separator' },
@@ -1401,6 +1626,7 @@ async function handleSetupAction(action: SetupAction) {
       settings = { ...settings, ...action.prefs };
       saveSettings(settings);
       win?.setContentProtection(settings.hideFromCapture);
+      petWin?.setContentProtection(settings.hideFromCapture);
       break;
     case 'openAtLogin':
       app.setLoginItemSettings({ openAtLogin: action.on });
@@ -1547,12 +1773,14 @@ app.whenReady().then(async () => {
   console.log(`[PromptButton] version ${app.getVersion()}${updatedFrom ? ` (updated from ${updatedFrom})` : ''} at ${OWN_BUNDLE}`);
   buildAppMenu();
   createWindow();
+  createPet();
   buildTray();
-  powerMonitor.on('resume', () => rebuildHiddenWindow('wake'));
-  powerMonitor.on('unlock-screen', () => rebuildHiddenWindow('unlock'));
+  powerMonitor.on('resume', () => { rebuildHiddenWindow('wake'); rebuildPet(); });
+  powerMonitor.on('unlock-screen', () => { rebuildHiddenWindow('unlock'); rebuildPet(); });
   // Spaces belong to displays: plugging one in or out reshuffles them under a window that already exists.
-  screen.on('display-added', () => rebuildHiddenWindow('a display change'));
-  screen.on('display-removed', () => rebuildHiddenWindow('a display change'));
+  screen.on('display-added', () => { rebuildHiddenWindow('a display change'); rebuildPet(); });
+  screen.on('display-removed', () => { rebuildHiddenWindow('a display change'); rebuildPet(); });
+  screen.on('display-metrics-changed', () => { if (petWin && !petDrag) movePet(petSpot(settings.pet)); });
 
   // Permissions change outside the app (System Settings) and can be revoked at any time: follow them,
   // so the menu bar item and an open setup screen update the moment the switch moves.
@@ -1562,6 +1790,7 @@ app.whenReady().then(async () => {
     console.log(`[PromptButton] permissions: accessibility=${next.accessibility} screen=${next.screen} microphone=${next.microphone}`);
     const regained = !hasRequired(permissions) && hasRequired(next);
     permissions = next;
+    if (state.phase === 'hidden') petMood(restingMood());
     if (regained) {
       setup.revoked = false;
       setup.updatedFrom = null;
@@ -1610,6 +1839,12 @@ app.whenReady().then(async () => {
   ipcMain.on('pb:resize', (_event, height: number) => fitPanel(Number(height) || PANEL_HEIGHT));
   // Transparent areas of the window must not swallow clicks meant for the app underneath.
   ipcMain.on('pb:mouse', (_event, ignore: boolean) => win?.setIgnoreMouseEvents(Boolean(ignore), { forward: true }));
+  // Dash: the box tells it what mood it is in; Dash tells us when the pointer is on its body and when it is pressed.
+  ipcMain.on('pb:mood', (_event, mood: string) => { if (state.phase !== 'hidden') petMood(String(mood)); });
+  ipcMain.on('pb:pet:hit', (event, over: boolean) => { if (event.sender === petWin?.webContents && !petDrag) petWin.setIgnoreMouseEvents(!over, { forward: true }); });
+  ipcMain.on('pb:pet:down', (event) => { if (event.sender === petWin?.webContents) startPetDrag(); });
+  ipcMain.on('pb:pet:up', (event) => { if (event.sender === petWin?.webContents) endPetDrag(true); });
+  ipcMain.on('pb:pet:menu', (event) => { if (event.sender === petWin?.webContents) petMenu(); });
   ipcMain.handle('pb:setup:get', () => setupState());
   ipcMain.on('pb:setup:action', (_event, action: SetupAction) => void handleSetupAction(action));
   // The settings window takes the height of what it shows, like a macOS settings pane.
@@ -1628,6 +1863,7 @@ app.on('window-all-closed', () => {
   // Keep running in the menu bar.
 });
 app.on('will-quit', () => {
+  clearInterval(petCursorTimer);
   globalShortcut.unregisterAll();
   cancelDictation();
 });
