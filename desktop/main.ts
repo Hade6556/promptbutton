@@ -6,6 +6,7 @@ import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, n
 import { hasRequired, openPermissionPane, readPermissions, requestPermission, resetPermission } from './permissions';
 import { shortcutKeys, shortcutLabel, shortcutsFor, validShortcut } from './shortcut';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ASK_THRESHOLD, PromptButtonError } from '../src/llm/config';
@@ -17,13 +18,16 @@ import { lengthGuide } from '../src/llm/context';
 import { KB_VERSION, familyOf, planTechniques } from '../src/llm/kb';
 import { discussPrompt } from '../src/llm/discuss';
 import { interpretVoice } from '../src/llm/voice';
+import { answerBoth } from '../src/llm/compare';
 import type { ChatTurn, GapReport, ImproveInput, Result, RewriteOptions, UserAnswer, VoiceContext, VoiceIntent } from '../src/messaging';
 import { captureContext, hashDistance, runHelper, type Capture } from './capture';
 import { cancelDictation, startDictation, stopDictation } from './dictation';
 import { dotEnvPaths, resolveApiKey } from './env';
 import { forcePaste, insertText, squash, type InsertResult } from './insert';
 import { DEFAULTS, loadSettings, saveSettings } from './settings';
-import type { AccountAction, AccountScreen, AccountView, OnboardingStep, PanelState, Permissions, RendererAction, Settings, SetupAction, SetupPane, SetupState } from './shared';
+import { appKind, createReceipts, periodCounts, qualifies, summarize, type AppKind, type BlindPick, type Ended, type Produced } from './receipts';
+import { createUpdater, type UpdateStatus } from './update';
+import type { AccountAction, AccountScreen, AccountView, MoneyBackPeriod, OnboardingStep, PanelState, Permissions, RendererAction, Settings, SetupAction, SetupPane, SetupState } from './shared';
 
 const IS_MAC = process.platform === 'darwin';
 /** Bump when first-run setup gains a step that existing users must also see. */
@@ -35,6 +39,8 @@ const PANEL_MAX_HEIGHT = 760;
 // With Dash on the desktop the box is a small thought beside it, not a bar across the screen.
 const PET_PANEL_WIDTH = 340;
 const PET_PANEL_MAX_HEIGHT = 380;
+/** A blind comparison shows two answers side by side, so the box is wide and tall while it runs, wherever it is. */
+const COMPARE_HEIGHT = 640;
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -58,6 +64,9 @@ interface Run {
   contested?: string;
   /** The knowledge-base techniques this rewrite used, and the one left out to measure it. Ids only. */
   kb?: RunTechniques;
+  /** What the box showed for this run (for Results, and for a result shown again from the cache), and how many questions it asked. */
+  produced?: Produced;
+  asked?: number;
 }
 interface RunTechniques {
   techniques: string[];
@@ -67,13 +76,244 @@ interface RunTechniques {
   family: string;
 }
 let current: Run | null = null;
-let lastInsert: { capture: Capture; original: string; text: string; kb?: RunTechniques; at: number; rated?: boolean } | null = null;
+let lastInsert: { capture: Capture; original: string; text: string; kb?: RunTechniques; at: number; undone?: boolean; id?: string } | null = null;
 
-/** The rating question is asked once, between 20 seconds and 30 minutes after an insert: long enough for an answer to arrive, short enough to remember it. */
+/**
+ * The last prompt First Try wrote that went into an app: what the "better answer?" question is about.
+ * Kept apart from lastInsert, so inserting a suggested reply afterwards does not take the question away.
+ */
+let lastPrompt: {
+  /** The run's id in the Results file, and the separate id its shared reports carry. */
+  id: string;
+  reportId: string;
+  kind: AppKind;
+  app: string;
+  kb?: RunTechniques;
+  at: number;
+  rated?: boolean;
+  undone?: boolean;
+} | null = null;
+
+/** A prompt put into an app can be rated once, until this long after. The menus offer it for that long. */
+const RATE_FOR_MS = 24 * 60 * 60_000;
+let rateMenuTimer: NodeJS.Timeout | undefined;
+
+/**
+ * The last prompt can be rated: not yet rated or undone, recent, and the answer goes somewhere (the Results
+ * file, or a shared report). With both switched off there is nothing to ask for.
+ */
+function rateable(): boolean {
+  if (!lastPrompt || lastPrompt.rated || lastPrompt.undone) return false;
+  if (!settings.keepReceipts && !(sharesOutcomes() && lastPrompt.kb)) return false;
+  return Date.now() - lastPrompt.at < RATE_FOR_MS;
+}
+
+/** The box asks on the next press between 20 seconds and 30 minutes after an insert: long enough for an answer to arrive, short enough to remember it. The menus ask any time within RATE_FOR_MS. */
 function ratingDue(): boolean {
-  if (!lastInsert?.kb || lastInsert.rated || !settings.shareOutcomes || !settings.account) return false;
-  const age = Date.now() - lastInsert.at;
+  if (!rateable()) return false;
+  const age = Date.now() - lastPrompt!.at;
   return age > 20_000 && age < 30 * 60_000;
+}
+
+// ── Results ─────────────────────────────────────────────────────────────────────────────────────
+// Each press is one run: opened when the shortcut is pressed, closed when the box closes or the prompt
+// goes into the app, then written as one line to a file on this Mac (receipts.ts). An undo or an answer
+// to "better answer?" is added later under the same id. The Results pane in Settings counts from it.
+// Nothing in it is text the user wrote, and it is never sent anywhere.
+
+const receipts = createReceipts(() => path.join(app.getPath('userData'), 'receipts.jsonl'));
+
+interface OpenRun {
+  /** The run's id in the Results file on this Mac. */
+  id: string;
+  /** A second random id, used only in shared reports and never written to the file, so the file cannot be matched to the server's rows. */
+  reportId: string;
+  at: string;
+  app: string;
+  kind: AppKind;
+  produced: Produced;
+  asked: number;
+  changes: number;
+  /** Set by an insert, a copy or a press that stopped early; otherwise worked out when the box closes. */
+  ended?: Ended;
+  /** It showed a result from the cache and has not written a new one. */
+  reopened?: boolean;
+  kb?: RunTechniques;
+}
+let openRun: OpenRun | null = null;
+
+/**
+ * A press: closes the run before it, if any, and opens a new one. "Scan again" (`fresh`) is the same
+ * press, so it keeps the open run and starts its result over. `reopened` shows a cached result again.
+ */
+/**
+ * The app's name as the Results file keeps it. On Windows some apps report their window title as their name
+ * ("Shopping list - OneNote"); only the app's part after the last " - " is kept, so a title never gets in.
+ */
+function appLabel(capture: Capture): string {
+  if (IS_MAC || !capture.appName.includes(' - ')) return capture.appName;
+  return capture.appName.split(' - ').pop()!.trim() || 'Unknown app';
+}
+
+function startRun(capture: Capture, options: { reopened?: boolean; fresh?: boolean } = {}): OpenRun {
+  const app = appLabel(capture), kind = appKind(capture.appName, capture.bundleId);
+  if (options.fresh && openRun) {
+    Object.assign(openRun, { app, kind, produced: 'nothing' as Produced, asked: 0, kb: undefined, ended: undefined, reopened: undefined });
+    return openRun;
+  }
+  endRun();
+  openRun = { id: randomUUID(), reportId: randomUUID(), at: new Date().toISOString(), app, kind, produced: 'nothing', asked: 0, changes: 0, ...(options.reopened ? { reopened: true } : {}) };
+  return openRun;
+}
+
+/** What the box shows now is this run's result. A prompt written during this run makes it a new result, even if the run began by showing a cached one. */
+function produced(what: Produced, kb?: RunTechniques, wrote = false) {
+  if (current) current.produced = what;
+  if (!openRun) return;
+  openRun.produced = what;
+  openRun.kb = kb;
+  if (wrote) openRun.reopened = undefined;
+}
+
+/** Writes a run that was taken off `openRun` (an insert in progress) once it has ended. */
+function writeRun(run: OpenRun, ended: Ended) {
+  if (ended === 'dismissed' && run.produced === 'prompt' && !run.reopened) reportOutcome('dismissed', run.kb, run);
+  if (!settings.keepReceipts) return;
+  receipts.add({
+    v: 1,
+    t: 'run',
+    id: run.id,
+    at: run.at,
+    app: run.app,
+    kind: run.kind,
+    produced: run.produced,
+    asked: run.asked,
+    changes: run.changes,
+    ended,
+    ...(run.reopened ? { reopened: true } : {}),
+    ...(run.kb ? { techniques: run.kb.techniques, heldOut: run.kb.heldOut } : {}),
+  });
+  refreshResults();
+}
+
+const endedBy = (result: InsertResult): Ended => (result.outcome === 'replaced' || result.outcome === 'pasted' ? 'inserted' : result.outcome === 'unverified' ? 'pasted' : 'copied');
+
+/** The box closed: write the run down, and tell the server a shown prompt went unused (when the user shares results). */
+function endRun() {
+  const run = openRun;
+  if (!run) return;
+  openRun = null;
+  // A result shown again from the cache was reported when it was first closed, so only a newly written prompt reports 'dismissed' (writeRun).
+  writeRun(run, run.ended ?? (state.phase === 'error' ? 'error' : run.produced === 'nothing' ? 'cancelled' : 'dismissed'));
+}
+
+/** The Results pane, when it is open, shows the new numbers. */
+function refreshResults() {
+  if (setupWin && setup.view === 'settings' && setup.pane === 'results') pushSetup();
+}
+
+/** The answer to "did the last prompt get you a better answer?", from the box or a menu. */
+function rateLast(better: boolean) {
+  if (!lastPrompt || lastPrompt.rated || lastPrompt.undone) return;
+  lastPrompt.rated = true;
+  reportOutcome(better ? 'rated_up' : 'rated_down', lastPrompt.kb, lastPrompt);
+  if (settings.keepReceipts) receipts.add({ v: 1, t: 'rate', id: lastPrompt.id, at: new Date().toISOString(), better });
+  console.log(`[PromptButton] rated the last prompt: ${better ? 'better' : 'not better'}`);
+  setState({});
+  buildTray();
+  refreshResults();
+}
+
+// ── Blind comparison ("try both") ───────────────────────────────────────────────────────────────
+// After a full prompt, the same model answers the user's own draft and First Try's prompt (src/llm/compare.ts).
+// The two answers are shown without labels, in an order chosen at random here; which one belongs to the
+// draft stays in this process until the user has picked. Then it is revealed, written to Results, and
+// (when the user shares results) reported as one of three signals with no text.
+
+/** The first few full prompts explain the comparison; after that it is just offered. */
+const BLIND_INTROS = 3;
+let compareRun: { draftIs: 0 | 1; controller: AbortController; my: number } | null = null;
+
+/** Offered for full prompts written from a request or brain dump: a follow-up such as "make it shorter" has no answer of its own to compare. */
+function blindOffer(full: boolean): 'intro' | 'quiet' | null {
+  const mode = current?.report?.mode;
+  if (!full || !current?.input.draft.trim() || (mode && mode !== 'request' && mode !== 'brain_dump')) return null;
+  if (settings.blindIntros >= BLIND_INTROS) return 'quiet';
+  settings = { ...settings, blindIntros: settings.blindIntros + 1 };
+  saveSettings(settings);
+  return 'intro';
+}
+
+function stopCompare() {
+  compareRun?.controller.abort();
+  compareRun = null;
+}
+
+async function compareBlind() {
+  if (!current || state.phase !== 'done' || !current.text || busy || state.compare) return;
+  const run = current;
+  const my = runId;
+  const draftIs: 0 | 1 = Math.random() < 0.5 ? 0 : 1;
+  const controller = new AbortController();
+  compareRun = { draftIs, controller, my };
+  const answers: [string, string] = ['', ''];
+  setState({ compare: { status: 'loading', answers: ['', ''], cut: [false, false] } });
+  showPanel(true);
+  console.log('[PromptButton] blind comparison: asking for both answers');
+  let last = 0;
+  try {
+    const both = await answerBoth(client(), run.input.draft, run.text, draftIs, (slot, delta) => {
+      if (stale(my) || compareRun?.controller !== controller) return;
+      answers[slot] += delta;
+      // Streamed into both columns at once; at most a few screen updates a second.
+      const now = Date.now();
+      if (now - last > 120) {
+        last = now;
+        setState({ compare: { status: 'loading', answers: [...answers] as [string, string], cut: [false, false] } });
+      }
+    }, controller.signal);
+    if (stale(my) || compareRun?.controller !== controller) return;
+    setState({ compare: { status: 'ready', answers: [both[0].text, both[1].text], cut: [both[0].cut, both[1].cut] } });
+    showPanel(true);
+  } catch (error) {
+    if (stale(my) || compareRun?.controller !== controller) return;
+    compareRun = null;
+    const result = toResult<never>(error);
+    // Sign-in and allowance problems go to the account screen, as for any other call.
+    if (!result.ok && (result.code === 'no_api_key' || result.code === 'auth' || result.code === 'limit')) return fail(error);
+    setState({ compare: { status: 'error', answers: ['', ''], cut: [false, false], error: result.ok ? 'Something went wrong.' : result.error } });
+    showPanel(true);
+  }
+}
+
+function pickBlind(choice: 0 | 1 | 'same') {
+  const compare = state.compare;
+  if (!compareRun || !compare || compare.status !== 'ready') return;
+  const { draftIs } = compareRun;
+  compareRun = null;
+  const result: BlindPick = choice === 'same' ? 'same' : choice === draftIs ? 'original' : 'rewrite';
+  console.log(`[PromptButton] blind comparison: picked ${result}`);
+  if (openRun && settings.keepReceipts) receipts.add({ v: 1, t: 'blind', id: openRun.id, at: new Date().toISOString(), pick: result });
+  reportOutcome(`blind_${result}`, current?.kb, openRun);
+  setState({ compare: { ...compare, status: 'revealed', picked: choice, draftIs, result } });
+  refreshResults();
+}
+
+/**
+ * The rating in the menu bar menu and Dash's menu, as one submenu after the commands, so the menus keep
+ * their order: there whenever the last prompt can be rated.
+ */
+function rateMenuItems(): Electron.MenuItemConstructorOptions[] {
+  if (!rateable()) return [];
+  return [
+    {
+      label: `Rate the last prompt in ${lastPrompt!.app}`,
+      submenu: [
+        { label: 'It got me a better answer', click: () => rateLast(true) },
+        { label: 'It did not help', click: () => rateLast(false) },
+      ],
+    },
+  ];
 }
 let noticeTimer: NodeJS.Timeout | undefined;
 
@@ -372,6 +612,7 @@ function createWindow() {
         // Nothing selected: copy what the panel is showing.
         const shown = state.phase === 'error' ? state.error : state.phase === 'done' ? current?.text : '';
         if (shown) void clipboard.writeText(shown);
+        if (shown && state.phase === 'done' && openRun) openRun.ended = 'copied';
       });
     } else if (key === 'v' && !input.shift) { event.preventDefault(); contents.paste(); }
     else if (key === 'x' && !input.shift) { event.preventDefault(); contents.cut(); }
@@ -398,15 +639,16 @@ function panelOrigin(display: Electron.Display) {
 function besidePet(height: number): Electron.Rectangle | null {
   const body = petBody();
   if (!body) return null;
+  const width = state.compare ? PANEL_WIDTH : PET_PANEL_WIDTH;
   const area = screen.getDisplayMatching(body).workArea;
   const leftOfDash = body.x + body.width / 2 >= area.x + area.width / 2;
   const aboveDash = body.y + body.height / 2 >= area.y + area.height / 2;
-  const x = leftOfDash ? body.x + 6 - PET_PANEL_WIDTH : body.x + body.width - 6;
+  const x = leftOfDash ? body.x + 6 - width : body.x + body.width - 6;
   const y = aboveDash ? body.y + 12 - height : body.y + body.height - 12;
   return {
-    x: Math.round(within(x, area.x + PANEL_MARGIN, area.x + area.width - PANEL_MARGIN - PET_PANEL_WIDTH)),
+    x: Math.round(within(x, area.x + PANEL_MARGIN, area.x + area.width - PANEL_MARGIN - width)),
     y: Math.round(within(y, area.y + PANEL_MARGIN, area.y + area.height - PANEL_MARGIN - height)),
-    width: PET_PANEL_WIDTH,
+    width,
     height,
   };
 }
@@ -430,7 +672,7 @@ function fitPanel(height: number) {
   const body = petBody();
   if (body) {
     const area = screen.getDisplayMatching(body).workArea;
-    const next = Math.max(PANEL_HEIGHT, Math.min(PET_PANEL_MAX_HEIGHT, area.height - 2 * PANEL_MARGIN, Math.ceil(height)));
+    const next = Math.max(PANEL_HEIGHT, Math.min(state.compare ? COMPARE_HEIGHT : PET_PANEL_MAX_HEIGHT, area.height - 2 * PANEL_MARGIN, Math.ceil(height)));
     const beside = besidePet(next)!;
     const now = win.getBounds();
     if (now.x !== beside.x || now.y !== beside.y || now.width !== beside.width || now.height !== beside.height) win.setBounds(beside, false);
@@ -623,7 +865,9 @@ function petMenu() {
   if (!petWin) return;
   const ready = hasRequired(permissions);
   Menu.buildFromTemplate([
+    ...updateMenuItems(),
     { label: state.phase === 'hidden' ? `Improve prompt  ${hotkeyLabel()}` : 'Close', enabled: ready || state.phase !== 'hidden', click: () => void trigger() },
+    ...rateMenuItems(),
     { type: 'separator' },
     { label: 'Hide for 1 hour', click: () => hidePet(60 * 60_000) },
     { label: 'Hide until I press the shortcut', click: () => hidePet() },
@@ -784,13 +1028,15 @@ async function verifyPanel(takeFocus: boolean, n: number, rebuilt = false) {
 }
 
 function hidePanel() {
+  endRun(); // before the state changes: an error still on screen is how the run ended
   clearTimeout(noticeTimer);
   cancelDictation(); // the mic never stays on behind a closed panel
   voiceSnapshots = [];
   concealPanel();
   busy = false;
   runId++; // anything still in flight belongs to a closed run
-  setState({ phase: 'hidden', report: null, text: '', assist: undefined, error: undefined, notice: undefined, offerForcePaste: false, chat: null, talking: false, readyReason: undefined });
+  stopCompare();
+  setState({ phase: 'hidden', report: null, text: '', assist: undefined, error: undefined, notice: undefined, offerForcePaste: false, chat: null, talking: false, readyReason: undefined, compare: null, compareOffer: null });
 }
 
 function notice(text: string, options: { ttl?: number; offerForcePaste?: boolean } = {}) {
@@ -818,6 +1064,7 @@ function fail(error: unknown) {
   const result = toResult<never>(error);
   busy = false;
   if (!result.ok) {
+    if (openRun && (result.code === 'auth' || result.code === 'limit')) openRun.ended = 'error';
     if (result.code === 'no_api_key' || result.code === 'auth') {
       resumeAfterSettings = current !== null; // continue the run once signed in or a key is saved
       if (result.code === 'no_api_key') return showAccount(undefined, { working: false });
@@ -856,6 +1103,7 @@ async function trigger(options: { fresh?: boolean } = {}) {
   if (process.platform === 'darwin' && !systemPreferences.isTrustedAccessibilityClient(false)) return needAccessibility();
   const my = ++runId;
   busy = true;
+  if (options.fresh) clearTimeout(noticeTimer); // a notice's timer must not close the press that replaces it
   try {
     // Capture before showing the panel so the screenshot does not include it.
     if (options.fresh) concealPanel();
@@ -865,6 +1113,10 @@ async function trigger(options: { fresh?: boolean } = {}) {
     const cached = options.fresh ? null : cachedRun(capture);
     if (cached) {
       console.log(`[PromptButton] unchanged input — reopening the last result, no API call (${cached.snapshot.phase})`);
+      const run = startRun(capture, { reopened: true });
+      run.produced = cached.current.produced ?? 'nothing';
+      run.asked = cached.current.asked ?? 0;
+      run.kb = cached.current.kb;
       current = cached.current;
       busy = false;
       setState({ ...cached.snapshot });
@@ -874,6 +1126,7 @@ async function trigger(options: { fresh?: boolean } = {}) {
     console.log(
       `[PromptButton] captured app="${capture.appName}" role=${capture.role || '?'} via=${capture.method} source=${capture.source} settable=${capture.valueSettable} draft=${capture.draft.length} chars screenshot=${capture.screenshot ? `${Math.round((capture.screenshot.data.length * 3) / 4 / 1024)} KB` : 'none'}`,
     );
+    const run = startRun(capture, { fresh: options.fresh });
     if (capture.source === 'none') {
       current = { capture, input: { site: capture.appName, history: [], draft: '', screenshot: capture.screenshot }, report: null, text: '', answers: [] };
       await suggestForEmptyField(my);
@@ -882,6 +1135,7 @@ async function trigger(options: { fresh?: boolean } = {}) {
     // Never ship secrets to the model (e.g. the hotkey pressed while a .env file is focused).
     if (/sk-ant-[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}/.test(capture.draft)) {
       busy = false;
+      run.ended = 'cancelled';
       notice('The focused text looks like it contains an API key or secret, so it was not sent anywhere. Click into the chat box you want to improve and press again.', { ttl: 6000 });
       return;
     }
@@ -899,6 +1153,7 @@ async function suggestForEmptyField(my: number) {
   const { capture } = current;
   if (!capture.screenshot) {
     busy = false;
+    if (openRun) openRun.ended = 'cancelled';
     notice(`Nothing to work with — type a draft in ${capture.appName}, or allow Screen Recording so I can read the chat.`, { ttl: 5000 });
     return;
   }
@@ -911,6 +1166,7 @@ async function suggestForEmptyField(my: number) {
   console.log(`[PromptButton] reply assist: ${assist.replies.length} replies, ${assist.asks.length} asks`);
   busy = false;
   setState({ phase: 'replies', assist });
+  produced('replies');
   rememberRun();
   showPanel(true);
 }
@@ -974,6 +1230,12 @@ async function undoVoice() {
   busy = false;
   current = snap.current;
   setState({ ...snap.state });
+  // The run's result is the one now back on screen.
+  if (openRun) {
+    openRun.produced = snap.current.produced ?? 'nothing';
+    openRun.kb = snap.current.kb;
+    openRun.asked = snap.current.asked ?? 0;
+  }
   showPanel(true);
   console.log(`[PromptButton] voice undo → ${snap.state.phase}`);
 }
@@ -1033,6 +1295,9 @@ async function analyzeAndContinue() {
     if (shouldAsk) {
       busy = false;
       setState({ phase: 'asking', report, asked: true });
+      produced('questions');
+      current.asked = report.questions.length;
+      if (openRun) openRun.asked = report.questions.length;
       rememberRun();
       showPanel(true); // the user needs focus to answer
       return;
@@ -1052,6 +1317,7 @@ function alreadyGood(reason: string, report: GapReport | null = null) {
   busy = false;
   console.log(`[PromptButton] already good enough: ${reason}`);
   setState({ phase: 'ready', readyReason: reason, report, asked: false });
+  produced('already-good');
   rememberRun();
   showPanel(true);
 }
@@ -1087,7 +1353,7 @@ async function discuss(text: string) {
     if (decision.action === 'revise') {
       voiceSnapshots.push(before); // Undo puts back the prompt as it was before this change
       if (voiceSnapshots.length > 10) voiceSnapshots.shift();
-      return rewrite(run.answers, { previous: run.text, request: decision.instruction });
+      return rewrite(run.answers, { previous: run.text, request: decision.instruction }, true);
     }
     busy = false;
     showPanel(true);
@@ -1111,16 +1377,17 @@ async function chatDecision(change: boolean) {
   current.chat = [...(current.chat ?? []), { role: 'user', text: 'Change it anyway.' }, { role: 'assistant', text: 'Changing it.', action: 'revise' }];
   voiceSnapshots.push({ state: { ...state, chat: null }, current: { ...current, answers: [...current.answers] } });
   setState({ chat: { user: contested, reply: 'Your call. Changing it.', action: 'revise' } });
-  return rewrite(current.answers, { previous: current.text, request: contested });
+  return rewrite(current.answers, { previous: current.text, request: contested }, true);
 }
 
-async function rewrite(answers: UserAnswer[], revision?: { previous: string; request: string }) {
+async function rewrite(answers: UserAnswer[], revision?: { previous: string; request: string }, change = false) {
   if (!current) return;
   const my = runId;
   current.answers = answers;
   busy = true;
   try {
-    setState({ phase: 'rewriting', text: '' });
+    stopCompare();
+    setState({ phase: 'rewriting', text: '', compare: null, compareOffer: null });
     const options: RewriteOptions = {
       mode: current.report?.mode,
       domain: current.report?.domain,
@@ -1135,7 +1402,9 @@ async function rewrite(answers: UserAnswer[], revision?: { previous: string; req
     // Which knowledge-base techniques go in. A revision keeps the first rewrite's choice, so the report describes one prompt.
     const full = lengthGuide(current.input.draft.length + answers.reduce((n, a) => n + a.answer.length, 0), options).kind === 'master';
     if (full && options.domain) {
-      const plan = revision && current.kb ? { used: current.kb.techniques, heldOut: current.kb.heldOut } : planTechniques({ domain: options.domain, mode: options.mode, scale: options.scale, site: current.input.site, draft: current.input.draft });
+      // A revision keeps the first choice, except that a technique left out to measure it goes back in when nothing can be reported any more.
+      const kept = current.kb && !sharesOutcomes() && current.kb.heldOut ? { used: [...current.kb.techniques, current.kb.heldOut], heldOut: null } : current.kb ? { used: current.kb.techniques, heldOut: current.kb.heldOut } : null;
+      const plan = revision && kept ? kept : planTechniques({ domain: options.domain, mode: options.mode, scale: options.scale, site: current.input.site, draft: current.input.draft, holdout: sharesOutcomes() });
       options.kbHoldout = plan.heldOut ?? undefined;
       current.kb = { techniques: plan.used, heldOut: plan.heldOut, domain: options.domain, scale: options.scale ?? 'deliverable', family: familyOf(current.input.site) };
     } else {
@@ -1155,7 +1424,9 @@ async function rewrite(answers: UserAnswer[], revision?: { previous: string; req
     if (stale(my)) return;
     current.text = text;
     busy = false;
-    setState({ phase: 'done', text });
+    setState({ phase: 'done', text, compare: null, compareOffer: blindOffer(full) });
+    produced(full ? 'prompt' : 'tightened', current.kb, true);
+    if (change && openRun) openRun.changes++;
     rememberRun();
     showPanel(true);
   } catch (error) {
@@ -1212,32 +1483,65 @@ function reportInsert(result: InsertResult, appName: string, chars: number): boo
   return false;
 }
 
-/** Tells the server how a rewrite fared: technique ids and a signal, never text. Silent on failure: feedback must not get in the way. */
-function reportOutcome(signal: 'inserted' | 'undone' | 'rated_up' | 'rated_down', kb: RunTechniques | undefined) {
-  if (!kb || !settings.shareOutcomes || !settings.account) return;
-  void accountApi('/outcome', { auth: true, body: { signal, techniques: kb.techniques, heldOut: kb.heldOut, domain: kb.domain, scale: kb.scale, family: kb.family, kb: KB_VERSION } }).catch(() => {});
+/** Outcomes are reported only when the user is signed in and has "Help improve rewrites" on. Otherwise no technique is left out on purpose either: a weaker rewrite that teaches nothing helps no one. */
+function sharesOutcomes(): boolean {
+  return Boolean(settings.account) && settings.shareOutcomes;
+}
+
+/**
+ * Tells the server how a full prompt fared: technique ids, a signal, a random id for the press (so its
+ * reports join up; it is not linked to the user or any other press) and the kind of app from a fixed
+ * list. Never text. Silent on failure: feedback must not get in the way.
+ */
+function reportOutcome(signal: 'inserted' | 'undone' | 'rated_up' | 'rated_down' | 'dismissed' | 'blind_rewrite' | 'blind_original' | 'blind_same', kb: RunTechniques | undefined, run?: { reportId?: string; kind?: AppKind } | null) {
+  if (!kb || !sharesOutcomes()) return;
+  const joined = run?.reportId && run.kind ? { run: run.reportId, app: run.kind } : {};
+  void accountApi('/outcome', { auth: true, body: { signal, techniques: kb.techniques, heldOut: kb.heldOut, domain: kb.domain, scale: kb.scale, family: kb.family, kb: KB_VERSION, ...joined } }).catch(() => {});
 }
 
 /** The prompt is in the app: remember it for Undo and the rating question, and report it. The pair is sent only when the user switched sharing on; the server scrubs it before storing. */
-function recordInsert(capture: Capture, text: string) {
+function recordInsert(capture: Capture, text: string, run: OpenRun | null) {
   const kb = current?.kb;
-  lastInsert = { capture, original: capture.draft, text, kb, at: Date.now() };
-  reportOutcome('inserted', kb);
+  lastInsert = { capture, original: capture.draft, text, kb, at: Date.now(), id: run?.id };
+  if (run && (run.produced === 'prompt' || run.produced === 'tightened')) lastPrompt = { id: run.id, reportId: run.reportId, kind: run.kind, app: appLabel(capture), kb, at: Date.now() };
+  lastRun = null; // pressing again on this field is a new press, not the same result shown again
+  reportOutcome('inserted', kb, run);
+  // The menus now offer the rating, until it is answered or RATE_FOR_MS has passed.
+  buildTray();
+  clearTimeout(rateMenuTimer);
+  rateMenuTimer = setTimeout(buildTray, RATE_FOR_MS + 1000);
   if (kb && settings.sharePairs && settings.account && capture.draft.trim()) {
     void accountApi('/pair', { auth: true, body: { consent: true, draft: capture.draft, rewritten: text, techniques: kb.techniques, heldOut: kb.heldOut, domain: kb.domain, scale: kb.scale, family: kb.family, kb: KB_VERSION } }).catch(() => {});
   }
 }
 
+/**
+ * While an insert is in flight the run is taken off `openRun`, so a press of the shortcut meanwhile cannot
+ * write it down as closed. It is written once the insert has landed, or put back when the box stays open
+ * (the insert ended on the clipboard and offers "replace everything").
+ */
+function settleInsert(run: OpenRun | null, ended: Ended, landed: boolean) {
+  if (!run) return;
+  run.ended = ended;
+  if (landed || openRun) writeRun(run, ended);
+  else openRun = run;
+}
+
 async function accept(text: string) {
   if (!current) return;
   const { capture } = current;
+  const run = openRun;
+  openRun = null;
   current.text = text; // what "replace everything" pastes if this attempt ends on the clipboard
   // Give focus back to the target app before writing; our window must not be key.
   concealPanel();
   try {
     const result = await insertText(capture, text);
-    if (reportInsert(result, capture.appName, text.length)) recordInsert(capture, text);
+    const landed = reportInsert(result, capture.appName, text.length);
+    settleInsert(run, endedBy(result), landed);
+    if (landed) recordInsert(capture, text, run);
   } catch (error) {
+    settleInsert(run, 'copied', false);
     await clipboard.writeText(text);
     reportInsert({ outcome: 'copied', reason: 'failed', detail: message(error) }, capture.appName, text.length);
   }
@@ -1252,7 +1556,7 @@ async function handleAction(action: RendererAction) {
     case 'refine':
       if (!current || !action.note.trim()) return;
       // Revise the previous rewrite instead of regenerating, so the parts the user liked survive.
-      return rewrite(current.answers, { previous: current.text, request: action.note.trim() });
+      return rewrite(current.answers, { previous: current.text, request: action.note.trim() }, true);
     case 'chat':
       return discuss(action.text);
     case 'chatDecision':
@@ -1268,30 +1572,31 @@ async function handleAction(action: RendererAction) {
       return accept(action.text);
     case 'copy':
       await clipboard.writeText(action.text);
+      if (openRun) openRun.ended = 'copied';
       return notice('Copied to the clipboard.', { ttl: 1800 });
     case 'forcePaste':
       if (current) {
         const { capture, text } = current;
+        const run = openRun;
+        openRun = null;
         concealPanel(); // focus must leave the panel before the keystrokes
         const result = await forcePaste(capture, text);
+        if (result.outcome === 'copied') settleInsert(run, 'copied', false);
         // A second failure is not offered a third try: say what happened and leave it on the clipboard.
         if (result.outcome === 'copied') {
           console.log(`[PromptButton] replace-all into "${capture.appName}": copied (${result.reason})`);
           if (result.reason === 'no_permission') return needAccessibility();
           return notice(insertMessage(result, capture.appName), { ttl: 9000 });
         }
-        if (reportInsert(result, capture.appName, text.length)) recordInsert(capture, text);
+        const landed = reportInsert(result, capture.appName, text.length);
+        settleInsert(run, endedBy(result), landed);
+        if (landed) recordInsert(capture, text, run);
       }
       return;
     case 'cancel':
       return hidePanel();
     case 'rate':
-      if (lastInsert && !lastInsert.rated) {
-        reportOutcome(action.up ? 'rated_up' : 'rated_down', lastInsert.kb);
-        lastInsert.rated = true;
-        setState({});
-      }
-      return;
+      return rateLast(action.up);
     case 'dictate':
       if (!action.on) return stopDictation();
       // The panel must be key for the mic prompt and for typing to land in the field afterwards.
@@ -1309,6 +1614,14 @@ async function handleAction(action: RendererAction) {
       return voiceDraft(action.text);
     case 'refresh':
       return trigger({ fresh: true });
+    case 'compare':
+      return compareBlind();
+    case 'pick':
+      return pickBlind(action.choice);
+    case 'endCompare':
+      stopCompare();
+      setState({ compare: null });
+      return showPanel(true);
     case 'requestCode':
     case 'verifyCode':
     case 'changeEmail':
@@ -1341,8 +1654,17 @@ async function handleAction(action: RendererAction) {
 
 async function undo() {
   if (!lastInsert) return;
-  reportOutcome('undone', lastInsert.kb);
-  lastInsert.rated = true; // an undo is its own answer; do not also ask
+  if (!lastInsert.undone) {
+    lastInsert.undone = true;
+    lastRun = null; // the draft is back: the next press is a new one
+    // An undo of the last prompt is its own answer to "better answer?": the question is not asked as well.
+    const prompt = lastPrompt && lastPrompt.id === lastInsert.id ? lastPrompt : null;
+    if (prompt) prompt.undone = true;
+    reportOutcome('undone', lastInsert.kb, prompt);
+    if (settings.keepReceipts && lastInsert.id) receipts.add({ v: 1, t: 'undo', id: lastInsert.id, at: new Date().toISOString() });
+    buildTray();
+    refreshResults();
+  }
   try {
     const result = await insertText(lastInsert.capture, lastInsert.original);
     if (result.outcome === 'copied') notice(`Could not put your draft back by itself. It is on the clipboard: press ${PASTE_KEYS}.`, { ttl: 6000 });
@@ -1384,6 +1706,28 @@ function updateTrayIcon() {
   tray.setToolTip(mode === 'off' ? `${name}: needs Accessibility access` : mode === 'busy' ? `${name}: working…` : `${name}: ${hotkeyLabel()}`);
 }
 
+/** The update line for the menus: nothing to show while there is no newer version. */
+function updateMenuItems(): Electron.MenuItemConstructorOptions[] {
+  const status: UpdateStatus = updater?.status() ?? { phase: 'none' };
+  switch (status.phase) {
+    case 'available':
+      return [{ label: `Update to ${status.version}…`, click: () => void updater?.install() }, { type: 'separator' }];
+    case 'downloading':
+      return [{ label: `Downloading ${status.version}… ${status.percent}%`, enabled: false }, { type: 'separator' }];
+    case 'installing':
+      return [{ label: `Installing ${status.version}…`, enabled: false }, { type: 'separator' }];
+    case 'failed':
+      return [{ label: `Update to ${status.version} failed. Try again…`, toolTip: status.error, click: () => void updater?.install() }, { type: 'separator' }];
+    default:
+      return [];
+  }
+}
+async function checkForUpdatesNow() {
+  const status = await updater?.check();
+  if (status?.phase === 'available') return;
+  await dialog.showMessageBox({ type: 'info', message: `${app.getName()} is up to date`, detail: `You have version ${app.getVersion()}.` });
+}
+
 function buildTray() {
   if (!tray) {
     tray = new Tray(trayImage(trayMode()));
@@ -1400,12 +1744,16 @@ function buildTray() {
             { label: 'Finish setup…', click: () => needAccessibility() },
             { type: 'separator' },
           ] as Electron.MenuItemConstructorOptions[])),
+      ...updateMenuItems(),
       { label: `Improve prompt  ${hotkeyLabel()}`, enabled: ready, click: () => void trigger() },
       { label: 'Undo last insert', click: () => void undo(), enabled: lastInsert !== null },
+      ...rateMenuItems(),
       { type: 'separator' },
       ...(IS_MAC ? ([{ label: 'Show Dash on screen', type: 'checkbox', checked: settings.showPet, click: (item) => setShowPet(item.checked) }] as Electron.MenuItemConstructorOptions[]) : []),
       { label: 'Settings…', accelerator: 'CommandOrControl+,', click: () => openSetup('settings') },
+      { label: 'Results…', click: () => openSetup('settings', { pane: 'results' }) },
       { label: 'Account…', click: () => openSetup('settings', { pane: 'account' }) },
+      ...(IS_MAC && app.isPackaged ? ([{ label: 'Check for Updates…', click: () => void checkForUpdatesNow() }] as Electron.MenuItemConstructorOptions[]) : []),
       { type: 'separator' },
       { label: `Quit ${app.getName()}`, role: 'quit' },
     ]),
@@ -1468,12 +1816,16 @@ const setup = {
   recording: false,
   shortcutError: undefined as string | undefined,
   pressedAt: null as number | null,
+  /** What happened to the last money-back request, shown under the button. */
+  moneyBackNote: undefined as string | undefined,
 };
 const SETUP_WIDTH = 640;
 const LINKS = {
   site: 'https://firstry.ai',
   privacy: 'https://firstry.ai/privacy.html',
   terms: 'https://firstry.ai/terms.html',
+  results: 'https://firstry.ai/results.html',
+  moneyBack: 'https://firstry.ai/terms.html#money-back',
   support: 'mailto:hello@firstry.ai',
 } as const;
 
@@ -1499,7 +1851,53 @@ function setupState(): SetupState {
     },
     shortcutPressedAt: setup.pressedAt,
     openAtLogin: app.getLoginItemSettings().openAtLogin,
+    // Read from the file only while the Results pane is on screen.
+    results: setup.view === 'settings' && setup.pane === 'results' ? summarize(receipts.read()) : null,
+    moneyBack: setup.view === 'settings' && setup.pane === 'results' ? moneyBackPeriods() : null,
+    moneyBackNote: setup.moneyBackNote,
   };
+}
+
+/**
+ * Money back by your own numbers (site/terms.html#money-back): a paid period can be claimed once it has
+ * ended, until 14 days after. Shown for a subscriber: the period running now (its counts so far, to watch)
+ * and the one that ended, while it can still be claimed. The ended one is assumed to be as long as the
+ * current one, as Stripe bills monthly; the server allows for months of different lengths. After a
+ * cancellation the last period is kept, so it can be claimed once it ends.
+ */
+const CLAIM_FOR_S = 14 * 24 * 60 * 60;
+function moneyBackPeriods(): MoneyBackPeriod[] | null {
+  const start = accountView?.periodStart, end = accountView?.periodEnd ?? accountView?.resetsAt;
+  if (!start || !end) return null;
+  const all = receipts.read();
+  const now = Date.now() / 1000;
+  const period = (which: MoneyBackPeriod['which'], from: number, to: number): MoneyBackPeriod => {
+    const counts = periodCounts(all, from, to);
+    return { which, from, to, counts, qualifies: qualifies(counts), running: now < to, asked: settings.refundsAsked.includes(from) };
+  };
+  const periods: MoneyBackPeriod[] = [];
+  if (now < end + CLAIM_FOR_S) periods.push(period('current', start, end));
+  if (now < start + CLAIM_FOR_S) periods.push(period('previous', start - (end - start), start));
+  return periods.length ? periods : null;
+}
+
+/** Sends a money-back request with that period's counts; the server checks the rule again and records it. */
+async function askMoneyBack(which: MoneyBackPeriod['which']) {
+  const period = moneyBackPeriods()?.find((p) => p.which === which);
+  if (!period || !period.qualifies || period.asked || period.running) return;
+  setup.moneyBackNote = 'Sending…';
+  pushSetup();
+  try {
+    const answer = await accountApi<{ status: string; message: string }>('/refund', { auth: true, body: { periodStart: period.from, periodEnd: period.to, ...period.counts } });
+    settings = { ...settings, refundsAsked: [...settings.refundsAsked, period.from].slice(-24) };
+    saveSettings(settings);
+    setup.moneyBackNote = answer.message;
+    console.log(`[PromptButton] money back asked for the ${which} period (kept ${period.counts.kept}, judged ${period.counts.judged}, better ${period.counts.better})`);
+  } catch (error) {
+    if (error instanceof SessionEnded) forgetAccount();
+    setup.moneyBackNote = message(error);
+  }
+  pushSetup();
 }
 
 function pushSetup() {
@@ -1593,6 +1991,9 @@ async function handleSetupAction(action: SetupAction) {
       settings = { ...settings, lastPane: action.pane };
       saveSettings(settings);
       if (action.pane === 'account' && settings.account) void refreshAccount();
+      // The money-back periods come from the account's billing period: fetch it fresh, then show the pane again.
+      if (action.pane === 'results' && settings.account) void refreshAccount();
+      setup.moneyBackNote = undefined;
       break;
     case 'finishOnboarding':
       settings = { ...settings, onboarded: ONBOARDING_VERSION };
@@ -1627,6 +2028,7 @@ async function handleSetupAction(action: SetupAction) {
     case 'prefs':
       settings = { ...settings, ...action.prefs };
       saveSettings(settings);
+      buildTray(); // whether the last prompt can be rated depends on these switches
       win?.setContentProtection(settings.hideFromCapture);
       petWin?.setContentProtection(settings.hideFromCapture);
       break;
@@ -1651,6 +2053,29 @@ async function handleSetupAction(action: SetupAction) {
     case 'open':
       void shell.openExternal(LINKS[action.target]);
       return;
+    case 'refund':
+      return askMoneyBack(action.which);
+    case 'results': {
+      if (action.do === 'reveal') {
+        const file = receipts.file();
+        if (fs.existsSync(file)) shell.showItemInFolder(file);
+        else void shell.openPath(path.dirname(file));
+        return;
+      }
+      const options = {
+        type: 'warning' as const,
+        message: 'Clear your results?',
+        detail: `This deletes the record of every press on this ${IS_MAC ? 'Mac' : 'computer'}. It cannot be undone. Reports already shared through "Help improve rewrites" are not affected.`,
+        buttons: ['Clear results', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+      };
+      const { response } = setupWin ? await dialog.showMessageBox(setupWin, options) : await dialog.showMessageBox(options);
+      if (response !== 0) return;
+      receipts.clear();
+      console.log('[PromptButton] results cleared');
+      break;
+    }
     case 'close':
       setupWin?.close();
       return;
@@ -1711,6 +2136,8 @@ else {
 const BUNDLE_ID = 'ai.firstry.mac';
 /** The .app this process runs from (macOS), or the executable elsewhere. */
 const OWN_BUNDLE = IS_MAC ? app.getPath('exe').replace(/\/Contents\/MacOS\/[^/]+$/, '') : app.getPath('exe');
+/** Updates without reinstalling (update.ts). The menus show what it reports. */
+let updater: ReturnType<typeof createUpdater> | null = null;
 
 // One copy only: a second launch would add a second tray icon and fight over the hotkey.
 if (!app.requestSingleInstanceLock({ bundle: OWN_BUNDLE, version: app.getVersion() })) app.quit();
@@ -1859,12 +2286,18 @@ app.whenReady().then(async () => {
   const mode = settings.apiKey ? 'own key' : settings.account ? `account ${settings.account.email} via ${API_BASE}` : `developer key from ${resolveApiKey(null).source}`;
   console.log(`[PromptButton] Claude calls use: ${mode} (developer keys checked in env, ${dotEnvPaths().join(', ')})`);
   console.log(`[PromptButton] ready — ${hotkeyLabel()} (pid ${process.pid})`);
+
+  updater = createUpdater({ bundle: OWN_BUNDLE, onChange: () => buildTray(), log: overlayLog });
+  updater.start();
+  // For testing and scripts: `First Try --pmp-update` installs a newer version at once, without the menu.
+  if (process.argv.includes('--pmp-update')) void updater.check().then((status) => (status.phase === 'available' ? updater?.install() : undefined));
 });
 
 app.on('window-all-closed', () => {
   // Keep running in the menu bar.
 });
 app.on('will-quit', () => {
+  endRun(); // a press still on screen when the app quits is written down too
   clearInterval(petCursorTimer);
   globalShortcut.unregisterAll();
   cancelDictation();

@@ -20,21 +20,30 @@ sources.json ─ fetch ─ extract ─ check ─ candidate ─ approve ─ activ
 | `npm run kb -- review` | List candidates and quarantined claims |
 | `npm run kb -- approve <slug…>` | Make candidates active. This is the human step |
 | `npm run kb -- retire <slug> <why>` | Retire a technique and keep the reason |
-| `npm run kb -- lift <slug> <points>` | Record a measured change in win rate; −5 or worse retires the technique |
+| `npm run kb -- lift <slug> <points>` | Record a lab result (change in win rate). It moves confidence but never retires a technique by itself: retire with `retire` when the ablation's 95% interval is wholly below zero |
 | `npm run kb -- compile` | Write `kb.generated.ts` and `site/sources.html` |
 | `npm run kb -- refresh` | Fetch, extract what changed, verify, recompute, compile |
 
 | `npm run kb -- pull` | Download the outcomes the app reported. Needs `PMP_ADMIN_TOKEN`, set to the same value on the server |
-| `npm run kb -- learn` | Measured lift per technique from the app's holdout; a technique that costs 5 points or more is retired |
+| `npm run kb -- learn` | Measured lift per technique from the app's holdout, with both counts, a 95% interval and a verdict. A technique is retired only when the whole interval is below zero (see site/results.html) |
 | `npm run kb -- stale <family>` | A new model came out: send that family's techniques back to review |
 
 ## How it learns from use
 
-One rewrite in five leaves one technique out at random (`planTechniques` in `src/llm/kb.ts`). The app
-reports the technique ids, the one held out and what happened next: inserted, undone, rated up or down.
-No text, no user id. `learn` compares the kept rate with a technique against the kept rate when it was
-held out, once both sides have 30 rewrites. Without the holdout every rewrite in a domain would carry
-the same set and no technique's own effect could be told apart.
+One full rewrite in five leaves one technique out at random (`planTechniques` in `src/llm/kb.ts`), only
+when at least two techniques apply and only when the user is signed in with "Help improve rewrites" on.
+The app reports the technique ids, the one held out and what happened next: inserted, dismissed (shown and
+closed), undone, rated up or down, or a blind pick; with a random id per press (`run`) and the kind of app
+from a fixed list. No text, no user id.
+
+`learn` reduces the rows to one record per press, then compares, for each technique, the kept rate (of
+rewrites put into an app, the share not undone or rated down) when it was left out against rewrites that
+could have had one left out and had none left out, within rewrites that had the same number of
+techniques (the chance of being left out is one in five shared among them), combined with Mantel-Haenszel
+weights. Both sides need 30 rewrites put into an app; the figure is shown with a 95% interval. A technique
+is retired only on a test made three times in its life, when 100, 400 and 1,600 rewrites without it have
+been put in, with the 99% interval wholly below zero, because the figures are looked at again at every refresh. Without the holdout
+every rewrite in a domain would carry the same set and no technique's own effect could be told apart.
 
 The same question can be asked offline: `EVAL_DROP=<id> npm run eval:ablate` runs the full set against
 the set without one technique and prints the `lift` command to record the result.

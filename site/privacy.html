@@ -15,7 +15,7 @@
 <header><a href="/"><img src="/assets/logo.svg" alt="" />First Try</a></header>
 <main>
 <h1>Privacy policy</h1>
-<p class="updated">Last updated 11 November 2026</p>
+<p class="updated">Last updated 18 November 2026</p>
 
 <p>First Try is a Mac app that rewrites the message you are about to send to an AI. This page explains what it sends, what we keep and who else handles it. It is run by <span class="todo">[REPLACE: legal entity name and registered address]</span> ("we"). Questions and requests go to <span class="todo">[REPLACE: privacy contact email]</span>.</p>
 
@@ -27,6 +27,7 @@
   <li>your answers to its questions, and the text of anything you dictate.</li>
 </ul>
 <p>When you are signed in, this goes to our server, which passes it straight on to Anthropic's Claude API and returns the result. <strong>Our server does not store or log what you write, your screenshots or the rewritten prompts.</strong> It keeps only the counts it needs to bill you: how many tokens each request used and what that cost.</p>
+<p>If you ask for a blind comparison after a full prompt, your draft and First Try's prompt are sent the same way, one request each, so Claude can answer both. We do not store them or the two answers.</p>
 <p>If you add your own Anthropic API key in the app, requests go from your Mac directly to Anthropic and never pass through us.</p>
 <p>Dictation uses macOS speech recognition, on your Mac when your language supports it. Otherwise Apple processes the audio under its own privacy policy. We never receive audio.</p>
 
@@ -38,6 +39,7 @@
     <tr><td>Sign-in sessions (stored only as one-way hashes)</td><td>To keep you signed in on your Mac</td><td>Until you sign out or delete your account</td></tr>
     <tr><td>Sign-in codes (stored only as one-way hashes)</td><td>To check the code you type</td><td>10 minutes, or until used</td></tr>
     <tr><td>Usage totals: requests and their cost per billing period</td><td>To apply your plan's allowance</td><td>Until you delete your account</td></tr>
+    <tr><td>Money-back requests: the billing period and its counts (kept, judged, better)</td><td>To check the request against the <a href="/terms.html#money-back">money-back rule</a> and refund it</td><td>Until you delete your account, and longer where tax law requires billing records</td></tr>
     <tr><td>Plan, subscription status and Stripe customer ID</td><td>To know what you have paid for</td><td>Until you delete your account, and longer where tax law requires billing records</td></tr>
     <tr><td>Server logs: time, address requested and response code</td><td>To keep the service running and stop abuse</td><td><span class="todo">[REPLACE: log retention, e.g. 14 days]</span></td></tr>
   </tbody>
@@ -60,9 +62,13 @@
 <h2>Helping us improve rewrites</h2>
 <p>Two settings under Settings › Prompts control this. Both apply only when you are signed in.</p>
 <ul>
-  <li><strong>Help improve rewrites</strong> (on by default). After a rewrite is put into your chat box, the app reports which of our listed <a href="/sources.html">techniques</a> it used, the kind of task, the app family you were typing in, and whether you kept the rewrite, undid it or rated it. It contains none of your text. We store it without your account, so it cannot be traced back to you. One time in five the app leaves one technique out on purpose, so we can measure what each one adds.</li>
+  <li><strong>Help improve rewrites</strong> (on by default). When a rewrite that used our listed <a href="/sources.html">techniques</a> is shown to you, the app reports which techniques it used, the kind of task, and the kind of app you were typing in, from a fixed list (for example ChatGPT, Cursor, a browser or a terminal; never the name of any other app), with the AI family that app uses where it can tell. It also reports what happened: whether the rewrite was put into your chat box or closed without using it, and whether you then undid it or rated it. When you compare two answers blind, the report also says which one you picked: the answer to your draft, the answer to First Try's prompt, or neither because they were about the same. It contains no text from either answer. Each report carries a random id made on your Mac for that one press, so the report that the rewrite was used can be joined with a later undo or rating. The id is not linked to your account or to any other press. A report contains none of your text. We store it without your account, so it cannot be traced back to you. One time in five, when at least two techniques apply, the app leaves one technique out on purpose, so we can measure what each one adds. This happens only when this setting is on and you are signed in. The <a href="/results.html">Results</a> page explains how we use these reports.</li>
   <li><strong>Share before and after prompts</strong> (off unless you switch it on). The app also sends your draft and its rewrite. Email addresses, links, phone numbers and long numbers are removed on our server before anything is stored; names and other details in your wording can remain, so leave this off for anything private. Pairs are stored without your account and used to test changes to the rewriter. Because they are not linked to you, we cannot find and delete an individual pair afterwards; switch the setting off to stop sending new ones.</li>
 </ul>
+
+<h2>Results on your Mac</h2>
+<p>The app keeps a record of each press in a file on your Mac, so it can show you in Settings › Results how its rewrites have worked for you. For each press it holds the time, which app you were typing in and its kind (from the same fixed list as above), what First Try did, how many questions it asked and how many changes you asked for, how it ended, whether you undid or rated it, which answer you picked if you compared two blind, and the ids of the techniques it used, including one left out on purpose. It holds no prompt text, no answers and no screenshots. The record itself is never sent to us or anyone else. You can clear it or switch it off in Settings › Results.</p>
+<p>When you ask for money back, the app sends that period's counts (kept, judged, better) with your account, so the request can be checked against the <a href="/terms.html#money-back">money-back rule</a>. Nothing else from the record is sent. The counts are kept with the refund request.</p>
 
 <h2>Legal bases</h2>
 <p>We process your account and usage data to provide the service you signed up for (contract), billing records to meet tax obligations (legal obligation), and logs to keep the service secure (legitimate interest).</p>

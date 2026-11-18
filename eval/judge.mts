@@ -3,6 +3,12 @@
 // Each case is judged twice (A/B and B/A); the rewrite only "wins" if it wins both orders.
 //
 //   node --import tsx eval/judge.mts [path/to/run.json]
+//   EVAL_SET=hand node --import tsx eval/judge.mts       # judge only the hand-written cases of a run
+//
+// The case set comes from EVAL_SET, else from the run file (run.mts records it), else `hand`. `hand`
+// keeps every case that is not model-written, so older run files are judged exactly as before;
+// `reviewed` also keeps the model-written cases accepted in cases.reviewed.ts. The summary reports
+// rewrite-preferred per set (hand-written, model-written, combined) with a 95% Wilson interval.
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -11,6 +17,8 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { MODEL } from '../src/llm/config';
 import { lengthGuide } from '../src/llm/context';
+import { isGenerated, isReviewed, parseEvalSet, REVIEWED_IDS, type EvalSet } from './cases.reviewed.ts';
+import { wilson } from './lib.mts';
 import type { RunResult } from './run.mts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -83,10 +91,15 @@ async function pool<T, R>(items: T[], size: number, worker: (item: T) => Promise
   return results;
 }
 
-const run = JSON.parse(readFileSync(inputPath, 'utf8')) as { model: string; threshold: number; results: RunResult[] };
-console.log(`Judging ${run.results.length} cases from ${path.relative(process.cwd(), inputPath)}…\n`);
+const run = JSON.parse(readFileSync(inputPath, 'utf8')) as { model: string; threshold: number; set?: EvalSet; results: RunResult[] };
+const set = parseEvalSet(process.env.EVAL_SET || run.set);
+const selected = run.results.filter((r) => !isGenerated(r.id) || (set === 'reviewed' && isReviewed(r.id)));
+const skipped = run.results.length - selected.length;
+if (skipped) console.warn(`${skipped} cases in the run file are not in the ${set} set and are not judged.`);
+if (set === 'reviewed' && !selected.some((r) => isGenerated(r.id))) console.warn('This run has no reviewed model-written cases; run it with EVAL_SET=reviewed first.');
+console.log(`Judging ${selected.length} cases (${set} set) from ${path.relative(process.cwd(), inputPath)}…\n`);
 
-const verdicts = await pool(run.results, CONCURRENCY, async (r) => {
+const verdicts = await pool(selected, CONCURRENCY, async (r) => {
   const verdict = await judge(r);
   console.log(`${r.id.padEnd(30)} ${verdict}`);
   return { ...r, verdict };
@@ -97,12 +110,17 @@ function rate(subset: typeof verdicts) {
   const losses = subset.filter((v) => v.verdict === 'original').length;
   const ties = subset.length - wins - losses;
   const pct = (n: number) => (subset.length ? `${Math.round((100 * n) / subset.length)}%` : '–');
-  return { n: subset.length, wins, losses, ties, winRate: pct(wins), lossRate: pct(losses), tieRate: pct(ties) };
+  // A bare percentage hides how small a sample is; the interval says it.
+  const w = wilson(wins, subset.length);
+  const winRate = subset.length ? `${w.rate}% (${w.low}–${w.high}%)` : '–';
+  return { n: subset.length, wins, losses, ties, winRate, lossRate: pct(losses), tieRate: pct(ties), ...w };
 }
 
 const all = rate(verdicts);
 const long = rate(verdicts.filter((v) => v.historyLength >= 5));
 const cold = rate(verdicts.filter((v) => v.historyLength === 0));
+const hand = rate(verdicts.filter((v) => !isGenerated(v.id)));
+const written = rate(verdicts.filter((v) => isGenerated(v.id)));
 const ambiguous = verdicts.filter((v) => v.tag === 'ambiguous');
 const clear = verdicts.filter((v) => v.tag === 'clear');
 const askRecall = ambiguous.length ? Math.round((100 * ambiguous.filter((v) => v.asked).length) / ambiguous.length) : 0;
@@ -121,15 +139,30 @@ const cutOriginal = verdicts.filter((v) => v.stop && v.stop.original !== 'end_tu
 const cutRewritten = verdicts.filter((v) => v.stop && v.stop.rewritten !== 'end_turn').length;
 
 const row = (label: string, r: ReturnType<typeof rate>) => `| ${label} | ${r.n} | ${r.winRate} | ${r.tieRate} | ${r.lossRate} |`;
+const writtenRow = written.n
+  ? row('Model-written, reviewed (cases.reviewed.ts)', written)
+  : `| Model-written, reviewed (cases.reviewed.ts) | 0 | not in this run; \`EVAL_SET=reviewed\` adds ${REVIEWED_IDS.length} | – | – |`;
+// The repo's bar for a lab number on the site, as in ablate.mts: at least 100 cases, always with the interval.
+const siteLine = all.n >= 100
+  ? `**For the site:** "In ${all.n} blind comparisons, the answer to the rewritten prompt was preferred ${all.rate}% of the time (95% interval ${all.low}–${all.high}%)."${written.n ? ` ${written.n} of these cases are model-written: a person checks the review in eval/cases.reviewed.ts before this is published.` : ''}`
+  : `**Not ready for the site:** ${all.n} cases is too few; the interval is the honest size of the result. A published number needs at least 100 (\`EVAL_SET=reviewed\`).`;
 const summary = `# PromptButton eval — ${new Date().toISOString().slice(0, 10)}
 
-Model: \`${run.model}\` · ask threshold: ${run.threshold} · judge: pairwise, position-swapped, intent-aware.
+Model: \`${run.model}\` · ask threshold: ${run.threshold} · case set: ${set} · judge: pairwise, position-swapped, intent-aware.
 
-| Slice | n | Rewrite preferred | Tie | Original preferred |
+| Slice | n | Rewrite preferred (95% interval) | Tie | Original preferred |
 |---|---|---|---|---|
 ${row('All cases', all)}
 ${row('Conversations with ≥5 earlier messages', long)}
 ${row('Cold first messages', cold)}
+
+| Case set | n | Rewrite preferred (95% interval) | Tie | Original preferred |
+|---|---|---|---|---|
+${row('Hand-written (cases.ts)', hand)}
+${writtenRow}
+${row('Combined', all)}
+
+${siteLine}
 
 **Gate:** asked on ${askRecall}% of ambiguous drafts (recall) · asked on ${falseAsk}% of clear drafts (false-ask rate).
 **Length:** rewrites are ${lengthRatio.toFixed(1)}× the draft on average.
@@ -141,6 +174,6 @@ ${row('Cold first messages', cold)}
 ${verdicts.map((v) => `| ${v.id} | ${v.tag} | ${v.gap.mode} / ${v.gap.scale} / ${v.gap.domain} | ${v.gap.ambiguity.toFixed(2)} | ${v.asked ? `yes (${v.gap.questions.length})` : 'no'} | ${v.rewritten.length} | ${v.verdict} |`).join('\n')}
 `;
 
-writeFileSync(path.join(RESULTS_DIR, 'judged-latest.json'), JSON.stringify({ ...run, verdicts }, null, 2));
+writeFileSync(path.join(RESULTS_DIR, 'judged-latest.json'), JSON.stringify({ ...run, set, verdicts }, null, 2));
 writeFileSync(path.join(RESULTS_DIR, 'summary.md'), summary);
 console.log(`\n${summary}\nWritten to eval/results/summary.md`);

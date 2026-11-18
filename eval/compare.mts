@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { MODEL } from '../src/llm/config';
-import { CASES } from './cases';
+import { ALL_CASES, CASES } from './cases';
 import { pool, respond } from './lib.mts';
 import type { RunResult } from './run.mts';
 
@@ -58,7 +58,7 @@ console.log(`Comparing ${pairs.length} cases: A=${path.basename(aPath)} vs B=${p
 if (process.env.REGENERATE === '1') {
   console.log('Regenerating both runs’ answers to the rewritten prompts with the current responder…');
   await pool(pairs, CONCURRENCY, async ({ a, b }) => {
-    const history = CASES.find((c) => c.id === a.id)?.history ?? [];
+    const history = ALL_CASES.find((c) => c.id === a.id)?.history ?? []; // model-written cases have earlier messages too
     const [ra, rb] = await Promise.all([respond(client, history, a.rewritten), respond(client, history, b.rewritten)]);
     a.responseRewritten = ra.text;
     a.stop = { original: a.stop?.original ?? 'unknown', rewritten: ra.stopReason };

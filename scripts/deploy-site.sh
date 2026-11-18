@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys the website to the VPS: the landing page, legal pages, Stripe return pages and assets.
+# Deploys the website to the VPS: the landing page, legal pages, the sources and results pages, Stripe return pages and assets.
 # site/stage/ is capture tooling and stays local; /download/ on the server (the DMG) is left untouched.
 #
 #   npm run site:deploy
@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 host="${DEPLOY_HOST:-root@firstry.ai}"
 root="${DEPLOY_ROOT:-/var/www/promptbutton}"
 rsync -rltz --delete \
-  --include='/index.html' --include='/privacy.html' --include='/terms.html' --include='/sources.html' \
+  --include='/index.html' --include='/privacy.html' --include='/terms.html' --include='/sources.html' --include='/results.html' \
   --include='/assets/' --include='/assets/**' --include='/billing/' --include='/billing/**' --exclude='*' \
   site/ "$host:$root/"
 echo "Deployed to https://firstry.ai/ (http://${host#*@}/)"

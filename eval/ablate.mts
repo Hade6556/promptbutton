@@ -8,7 +8,7 @@
 //   npm run eval:ablate                         # all cases
 //   EVAL_ONLY=cold-blog,deep-sql-fix npm run eval:ablate
 //   EVAL_LIMIT=5 npm run eval:ablate            # the first five, for a smoke test
-//   EVAL_SET=hand npm run eval:ablate           # only the hand-written cases (default: all, including model-written)
+//   EVAL_SET=hand npm run eval:ablate           # only the hand-written cases (default: the reviewed set, see cases.reviewed.ts)
 //   EVAL_DROP=<technique-id> npm run eval:ablate  # one technique's own effect: the full set against the set without it
 //
 // About 11 model calls per case (classification, simulated answers, two rewrites, three answers, four
@@ -24,7 +24,8 @@ import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { KB_VERSION, selectTechniques } from '../src/llm/kb';
 import { rewritePrompt } from '../src/llm/rewrite';
 import type { GapReport, ImproveInput, UserAnswer } from '../src/messaging';
-import { ALL_CASES, CASES, type EvalCase } from './cases';
+import { CASES, type EvalCase } from './cases';
+import { parseEvalSet, selectCases } from './cases.reviewed';
 import { judgePair, pool, respond, wilson } from './lib.mts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -113,7 +114,8 @@ async function runCase(c: EvalCase): Promise<Row> {
   };
 }
 
-const pool_ = process.env.EVAL_SET === 'hand' ? CASES : ALL_CASES;
+// The hand-written cases plus the model-written ones that passed review; the 19 rejected drafts never count.
+const pool_ = selectCases(parseEvalSet(process.env.EVAL_SET ?? 'reviewed'));
 let cases = only ? pool_.filter((c) => only.includes(c.id)) : pool_;
 if (limit) cases = cases.slice(0, limit);
 console.log(`Ablation over ${cases.length} cases on ${MODEL}, knowledge base ${KB_VERSION}, concurrency ${CONCURRENCY}…\n`);

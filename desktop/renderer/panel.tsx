@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { AccountScreen, AccountView, DictationEvent, PanelState, RendererAction } from '../shared';
+import type { AccountScreen, AccountView, DictationEvent, PanelState, RendererAction, CompareView as Comparison } from '../shared';
 import { blocks, inlineRuns, parseSections, type Block } from './format';
 import { Dash } from './dash';
 import type { Mood } from '../../src/mascot/dash';
@@ -194,6 +194,55 @@ function AccountCard({ screen, error }: { screen: AccountScreen; error?: string 
   );
 }
 
+/**
+ * Blind comparison: two answers, one to the user's own draft and one to First Try's prompt, without labels
+ * until the user has picked. The order was chosen at random in main, which keeps the key until the pick.
+ */
+function CompareView({ compare }: { compare: Comparison }) {
+  const revealed = compare.status === 'revealed';
+  const label = (i: 0 | 1) => (revealed ? (i === compare.draftIs ? 'Your draft' : 'First Try’s prompt') : `Answer ${i + 1}`);
+  const say = (() => {
+    switch (compare.status) {
+      case 'loading':
+        return 'Writing two answers: one to your draft, one to First Try’s prompt. You pick first, then you see which is which.';
+      case 'ready':
+        return 'Which answer is better? Pick before you find out which is which.';
+      case 'revealed':
+        return compare.result === 'rewrite'
+          ? 'You picked the answer to First Try’s prompt.'
+          : compare.result === 'original'
+            ? 'You picked the answer to your own draft. Keep your draft, or insert the prompt anyway.'
+            : 'You found them about the same.';
+      default:
+        return `Could not get both answers: ${compare.error ?? 'something went wrong'}. Your prompt is unchanged.`;
+    }
+  })();
+  return (
+    <div class="compare">
+      <p class={compare.status === 'error' ? 'compare-say error' : 'compare-say'} role="status">
+        {say}
+      </p>
+      {compare.status !== 'error' && (
+        <div class="pair">
+          {([0, 1] as const).map((i) => (
+            <section key={i} class={compare.picked === i ? 'answer picked' : 'answer'} aria-label={label(i)}>
+              <h3 class="answer-label">
+                {label(i)}
+                {compare.picked === i && <span class="answer-mark"> (your pick)</span>}
+              </h3>
+              <div class="answer-text" tabIndex={0}>
+                {compare.answers[i] || (compare.status === 'loading' ? 'Writing…' : '')}
+              </div>
+              {compare.cut[i] && <p class="answer-cut">Cut at the length limit both answers share.</p>}
+            </section>
+          ))}
+        </div>
+      )}
+      {compare.status !== 'error' && <p class="compare-note">Both answers come from the same model, with the same settings and length limit.</p>}
+    </div>
+  );
+}
+
 function ResultView({ text, streaming }: { text: string; streaming: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [edge, setEdge] = useState<'none' | 'top' | 'middle' | 'bottom'>('none');
@@ -380,8 +429,9 @@ export function Panel() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        // First Esc stops listening; the next one closes the box.
+        // First Esc stops listening; the next one closes the box. During a comparison it goes back to the prompt.
         if (mic === 'starting' || mic === 'listening') return toggleMic();
+        if (stateRef.current.phase === 'done' && stateRef.current.compare) return send({ type: 'endCompare' });
         send({ type: 'cancel' });
       }
       if (e.key !== 'Enter' || e.isComposing) return;
@@ -409,8 +459,15 @@ export function Panel() {
 
   if (state.phase === 'hidden') return null;
 
+  const comparing = state.phase === 'done' ? (state.compare ?? null) : null;
   const busy =
-    state.phase === 'capturing' || state.phase === 'analyzing' || state.phase === 'rewriting' || understanding || Boolean(state.talking) || (state.phase === 'settings' && Boolean(state.accountScreen?.working));
+    state.phase === 'capturing' ||
+    state.phase === 'analyzing' ||
+    state.phase === 'rewriting' ||
+    understanding ||
+    Boolean(state.talking) ||
+    comparing?.status === 'loading' ||
+    (state.phase === 'settings' && Boolean(state.accountScreen?.working));
   busyRef.current = busy;
   const questions = state.report?.questions ?? [];
   const question = state.phase === 'asking' ? questions[qIndex] : undefined;
@@ -540,6 +597,12 @@ export function Panel() {
       case 'asking':
         return typed ? answer(typed) : rewriteWithAnswers();
       case 'done':
+        if (comparing) {
+          // ↵ after the reveal inserts First Try's prompt; before the pick it does nothing, so a stray key cannot choose.
+          if (comparing.status === 'revealed') return state.text && send({ type: 'accept', text: state.text });
+          if (comparing.status === 'error') return send({ type: 'endCompare' });
+          return;
+        }
         if (typed) {
           send({ type: 'chat', text: typed });
           setText('');
@@ -615,7 +678,15 @@ export function Panel() {
       case 'rewriting':
         return state.text ? <ResultView text={state.text} streaming /> : null;
       case 'done':
-        return <ResultView text={state.text ?? ''} streaming={false} />;
+        if (state.compare) return <CompareView compare={state.compare} />;
+        return (
+          <>
+            <ResultView text={state.text ?? ''} streaming={false} />
+            {state.compareOffer === 'intro' && (
+              <p class="offer">Not sure it is better? Compare blind: you get two answers, one to your draft and one to this prompt, and pick one before you see which is which.</p>
+            )}
+          </>
+        );
       case 'ready':
         return (
           <div class="line">
@@ -667,11 +738,51 @@ export function Panel() {
     window.pb.setMood(mood);
   }, [mood]);
 
-  const showField = state.phase !== 'notice' && state.phase !== 'error' && !(state.phase === 'settings' && state.accountScreen?.mode === 'account');
+  const showField = state.phase !== 'notice' && state.phase !== 'error' && !comparing && !(state.phase === 'settings' && state.accountScreen?.mode === 'account');
   // Voice is an input like the keyboard: available wherever the field takes text, except the API-key field.
   // Voice uses macOS speech recognition; other systems get the keyboard only for now.
   const showMic = window.pb.platform === 'darwin' && showField && state.phase !== 'settings' && (!busy || mic !== 'off');
   const options = [
+    ...(state.phase === 'done' && !comparing && state.compareOffer
+      ? [
+          <button type="button" class="opt" key="compare" onClick={() => send({ type: 'compare' })}>
+            Compare blind
+          </button>,
+        ]
+      : []),
+    ...(comparing?.status === 'ready'
+      ? [
+          <button type="button" class="opt" key="pick-1" onClick={() => send({ type: 'pick', choice: 0 })}>
+            Answer 1 is better
+          </button>,
+          <button type="button" class="opt" key="pick-2" onClick={() => send({ type: 'pick', choice: 1 })}>
+            Answer 2 is better
+          </button>,
+          <button type="button" class="opt" key="pick-same" onClick={() => send({ type: 'pick', choice: 'same' })}>
+            About the same
+          </button>,
+        ]
+      : []),
+    ...(comparing?.status === 'revealed'
+      ? [
+          <button type="button" class="opt" key="insert" onClick={() => state.text && send({ type: 'accept', text: state.text })}>
+            Insert First Try’s prompt
+          </button>,
+          <button type="button" class="opt" key="keep" onClick={() => send({ type: 'cancel' })}>
+            Keep my draft
+          </button>,
+          <button type="button" class="opt" key="back" onClick={() => send({ type: 'endCompare' })}>
+            Back to the prompt
+          </button>,
+        ]
+      : []),
+    ...(comparing?.status === 'error'
+      ? [
+          <button type="button" class="opt" key="back" onClick={() => send({ type: 'endCompare' })}>
+            Back to the prompt
+          </button>,
+        ]
+      : []),
     ...(state.phase === 'ready'
       ? [
           <button type="button" class="opt" key="improve-anyway" onClick={() => send({ type: 'improveAnyway' })}>

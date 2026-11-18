@@ -34,14 +34,18 @@ export const config = {
   userPerMinute: num('USER_PER_MINUTE', 30),
   userConcurrent: num('USER_CONCURRENT', 4),
 
-  /** Lets the knowledge-base tool download outcomes. Unset = the export route does not exist. */
+  /** Lets the knowledge-base tool download outcomes, and the owner list and decide refund requests. Unset = the admin routes do not exist. */
   adminToken: env.PMP_ADMIN_TOKEN ?? '',
+  /** Where refund requests are emailed, so they are refunded by hand within the promised 5 working days. */
+  ownerEmail: env.OWNER_EMAIL ?? '',
 
   mail: {
     resendKey: env.RESEND_API_KEY ?? '',
     from: env.MAIL_FROM ?? 'First Try <signin@firstry.ai>',
     /** Development only: write sign-in codes to the log instead of sending them. */
     logCodes: env.MAIL_LOG_CODES === '1',
+    /** Tests only: points the sender at a local stand-in for api.resend.com. */
+    resendBase: (env.RESEND_API_BASE ?? 'https://api.resend.com').replace(/\/$/, ''),
   },
 
   stripe: {
@@ -60,6 +64,7 @@ export function checkConfig(): string[] {
   if (!config.anthropicKey) problems.push('ANTHROPIC_API_KEY is not set: Claude calls will fail.');
   if (config.codeSecret.length < 32) problems.push('CODE_SECRET is missing or shorter than 32 characters.');
   if (!config.mail.resendKey && !config.mail.logCodes) problems.push('No RESEND_API_KEY: sign-in emails cannot be sent.');
+  if (!config.ownerEmail || !config.mail.resendKey) problems.push('OWNER_EMAIL or RESEND_API_KEY is not set: refund requests are stored but nobody is emailed (see /api/admin/refunds).');
   if (!config.stripe.key || !config.stripe.priceId) problems.push('Stripe is not configured: upgrading is disabled.');
   if (config.stripe.key && !config.stripe.webhookSecret) problems.push('STRIPE_WEBHOOK_SECRET is missing: subscription changes will not sync.');
   return problems;

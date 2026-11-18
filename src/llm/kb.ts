@@ -35,6 +35,11 @@ export interface KbQuery {
   site?: string;
   /** The draft text. Only read when the domain is 'other', to find techniques from the closest domains. */
   draft?: string;
+  /**
+   * False when nothing about this rewrite can be reported back (signed out, or "Help improve rewrites"
+   * switched off): leaving a technique out then only weakens the rewrite and teaches nothing. Default: true.
+   */
+  holdout?: boolean;
 }
 
 /** Words that point at a domain when the classifier could not place the draft. */
@@ -98,11 +103,12 @@ export interface TechniquePlan {
 /**
  * Chooses the techniques for one rewrite and, at random, leaves one out. Comparing how rewrites fare with
  * and without a technique is the only way to learn its own effect: without the holdout every rewrite in
- * a domain would carry the same set and nothing could be told apart.
+ * a domain would carry the same set and nothing could be told apart. With `holdout: false` nothing is
+ * left out and no random number is drawn.
  */
 export function planTechniques(query: KbQuery, random: () => number = Math.random, entries: KbTechnique[] = KB): TechniquePlan {
   const ids = selectTechniques(query, entries).map((t) => t.id);
-  if (ids.length < 2 || random() >= HOLDOUT_RATE) return { used: ids, heldOut: null };
+  if (query.holdout === false || ids.length < 2 || random() >= HOLDOUT_RATE) return { used: ids, heldOut: null };
   const heldOut = ids[Math.floor(random() * ids.length)]!;
   return { used: ids.filter((id) => id !== heldOut), heldOut };
 }

@@ -2,10 +2,12 @@
 // Runs the PromptButton pipeline on every eval case and collects assistant responses
 // for the original draft and for the rewrite. Judging happens in judge.mts.
 //
-//   node --import tsx eval/run.mts            # all cases
+//   node --import tsx eval/run.mts            # the hand-written cases (EVAL_SET=hand, the default)
+//   EVAL_SET=reviewed node --import tsx eval/run.mts   # plus the model-written cases that passed review
 //   EVAL_ONLY=cold-blog,deep-sql-fix node --import tsx eval/run.mts
 //
-// Needs ANTHROPIC_API_KEY (or an `ant auth login` profile). Roughly 5 calls per case.
+// Needs ANTHROPIC_API_KEY (or an `ant auth login` profile). Roughly 5 calls per case; the reviewed set
+// is about three times the hand-written one, so check the cost in eval/README.md first.
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -16,7 +18,8 @@ import { ASK_THRESHOLD, MODEL } from '../src/llm/config';
 import { analyzeGaps } from '../src/llm/gapAnalysis';
 import { rewritePrompt } from '../src/llm/rewrite';
 import type { GapReport, ImproveInput, UserAnswer } from '../src/messaging';
-import { CASES, type CaseTag, type EvalCase } from './cases';
+import type { CaseTag, EvalCase } from './cases';
+import { parseEvalSet, selectCases } from './cases.reviewed.ts';
 import { pool, respond } from './lib.mts';
 
 export interface RunResult {
@@ -112,8 +115,12 @@ async function runCase(c: EvalCase): Promise<RunResult> {
   };
 }
 
-const cases = only ? CASES.filter((c) => only.includes(c.id)) : CASES;
-console.log(`Running ${cases.length} cases with concurrency ${CONCURRENCY} on ${MODEL}…\n`);
+const set = parseEvalSet(process.env.EVAL_SET);
+const selected = selectCases(set);
+const cases = only ? selected.filter((c) => only.includes(c.id)) : selected;
+const notInSet = only?.filter((id) => !selected.some((c) => c.id === id)) ?? [];
+if (notInSet.length) console.warn(`Not in the ${set} set, skipped: ${notInSet.join(', ')}`);
+console.log(`Running ${cases.length} cases from the ${set} set with concurrency ${CONCURRENCY} on ${MODEL}…\n`);
 
 const results = await pool(cases, CONCURRENCY, async (c) => {
   try {
@@ -134,7 +141,7 @@ const results = await pool(cases, CONCURRENCY, async (c) => {
 const ok = results.filter((r): r is RunResult => r !== null);
 mkdirSync(RESULTS_DIR, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const payload = JSON.stringify({ model: MODEL, threshold: ASK_THRESHOLD, ranAt: new Date().toISOString(), results: ok }, null, 2);
+const payload = JSON.stringify({ model: MODEL, threshold: ASK_THRESHOLD, set, ranAt: new Date().toISOString(), results: ok }, null, 2);
 writeFileSync(path.join(RESULTS_DIR, `run-${stamp}.json`), payload);
 writeFileSync(path.join(RESULTS_DIR, 'latest.json'), payload);
-console.log(`\n${ok.length}/${cases.length} cases done → eval/results/latest.json. Next: node --import tsx eval/judge.mts`);
+console.log(`\n${ok.length}/${cases.length} cases done → eval/results/latest.json. Next: node --import tsx eval/judge.mts (it reads the ${set} set from the run file)`);

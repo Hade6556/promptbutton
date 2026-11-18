@@ -17,6 +17,9 @@ export const DEFAULTS: Settings = {
   sharePairs: false,
   showPet: true,
   pet: null,
+  keepReceipts: true,
+  blindIntros: 0,
+  refundsAsked: [],
 };
 
 function file(): string {

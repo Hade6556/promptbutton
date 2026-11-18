@@ -606,6 +606,8 @@ body.menu-open .menu-btn .x { display: block; }
 .row { display: grid; grid-template-columns: minmax(96px, 150px) minmax(0, 1fr); gap: 20px; align-items: center; padding: 24px 0; border-top: 1px solid var(--line); }
 @media (max-width: 599px) { .row { grid-template-columns: 92px minmax(0, 1fr); gap: 14px; } }
 .row .n { font-weight: 600; font-size: clamp(2.75rem, 5vw, 4rem); line-height: 1; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; }
+.tsheet .tnote { margin: 14px 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--ink-3); }
+.tsheet .tnote a, .row p a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .row .n small { font-size: 0.45em; margin-left: 3px; letter-spacing: 0; color: var(--accent-ink); }
 .row p { margin-top: 4px; color: var(--ink-2); font-size: 0.9375rem; max-width: 44ch; }
 .apps { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; color: var(--ink-3); font-size: 0.9375rem; }
@@ -1181,24 +1183,25 @@ body.menu-open .menu-btn .x { display: block; }
     <div class="glow-layer" data-glow="proof" aria-hidden="true"></div>
     <div class="wrap">
       <div class="proof" data-play>
-        <div class="stage tally" role="img" aria-label="Of 37 test conversations, the rewritten prompt got the better answer in 22, an equal answer in 9 and a worse answer in 6.">
+        <div class="stage tally" role="img" aria-label="Our first lab test, 37 conversations: the rewritten prompt got the better answer in 22, an equal answer in 9 and a worse answer in 6. That is too few to rely on by our own rule; the larger test goes on the Results page.">
           <div class="tsheet">
-            <div class="cap">37 test conversations</div>
+            <div class="cap">Our first lab test, 37 conversations</div>
             <div class="grid"><i class="w" style="--n:0"></i><i class="w" style="--n:1"></i><i class="w" style="--n:2"></i><i class="w" style="--n:3"></i><i class="w" style="--n:4"></i><i class="w" style="--n:5"></i><i class="w" style="--n:6"></i><i class="w" style="--n:7"></i><i class="w" style="--n:8"></i><i class="w" style="--n:9"></i><i class="w" style="--n:10"></i><i class="w" style="--n:11"></i><i class="w" style="--n:12"></i><i class="w" style="--n:13"></i><i class="w" style="--n:14"></i><i class="w" style="--n:15"></i><i class="w" style="--n:16"></i><i class="w" style="--n:17"></i><i class="w" style="--n:18"></i><i class="w" style="--n:19"></i><i class="w" style="--n:20"></i><i class="w" style="--n:21"></i><i class="e" style="--n:22"></i><i class="e" style="--n:23"></i><i class="e" style="--n:24"></i><i class="e" style="--n:25"></i><i class="e" style="--n:26"></i><i class="e" style="--n:27"></i><i class="e" style="--n:28"></i><i class="e" style="--n:29"></i><i class="e" style="--n:30"></i><i class="l" style="--n:31"></i><i class="l" style="--n:32"></i><i class="l" style="--n:33"></i><i class="l" style="--n:34"></i><i class="l" style="--n:35"></i><i class="l" style="--n:36"></i></div>
             <ul class="legend">
               <li><i class="w"></i>22 got a better answer with the rewrite</li>
               <li><i class="e"></i>9 came out about equal</li>
               <li><i class="l"></i>6 were better as typed</li>
             </ul>
+            <p class="tnote">Too few to rely on by our own rule, which needs 100. The larger test goes on the <a href="/results.html">Results</a> page, with its interval.</p>
           </div>
         </div>
         <div class="facts">
-          <h2 class="h2">Better answers, and we measured it</h2>
-          <p class="lead">We sent the same requests to an AI twice, once as typed and once rewritten, and compared the answers.</p>
+          <h2 class="h2">Don't take our word for it</h2>
+          <p class="lead">Every claim First Try makes comes with a way to check it yourself.</p>
           <div class="rows">
-            <div class="row"><div class="n"><span data-count="59">59</span><small>%</small></div><div><h3 class="h3">Better answers</h3><p>Across 37 test conversations, the answer to the rewritten prompt was the better one 59% of the time, and equal 24% of the time.</p></div></div>
-            <div class="row"><div class="n"><span data-count="75">75</span><small>%</small></div><div><h3 class="h3">On the first message</h3><p>A brand-new chat gains the most, because the AI knows nothing about you yet. There the rewrite won three times in four.</p></div></div>
-            <div class="row"><div class="n"><span data-count="3">3</span></div><div><h3 class="h3">Questions at most</h3><p>It only asks when the answer changes the result, and every question comes with answers you can tap.</p></div></div>
+            <div class="row"><div class="n"><span>2</span></div><div><h3 class="h3">Answers, compared blind</h3><p>After a prompt, ask for two answers: one to your own draft, one to First Try's prompt. You pick the better one before you're told which is which.</p></div></div>
+            <div class="row"><div class="n"><span>€0</span></div><div><h3 class="h3">For a month it didn't help</h3><p>Settings › Results counts what you kept, undid and found better, on your Mac. If those numbers show it didn't help in a month you paid for, <a href="/terms.html#money-back">you get that month back</a>.</p></div></div>
+            <div class="row"><div class="n"><span>100</span></div><div><h3 class="h3">Drafts before a lab figure goes up</h3><p>Our own rule. Everything we measure, including what shows no gain, goes on the <a href="/results.html">Results</a> page with how many it rests on and its interval.</p></div></div>
           </div>
         </div>
       </div>
@@ -1229,6 +1232,7 @@ body.menu-open .menu-btn .x { display: block; }
             <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>About 200 rewrites a month</li>
             <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Your count resets on your billing date</li>
             <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Cancel any time, from inside the app</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>If it didn't help you this month, you don't pay. <a href="/terms.html#money-back" style="color: var(--ink); text-decoration: underline; text-underline-offset: 3px;">Money back by your own numbers</a></span></li>
           </ul>
           <p class="fine">You upgrade inside the app when your trial runs out.</p>
         </div>
@@ -1251,6 +1255,10 @@ body.menu-open .menu-btn .x { display: block; }
         <details>
           <summary>Is it free?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="a">It is free to try: about 25 rewrites, with no card. After that, Pro is €20 a month for about 200 rewrites, and you can cancel from the app at any time.</div>
+        </details>
+        <details>
+          <summary>What if it doesn't help me?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="a">If the numbers First Try keeps for you show it didn't help in a month you paid for, you get that month back. You can see those numbers and ask for a refund in Settings › Results, and our <a href="/terms.html#money-back">money-back rule</a> says exactly when a month qualifies. To check for yourself, after a full prompt you can ask for two answers, one to your draft and one to its prompt, shown without labels, and pick the better one before you're told which is which.</div>
         </details>
         <details>
           <summary>Which apps does it work in?<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -1297,7 +1305,7 @@ body.menu-open .menu-btn .x { display: block; }
         </div>
         <div><h3>Product</h3><ul><li><a href="/download/Firstry.dmg" data-fixed>Download for Mac</a></li><li><a href="/download/Firstry-Setup.exe" data-fixed>Download for Windows</a></li><li><a href="#how">How it works</a></li><li><a href="#examples">Examples</a></li><li><a href="#pricing">Pricing</a></li></ul></div>
         <div><h3>Help</h3><ul><li><a href="#faq">Questions</a></li><li><a href="#faq">Installing it</a></li></ul></div>
-        <div><h3>Legal</h3><ul><li><a href="/privacy.html">Privacy</a></li><li><a href="/terms.html">Terms</a></li><li><a href="/sources.html">Sources</a></li></ul></div>
+        <div><h3>Legal</h3><ul><li><a href="/privacy.html">Privacy</a></li><li><a href="/terms.html">Terms</a></li><li><a href="/sources.html">Sources</a></li><li><a href="/results.html">Results</a></li></ul></div>
       </div>
       <p class="legal">© 2026 First Try. All rights reserved.</p>
     </div>

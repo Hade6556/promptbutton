@@ -2,7 +2,8 @@
 // permissions, account); this view renders a SetupState and sends SetupActions back.
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import type { AccountScreen, OnboardingStep, PermissionKind, PermissionStatus, SetupAction, SetupPane, SetupState } from '../shared';
+import type { AccountScreen, MoneyBackPeriod, OnboardingStep, PermissionKind, PermissionStatus, SetupAction, SetupPane, SetupState } from '../shared';
+import type { Counts, Summary } from '../receipts';
 import { Dash } from './dash';
 import type { Mood } from '../../src/mascot/dash';
 import { usageLine } from './panel';
@@ -26,6 +27,8 @@ const ICONS: Record<SetupPane, ComponentChildren> = {
     </>
   ),
   prompts: <path d="M5 4h14v12H9l-4 4V4Zm4 5h6m-6 3h4" />,
+  // A receipt: a slip with a torn bottom edge and two lines of figures.
+  results: <path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3Zm3 5h6m-6 4h6m-6 4h3" />,
   account: (
     <>
       <circle cx="12" cy="8" r="3.5" />
@@ -47,7 +50,7 @@ const ICONS: Record<SetupPane, ComponentChildren> = {
 };
 const CHECK = <path d="m5 12.5 4.5 4.5L19 7.5" />;
 
-const PANE_TITLES: Record<SetupPane, string> = { general: 'General', prompts: 'Prompts', account: 'Account', permissions: 'Permissions', about: 'About' };
+const PANE_TITLES: Record<SetupPane, string> = { general: 'General', prompts: 'Prompts', results: 'Results', account: 'Account', permissions: 'Permissions', about: 'About' };
 
 // ── Small controls, all on the Ember tokens ─────────────────────────────────────────────────────
 
@@ -449,13 +452,226 @@ function PromptsPane({ state }: { state: SetupState }) {
           onChange={(depth) => send({ type: 'prefs', prefs: { depth } })}
         />
       </Row>
-      <Row label="Help improve rewrites" hint="Reports which techniques a rewrite used and whether you kept it, undid it or rated it. Never your text. Needs an account.">
+      <Row label="Help improve rewrites" hint="Reports which techniques a full prompt used, the kind of app it was for, and whether you used it, closed it, undid it, rated it or picked it blind, with a random id for that one press. While this is on, about one full prompt in five leaves out one technique on purpose so its effect can be measured. Never your text. Needs an account.">
         <Switch label="Help improve rewrites" checked={s.shareOutcomes} onChange={(on) => send({ type: 'prefs', prefs: { shareOutcomes: on } })} />
       </Row>
       <Row label="Share before and after prompts" hint="Also sends your draft and its rewrite so we can test changes on real requests. Emails, links and numbers are removed first; names may remain. Not linked to your account.">
         <Switch label="Share before and after prompts" checked={s.sharePairs} onChange={(on) => send({ type: 'prefs', prefs: { sharePairs: on } })} />
       </Row>
     </Group>
+  );
+}
+
+// ── Results ─────────────────────────────────────────────────────────────────────────────────────
+// What First Try did for this person, counted from the record on this Mac (desktop/receipts.ts). Raw
+// counts, so nothing is dressed up: a share of ratings appears only once there are enough to mean
+// something.
+
+/** Below this many answers a percentage of "better" says more about chance than about the prompts. */
+const RATINGS_FOR_PERCENT = 20;
+
+const ROWS: { key: keyof Counts; label: string; hint?: string; optional?: boolean }[] = [
+  { key: 'presses', label: 'Presses' },
+  { key: 'written', label: 'Prompts written' },
+  { key: 'alreadyGood', label: 'Left alone, already good' },
+  { key: 'replies', label: 'Replies suggested', optional: true },
+  { key: 'asked', label: 'Asked you first' },
+  { key: 'inserted', label: 'Put in and checked' },
+  { key: 'pasted', label: 'Put in, could not check', optional: true },
+  { key: 'copied', label: 'Left on the clipboard', optional: true },
+  { key: 'closed', label: 'Closed without using' },
+  { key: 'undone', label: 'Undone' },
+  { key: 'errors', label: 'Ended on an error', optional: true },
+];
+
+function better(c: Counts): string {
+  if (c.rated === 0) return 'None';
+  const share = c.rated >= RATINGS_FOR_PERCENT ? ` (${Math.round((c.better / c.rated) * 100)}%)` : '';
+  return `${c.better} of ${c.rated}${share}`;
+}
+
+// The app's words are English, so the date is written the same way whatever the Mac's region.
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function Ledger({ summary }: { summary: Summary }) {
+  const all = summary.periods.find((p) => p.key === 'all')!.counts;
+  const rows = ROWS.filter((r) => !r.optional || all[r.key] > 0);
+  return (
+    <table class="ledger">
+      <caption class="sr">Your results by period</caption>
+      <thead>
+        <tr>
+          <th scope="col">
+            <span class="sr">Measure</span>
+          </th>
+          {summary.periods.map((p) => (
+            <th scope="col" key={p.key}>
+              {p.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.key}>
+            <th scope="row">{r.label}</th>
+            {summary.periods.map((p) => (
+              <td key={p.key}>{p.counts[r.key]}</td>
+            ))}
+          </tr>
+        ))}
+        <tr class="sum">
+          <th scope="row">Better answer, by your rating</th>
+          {summary.periods.map((p) => (
+            <td key={p.key}>{better(p.counts)}</td>
+          ))}
+        </tr>
+        {all.blind > 0 && (
+          <tr class="sum">
+            <th scope="row">Blind picks for First Try’s prompt</th>
+            {summary.periods.map((p) => (
+              <td key={p.key}>{p.counts.blind ? `${p.counts.blindRewrite} of ${p.counts.blind}` : 'None'}</td>
+            ))}
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function ByApp({ summary }: { summary: Summary }) {
+  return (
+    <table class="ledger apps">
+      <thead>
+        <tr>
+          <th scope="col">App</th>
+          <th scope="col">Presses</th>
+          <th scope="col">Put in</th>
+          <th scope="col">Undone</th>
+          <th scope="col">Better answer</th>
+        </tr>
+      </thead>
+      <tbody>
+        {summary.apps.map((a) => (
+          <tr key={a.app}>
+            <th scope="row">{a.app}</th>
+            <td>{a.counts.presses}</td>
+            <td>{a.counts.inserted + a.counts.pasted}</td>
+            <td>{a.counts.undone}</td>
+            <td>{better(a.counts)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+const shortDay = (seconds: number) => new Date(seconds * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+
+/** One billing period under the money-back rule, with its numbers and what the user can do. */
+function MoneyBackRow({ period }: { period: MoneyBackPeriod }) {
+  const { kept, judged, better } = period.counts;
+  const name = `${period.running ? 'This period' : 'Last period'}, ${shortDay(period.from)} to ${shortDay(period.to)}`;
+  const facts = `${period.running ? 'So far you kept' : 'You kept'} ${kept} ${kept === 1 ? 'prompt' : 'prompts'}. Of ${judged} you judged, ${better} got you a better answer.`;
+  const verdict = period.asked
+    ? 'You asked for this period back.'
+    : period.qualifies
+      ? `${period.running ? 'So far it would qualify' : 'It qualifies'}: ${kept === 0 ? 'you kept none of its prompts' : 'fewer than half of the prompts you judged got you a better answer'}.`
+      : judged < 3 && kept > 0
+        ? `${period.running ? 'So far it would not qualify' : 'It does not qualify'}: it needs at least 3 judged prompts, or none kept.`
+        : `${period.running ? 'So far it would not qualify' : 'It does not qualify'}: at least half of the prompts you judged got you a better answer.`;
+  const when = period.running ? ` You can ask once it ends on ${shortDay(period.to)}, until 14 days after.` : '';
+  return (
+    <Row label={name} hint={`${facts} ${verdict}${when}`}>
+      {!period.running && (
+        <Btn disabled={!period.qualifies || period.asked} onClick={() => send({ type: 'refund', which: period.which })}>
+          Ask for it back
+        </Btn>
+      )}
+    </Row>
+  );
+}
+
+function ResultsPane({ state }: { state: SetupState }) {
+  const summary = state.results;
+  const s = state.settings;
+  const all = summary?.periods.find((p) => p.key === 'all')?.counts;
+  const empty = !all || all.presses === 0;
+  const mac = state.platform === 'darwin';
+  const here = mac ? 'this Mac' : 'this computer';
+  // After Clear the Clear button disappears with the numbers: keep the keyboard on the switch instead of losing it.
+  const switchRow = useRef<HTMLDivElement>(null);
+  const wasEmpty = useRef(empty);
+  useEffect(() => {
+    if (empty && !wasEmpty.current) switchRow.current?.querySelector<HTMLElement>('[role="switch"]')?.focus();
+    wasEmpty.current = empty;
+  }, [empty]);
+  return (
+    <>
+      {summary && !empty ? (
+        <>
+          <Group title={summary.since ? `Since ${day(summary.since)}` : undefined}>
+            <div class="row block">
+              {!s.keepReceipts && <p class="hint ledger-note first">Not counting new presses. These are the numbers up to when counting was switched off.</p>}
+              <Ledger summary={summary} />
+              <p class="hint ledger-note">
+                “Better answer” is your own answer to “Did the last prompt get you a better answer?”, asked in the box on your next press or from the menu bar.
+                {all!.blind > 0 ? ' A blind pick counts when you chose the answer to First Try’s prompt without knowing which was which.' : ''} A column shows a
+                percentage once it has {RATINGS_FOR_PERCENT} ratings.
+              </p>
+            </div>
+          </Group>
+          {summary.apps.length > 0 && (
+            <Group title="Past 4 weeks, by app">
+              <div class="row block">
+                <ByApp summary={summary} />
+              </div>
+            </Group>
+          )}
+        </>
+      ) : (
+        <Group>
+          <Row
+            label={s.keepReceipts ? 'Nothing counted yet' : 'Counting is switched off'}
+            hint={s.keepReceipts ? `Press ${state.shortcut.label} in any app. Each press is counted here: what First Try did and how it ended.` : 'Switch it on below to count what First Try does for you.'}
+          />
+        </Group>
+      )}
+      {state.moneyBack && (
+        <Group title="Money back by your own numbers">
+          {state.moneyBack.map((period) => (
+            <MoneyBackRow key={period.which} period={period} />
+          ))}
+          <Row
+            label="The rule"
+            hint={state.moneyBackNote ?? 'A paid period comes back when you kept none of its prompts, or fewer than half of the ones you judged got you a better answer. Judging means rating a prompt or comparing blind. You ask once the period has ended, until 14 days after; its three counts are sent with the request.'}
+          >
+            <button type="button" class="link" onClick={() => send({ type: 'open', target: 'moneyBack' })}>
+              Full terms
+            </button>
+          </Row>
+        </Group>
+      )}
+      <Group>
+        <div ref={switchRow}>
+          <Row
+            label={`Count presses on ${here}`}
+            hint={`For each press: the time, the app and its kind, what First Try did, how many questions it asked and changes you asked for, how it ended, any undo, rating or blind pick, and the ids of the techniques it used. No prompt text and no screenshots. The file stays on ${here}; only a period's three totals are sent, when you ask for money back. Switching this off stops counting and keeps what is there.`}
+          >
+            <Switch label={`Count presses on ${here}`} checked={s.keepReceipts} onChange={(on) => send({ type: 'prefs', prefs: { keepReceipts: on } })} />
+          </Row>
+        </div>
+        <Row label="Results file" hint={mac ? 'In First Try’s folder in your Library.' : 'In First Try’s folder in your AppData.'}>
+          <Btn onClick={() => send({ type: 'results', do: 'reveal' })}>{mac ? 'Show in Finder' : 'Show in File Explorer'}</Btn>
+          {!empty && <Btn onClick={() => send({ type: 'results', do: 'clear' })}>Clear results…</Btn>}
+        </Row>
+        <Row label="How results are measured" hint="What First Try counts, what it shares when you let it, and what it publishes.">
+          <button type="button" class="link" onClick={() => send({ type: 'open', target: 'results' })}>
+            Read the method
+          </button>
+        </Row>
+      </Group>
+    </>
   );
 }
 
@@ -520,7 +736,7 @@ function AboutPane({ state }: { state: SetupState }) {
 }
 
 function Settings({ state }: { state: SetupState }) {
-  const panes: SetupPane[] = state.platform === 'darwin' ? ['general', 'prompts', 'account', 'permissions', 'about'] : ['general', 'prompts', 'account', 'about'];
+  const panes: SetupPane[] = state.platform === 'darwin' ? ['general', 'prompts', 'results', 'account', 'permissions', 'about'] : ['general', 'prompts', 'results', 'account', 'about'];
   const pane = panes.includes(state.pane) ? state.pane : 'general';
   useEffect(() => {
     document.title = PANE_TITLES[pane];
@@ -542,6 +758,7 @@ function Settings({ state }: { state: SetupState }) {
       <main class="pane" key={pane}>
         {pane === 'general' && <GeneralPane state={state} />}
         {pane === 'prompts' && <PromptsPane state={state} />}
+        {pane === 'results' && <ResultsPane state={state} />}
         {pane === 'account' && (
           <Group>
             <div class="row block">

@@ -1,6 +1,7 @@
 // Types shared by the Electron main process and the panel renderer.
 import type { Depth, DiscussAction, GapReport, ReplyAssist, Result, UserAnswer, VoiceIntent } from '../src/messaging';
 import type { AskMode } from '../src/llm/config';
+import type { BlindPick, PeriodCounts, Summary } from './receipts';
 
 export interface Settings {
   /** Advanced: the user's own Anthropic key, used directly instead of their account. */
@@ -28,10 +29,16 @@ export interface Settings {
   showPet: boolean;
   /** Where the user dropped Dash (screen points, the body's top-left corner), or null for the bottom-right corner. */
   pet: { x: number; y: number } | null;
+  /** Keep the Results record on this Mac (desktop/receipts.ts): counts only, never text, never sent. */
+  keepReceipts: boolean;
+  /** How many times the box has introduced the blind comparison (it does so for the first few full prompts). */
+  blindIntros: number;
+  /** The billing periods (start, Unix seconds) the user has already asked money back for, so the button says so. */
+  refundsAsked: number[];
 }
 
 /** Settings window panes, in toolbar order. */
-export type SetupPane = 'general' | 'prompts' | 'account' | 'permissions' | 'about';
+export type SetupPane = 'general' | 'prompts' | 'results' | 'account' | 'permissions' | 'about';
 /** First-run steps, in order. */
 export type OnboardingStep = 'welcome' | 'permissions' | 'account' | 'try' | 'done';
 
@@ -59,6 +66,25 @@ export interface SetupState {
   /** The shortcut was pressed while this window had focus (ms timestamp), for the practice step. */
   shortcutPressedAt: number | null;
   openAtLogin: boolean;
+  /** The Results pane's numbers, only while that pane is open. */
+  results: Summary | null;
+  /** Money back by your own numbers, for a Pro subscriber: the current billing period and, for 14 days after it ends, the one before. */
+  moneyBack: MoneyBackPeriod[] | null;
+  /** What happened to the last money-back request, in one sentence. */
+  moneyBackNote?: string;
+}
+
+export interface MoneyBackPeriod {
+  which: 'current' | 'previous';
+  /** Unix seconds. */
+  from: number;
+  to: number;
+  counts: PeriodCounts;
+  qualifies: boolean;
+  /** A period can be claimed once it has ended, until 14 days after: this one has not ended yet. */
+  running: boolean;
+  /** A request was already sent for this period. */
+  asked: boolean;
 }
 
 export type SetupAction =
@@ -71,12 +97,16 @@ export type SetupAction =
   /** Clear macOS's record for this app (a stale switch that looks on but is not) and ask again. */
   | { type: 'resetPermission'; permission: PermissionKind }
   | { type: 'relaunch' }
-  | { type: 'prefs'; prefs: Partial<Pick<Settings, 'askMode' | 'depth' | 'hideFromCapture' | 'shareOutcomes' | 'sharePairs'>> }
+  | { type: 'prefs'; prefs: Partial<Pick<Settings, 'askMode' | 'depth' | 'hideFromCapture' | 'shareOutcomes' | 'sharePairs' | 'keepReceipts'>> }
   | { type: 'openAtLogin'; on: boolean }
   | { type: 'recordShortcut'; on: boolean }
   | { type: 'setShortcut'; accelerator: string | null }
   | { type: 'account'; action: AccountAction }
-  | { type: 'open'; target: 'site' | 'privacy' | 'terms' | 'support' }
+  | { type: 'open'; target: 'site' | 'privacy' | 'terms' | 'results' | 'moneyBack' | 'support' }
+  /** Ask for money back for a billing period, sending that period's counts. */
+  | { type: 'refund'; which: 'current' | 'previous' }
+  /** Results pane: show the file in Finder, or delete it (after asking). */
+  | { type: 'results'; do: 'reveal' | 'clear' }
   | { type: 'close' }
   | { type: 'quit' };
 
@@ -109,8 +139,11 @@ export interface AccountView {
   plan: 'trial' | 'pro';
   status: string | null;
   percentUsed: number;
-  /** Unix seconds when a Pro allowance resets. */
+  /** Unix seconds when a Pro allowance resets, which is when the billing period ends. */
   resetsAt: number | null;
+  /** Unix seconds when the last billing period started and ends. Kept after a cancellation, so its last period can still be claimed. */
+  periodStart?: number | null;
+  periodEnd?: number | null;
   held: boolean;
   canUpgrade: boolean;
   canManage: boolean;
@@ -152,8 +185,26 @@ export interface PanelState {
   hotkey?: string;
   /** Ask, once, whether the last inserted prompt got a better answer. */
   rate?: boolean;
+  /** A full prompt is on screen that can be compared blind: 'intro' explains it (the first few times), 'quiet' just offers it. */
+  compareOffer?: 'intro' | 'quiet' | null;
+  /** The blind comparison in progress. Which answer belongs to the draft is only sent once the user has picked. */
+  compare?: CompareView | null;
   /** Dash is on the desktop: the box is a small thought beside it, and Dash is not drawn inside the box. */
   pet?: boolean;
+}
+
+export interface CompareView {
+  status: 'loading' | 'ready' | 'revealed' | 'error';
+  /** The two answers in the order shown, filled as they stream in. */
+  answers: [string, string];
+  /** An answer reached the shared length cap before finishing. */
+  cut: [boolean, boolean];
+  /** What the user picked: an answer's position, or 'same'. */
+  picked?: 0 | 1 | 'same';
+  /** After the pick: the position of the answer to the user's own draft, and what the pick means. */
+  draftIs?: 0 | 1;
+  result?: BlindPick;
+  error?: string;
 }
 
 export type RendererAction =
@@ -177,6 +228,10 @@ export type RendererAction =
   | { type: 'rate'; up: boolean }
   /** Re-read the screen and run again, ignoring the cached result. */
   | { type: 'refresh' }
+  /** Blind comparison: get both answers; pick one (or neither); go back to the prompt. */
+  | { type: 'compare' }
+  | { type: 'pick'; choice: 0 | 1 | 'same' }
+  | { type: 'endCompare' }
   | { type: 'openSettings' }
   | { type: 'saveSettings'; settings: Settings }
   /** Account screen. */

@@ -31,6 +31,19 @@
 :root[data-view='setup'] #app {
   overflow: visible;
 }
+/* The window grows with its content up to 760 points (main.ts); a longer pane (Results) scrolls inside it. */
+:root[data-view='setup'] {
+  overflow-y: auto;
+}
+/* The title and the pane switcher stay put while a long pane scrolls under them, and stay draggable. */
+:root[data-view='setup'] .settings > .chrome {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-window);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
 
 /* ── Title bar and toolbar ──────────────────────────────────────────────────────────────────── */
 .chrome {
@@ -401,6 +414,55 @@
 }
 .recording {
   color: var(--secondary);
+}
+
+/* ── Results: a ledger of counts, read like a statement ────────────────────────────────────── */
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.ledger th,
+.ledger td {
+  padding: 4px 0 4px 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+.ledger th:first-child {
+  padding-left: 0;
+  text-align: left;
+  white-space: normal;
+}
+.ledger thead th {
+  padding-top: 0;
+  font-weight: 600;
+  color: var(--label-3);
+  border-bottom: 1px solid var(--separator);
+}
+.ledger tbody th {
+  font-weight: 400;
+  color: var(--label-2);
+}
+.ledger td {
+  color: var(--label);
+}
+.ledger tbody tr + tr th,
+.ledger tbody tr + tr td {
+  border-top: 1px solid var(--hairline);
+}
+.ledger tr.sum th,
+.ledger tr.sum td {
+  border-top: 1px solid var(--separator);
+  font-weight: 600;
+  color: var(--label);
+}
+.ledger-note {
+  margin-top: 10px;
+}
+.ledger-note.first {
+  margin: 0 0 10px;
 }
 
 /* ── Account ────────────────────────────────────────────────────────────────────────────────── */

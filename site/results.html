@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Results · First Try</title>
+<meta name="description" content="How First Try measures its own rewrites, the rules for when a figure is shown, and what it has found so far, including results that show no gain." />
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Geist:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/assets/doc.css" />
+</head>
+<body>
+<header><a href="/"><img src="/assets/logo.svg" alt="" />First Try</a></header>
+<main>
+<h1>Results</h1>
+<p class="updated">Method published 18 November 2026</p>
+
+<p>First Try publishes what it measures about its own rewrites. That includes results that show no gain, and results that show harm. Every figure comes with the number of rewrites it rests on. Nothing on this page is a claim we have not measured.</p>
+<p>We are publishing the method first, before there is data to report, so you can hold the figures to these rules when they arrive. Any change to the rules is listed at the bottom of this page with its date.</p>
+
+<h2>Money back</h2>
+<p>If First Try didn't help you in a month you paid for, by your own numbers, you get that month back. You ask once the month has ended. The numbers are the ones in the record on your Mac described below. The exact rule is in our terms, under <a href="/terms.html#money-back">Money back by your own numbers</a>.</p>
+
+<h2>On your Mac</h2>
+<p>From version 0.6.0, the app keeps a record of each press in a file on your Mac. You can see it in Settings › Results. It shows:</p>
+<ul>
+  <li>how many prompts it wrote;</li>
+  <li>how many it left alone because they were already good;</li>
+  <li>how many you used, undid, or closed without using;</li>
+  <li>how many you said got you a better answer;</li>
+  <li>when you compared two answers blind, which one you picked.</li>
+</ul>
+<p>The record holds no prompt text, no answers and no screenshots, and the record itself is never sent anywhere. If you ask for money back, the app sends only that period's counts, as the <a href="/privacy.html">privacy policy</a> describes. You can clear the record or switch it off in the same place.</p>
+
+<h2>Across everyone who shares results</h2>
+<p>Each full rewrite uses a few of the techniques listed on the <a href="/sources.html">Sources</a> page. To learn what one technique adds, we need to compare rewrites that used it with rewrites that did not.</p>
+<p>So in one full rewrite in five, when at least two techniques apply, the app leaves one of them out on purpose. Which one is chosen at random. This happens only when Help improve rewrites is on and you are signed in, because only then does the app report what happened, and only then can the comparison teach us something. If the setting is off, nothing is left out.</p>
+<p>The report holds no text and is stored without your account. The <a href="/privacy.html">privacy policy</a> lists exactly what it contains.</p>
+<p>We measure three things:</p>
+<ul>
+  <li><strong>Kept.</strong> Of the rewrites put into your app, the share you did not undo or mark "not better". A rewrite closed without being put in is counted separately, not here.</li>
+  <li><strong>Better answer.</strong> Your own yes or no afterwards, when you give one.</li>
+  <li><strong>Blind pick.</strong> After a full prompt you can ask for two answers, one to your draft and one to First Try's prompt. They are shown without labels, in random order. You pick one or say they are about the same, and only then are you told which was which. If you share results, the report says only which one you picked.</li>
+</ul>
+<p>For each technique we compare the kept share of rewrites where it was left out on purpose with rewrites that could have had one left out and had none left out, so like is compared with like. Because the chance of being left out depends on how many techniques a rewrite has, the comparison is made among rewrites with the same number of techniques and then combined. The better answer and the blind pick are measured across all full prompts, not per technique. These are the rules:</p>
+<ul>
+  <li>A figure is shown only when there are at least 30 rewrites put into an app with the technique and 30 without it. One press counts once, however many times it was undone or rated.</li>
+  <li>It is always shown with both counts and a 95% interval. The interval is the range the true difference most likely falls in. A narrow range is a firm result. A wide one means we do not know much yet.</li>
+  <li>When the interval includes zero, there is no clear difference, and the result stays listed as exactly that.</li>
+  <li>A technique is retired only on a stricter test, because the figures are updated as data arrives and a 95% interval looked at again and again would sooner or later fall below zero by chance. The test is made only three times, when 100, 400 and 1,600 rewrites without the technique have been put into an app, and it needs even the 99% interval wholly below zero. Then the technique measurably makes rewrites less likely to be kept.</li>
+</ul>
+<p>Each technique that can be left out (the wording added for the kind of task) has its own line on the <a href="/sources.html">Sources</a> page. The rules built into every rewrite are never left out, so they cannot be measured this way.</p>
+
+<h2>In the lab</h2>
+<p>We also test rewrites on a fixed set of drafts. An AI answers each draft twice, once as typed and once rewritten. Another model then judges the two answers side by side. It judges each pair twice, with the order swapped, so the answer shown first gets no advantage.</p>
+<p>Our current test set has 37 drafts. Our own rule is that no lab figure goes on this page until a test has at least 100 drafts. With 37, the honest interval is too wide to rely on: a result could be off by about 15 points either way. So there is no lab figure here yet.</p>
+
+<h2>Current results</h2>
+<p>These are the three measures above, across everyone who shares results. A share is shown once a measure rests on at least 30, always with its counts and a 95% interval.</p>
+<div id="live">
+<p><strong>Not enough data yet.</strong></p>
+</div>
+<p>Figures for each technique appear on the <a href="/sources.html">Sources</a> page once it reaches 30 rewrites put into an app with it and 30 without. The Sources page is updated by hand from the shared reports and says the date of its data.</p>
+<script>
+/*
+  The figures above come from GET /api/public/results on this site. The server counts and computes
+  everything; this script only writes it out as sentences, with textContent. If the request fails, or the
+  answer is not in the shape below, the static "Not enough data yet." stays. A measure in the wrong shape
+  is left out rather than guessed at.
+
+  {
+    "asOf":  when the figures were computed, an ISO 8601 date and time,
+    "kept":  { "n", "kept", "share", "low", "high" },
+    "rated": { "n", "better", "share", "low", "high" },
+    "blind": { "n", "rewrite", "original", "same", "share", "low", "high" }
+  }
+
+  kept.n          presses whose full prompt was put into an app
+  kept.kept       of those, not undone or rated "not better"
+  rated.n         presses answered "did it get you a better answer?" (the last answer counts)
+  rated.better    of those, yes
+  blind.n         blind comparisons made
+  blind.rewrite   picked the answer to First Try's prompt (signal blind_rewrite)
+  blind.original  picked the answer to their own draft (signal blind_original)
+  blind.same      said they were about the same (signal blind_same); rewrite + original + same = n
+  share           kept / n, better / n, or for blind rewrite / n: a fraction from 0 to 1, rounded to 3 decimals;
+                  null while n is under 30
+  low, high       the 95% interval for share, fractions from 0 to 1; null when share is null
+
+  All counts are whole numbers. The share is rounded to a whole percent; the interval is widened to whole
+  percents (low down, high up), never narrowed.
+*/
+(() => {
+  const live = document.getElementById('live');
+  if (!live || !window.fetch) return;
+  const MIN = 30;
+  const whole = (v) => Number.isInteger(v) && v >= 0;
+  const frac = (v) => typeof v === 'number' && v >= 0 && v <= 1;
+  const times = (k) => (k === 1 ? '1 time' : k + ' times');
+  const range = (m) =>
+    ' (' + Math.round(m.share * 100) + '%; 95% interval ' + Math.floor(m.low * 100 + 1e-9) + '% to ' + Math.ceil(m.high * 100 - 1e-9) + '%)';
+
+  // parts: the counts that make up or sit inside n; the first is the one the share is of.
+  const valid = (m, parts) => {
+    if (!m || typeof m !== 'object' || !whole(m.n) || !parts.every((p) => whole(m[p]))) return false;
+    const sum = parts.reduce((a, p) => a + m[p], 0);
+    if (parts.length > 1 ? sum !== m.n : sum > m.n) return false;
+    if (m.share == null) return m.n < MIN;
+    // The share must be the one its counts give, so a sentence never pairs a figure with counts it does not come from.
+    // The server rounds to 3 decimals, so the check allows for that rounding and no more.
+    return m.n >= MIN && frac(m.share) && Math.abs(m.share - m[parts[0]] / m.n) <= 0.0005 + 1e-9 && frac(m.low) && frac(m.high) && m.low <= m.share && m.share <= m.high;
+  };
+  const line = (label, m, full) => (m.share == null ? label + ': ' + m.n + ' so far. A share is shown from ' + MIN + '.' : label + ': ' + full(m));
+
+  const render = (d) => {
+    if (!d || typeof d !== 'object' || typeof d.asOf !== 'string') return;
+    const at = new Date(d.asOf);
+    if (isNaN(at.getTime())) return;
+    const lines = [];
+    if (valid(d.kept, ['kept'])) lines.push(line('Kept', d.kept, (m) => 'of ' + m.n + ' prompts put into an app, ' + m.kept + ' were not undone or marked "not better"' + range(m) + '.'));
+    if (valid(d.rated, ['better'])) lines.push(line('Better answer', d.rated, (m) => 'of ' + m.n + ' prompts people rated, ' + m.better + ' got them a better answer' + range(m) + '.'));
+    if (valid(d.blind, ['rewrite', 'original', 'same']))
+      lines.push(line('Blind picks', d.blind, (m) =>
+        'in ' + m.n + " comparisons, people picked the answer to First Try's prompt " + times(m.rewrite) + range(m) +
+        ", their own draft's " + times(m.original) + ', and called it even ' + times(m.same) + '.'));
+    if (!lines.length) return;
+    const when = at.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+    while (live.firstChild) live.removeChild(live.firstChild);
+    ['As of ' + when].concat(lines).forEach((text) => {
+      const p = document.createElement('p');
+      p.textContent = text;
+      live.appendChild(p);
+    });
+  };
+
+  fetch('/api/public/results', { headers: { Accept: 'application/json' } })
+    .then((r) => (r.ok ? r.json() : null))
+    .then(render)
+    .catch(() => {});
+})();
+</script>
+
+<h2>What these numbers cannot tell you</h2>
+<ul>
+  <li>First Try does not see the answer you got from the AI. "Better answer" is your own judgement, not ours.</li>
+  <li>Keeping a rewrite shows that you accepted it. It does not show that it was the best prompt you could have sent.</li>
+  <li>People who share results may not be typical of everyone who uses First Try.</li>
+  <li>The blind pick uses answers from Claude, which may differ from the assistant you use.</li>
+</ul>
+
+<h2>Changes</h2>
+<p>Every change to this method is added here with its date.</p>
+<ul>
+  <li>18 November 2026: method published.</li>
+</ul>
+</main>
+<footer><a href="/">Home</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><span>© 2026 First Try</span></footer>
+</body>
+</html>
